@@ -3,15 +3,12 @@ ResidentHub app (prototype) - run it in Android Studio
 1. Open Android Studio > File > Open > choose THIS folder (the one with pubspec.yaml).
 2. Wait for "pub get" to finish (or open pubspec.yaml and click "Pub get").
 3. At the top, pick a device (an Android emulator, or your phone with USB debugging on).
-4. In the run list next to the device, choose "ResidentHub prototype" and press Run (green triangle).
-   That run setting is already included. It simply adds this to the run:
-       --dart-define=PROTOTYPE=true
-   (If you do not see it: Run > Edit Configurations > Flutter > main.dart > "Additional run args" > paste the line above.)
+4. Press Run (green triangle). This copy of the app is the prototype by default, so no extra setting is needed.
 5. On the sign-in screen tap "Continue as Administrator" or "Continue as Resident".
    Administrator: admin@demo.test  |  Resident: resident@demo.test  |  Password: Demo@1234
 
 The prototype has no database. All the data is sample data kept in memory and resets when the app restarts.
-Without --dart-define=PROTOTYPE=true the same code runs as the OFFICIAL app and connects to Supabase.
+This prototype copy always uses sample data. (To force it off for a test: --dart-define=PROTOTYPE=false.)
 
 New in this version
 - Finance: monthly dues per sqm (floor area x rate), "billed on" date on every charge, residents are notified,
