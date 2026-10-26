@@ -111,12 +111,22 @@ String _plural(int n, String w) => '$n $w${n == 1 ? '' : 's'}';
 }
 
 /// Holds the maintenance data of the demo. Use the single [maint] object.
+/// One notice the administrator sent to residents (shown under Recent notices).
+class NoticeLog {
+  final String title;
+  final DateTime at;
+  final int count, textCount, noPhone;
+  final bool everyone, text;
+  const NoticeLog(this.title, this.at, this.count, {this.everyone = false, this.text = false, this.textCount = 0, this.noPhone = 0});
+}
+
 class MaintenanceState extends ChangeNotifier {
   final List<StaffMember> staff = [];
   final List<Equipment> equipment = [];
   final List<MTask> tasks = [];
   final Map<int, Assignment> repairs = {}; // grievance id -> assignment
   final List<MaintCost> costs = [];
+  final List<NoticeLog> notices = [];
   int _seq = 1000;
   int _next() => ++_seq;
 
@@ -126,6 +136,7 @@ class MaintenanceState extends ChangeNotifier {
     tasks.clear();
     repairs.clear();
     costs.clear();
+    notices.clear();
     notifyListeners();
   }
 
@@ -259,9 +270,12 @@ class MaintenanceState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Posts an announcement about a scheduled job to every resident.
-  void notifyResidents(AppState app, String title, String body) {
-    app.addAnnouncement(title, body, 'Maintenance', false);
+  /// Posts a notice to the chosen residents (or everyone) and keeps a record of who it reached.
+  /// [units] lists the units that can read it; empty means every resident.
+  void sendNotice(AppState app, String title, String body,
+      {required List<String> units, required int count, required bool text, required int textCount, required int noPhone, String type = 'Maintenance'}) {
+    app.addAnnouncement(title, body, type, text, units: units);
+    notices.insert(0, NoticeLog(title, DateTime.now(), count, everyone: units.isEmpty, text: text, textCount: textCount, noPhone: noPhone));
     notifyListeners();
   }
 

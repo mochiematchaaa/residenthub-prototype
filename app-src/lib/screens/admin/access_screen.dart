@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../services/session.dart';
 import '../../widgets/widgets.dart';
+import '../shared/notify_sheet.dart';
 
 class AdminAccess extends StatefulWidget {
   const AdminAccess({super.key});
@@ -61,6 +62,7 @@ class _AdminAccessState extends State<AdminAccess> {
               onChanged: (v) => setState(() => q = v),
               decoration: const InputDecoration(hintText: 'Search name, email or unit…', prefixIcon: Icon(Icons.search_rounded)),
             ),
+            _ContactSummary(),
             RCard(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
@@ -95,9 +97,13 @@ class _AdminAccessState extends State<AdminAccess> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(t.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                                  Text(t.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  if (t.isNew()) const Pill('New', tone: Tone.good),
+                                  if (t.isUpdated()) Pill('Updated: ${t.lastChange.isEmpty ? 'info' : t.lastChange}', tone: Tone.info),
+                                ]),
                                 Text(t.email, style: TextStyle(color: muted(context), fontSize: 12.5)),
-                                Text('${t.phone}${t.unit.isNotEmpty ? ' · ${t.unit}' : ''}${t.added.isEmpty ? '' : ' · Added ${t.added}'}', style: TextStyle(color: muted(context), fontSize: 12)),
+                                Text('${t.phone.isEmpty ? 'No mobile number' : t.phone}${t.unit.isNotEmpty ? ' · ${t.unit}' : ''}${t.added.isEmpty ? '' : ' · Added ${t.added}'}', style: TextStyle(color: t.hasMobile ? muted(context) : danger, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -195,4 +201,34 @@ Future<void> _showPassword(BuildContext context, String email, String password, 
       actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done'))],
     ),
   );
+}
+
+/// A short summary of resident contact info that is new or changed, with a button to notify residents.
+class _ContactSummary extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final res = app.residentAccounts;
+    final fresh = res.where((a) => a.isNew()).length;
+    final upd = res.where((a) => a.isUpdated()).length;
+    final noPhone = res.where((a) => !a.hasMobile).length;
+    return RCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Resident contact info, last 7 days', style: hd(15)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 6, children: [
+            Pill('$fresh new', tone: fresh > 0 ? Tone.good : Tone.info),
+            Pill('$upd updated', tone: Tone.info),
+            if (noPhone > 0) Pill('$noPhone without a mobile number', tone: Tone.warn),
+          ]),
+          const SizedBox(height: 8),
+          Text('Notify residents uses this list: the name, unit and mobile number come from each account.', style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: () => showNotifySheet(context), icon: const Icon(Icons.campaign_outlined), label: const Text('Notify residents')),
+        ],
+      ),
+    );
+  }
 }

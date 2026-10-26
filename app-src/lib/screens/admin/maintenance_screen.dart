@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
 import '../shared/maintenance_widgets.dart';
+import '../shared/notify_sheet.dart';
 
 class AdminMaintenance extends StatefulWidget {
   const AdminMaintenance({super.key});
@@ -101,7 +102,7 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
     final list = maint.sortedTasks
         .where((t) => kind == 'All' || (kind == 'Routine' ? t.kind == kindRoutine : (kind == 'Permits and tests' ? t.kind == kindCompliance : t.kind == kind)))
         .toList();
-    if (list.isEmpty) return const [EmptyBox('No maintenance tasks yet. Tap Task to add one.', icon: Icons.handyman_outlined)];
+    if (list.isEmpty) return [const EmptyBox('No maintenance tasks yet. Tap Task to add one.', icon: Icons.handyman_outlined), ..._recentNotices(context)];
     return [
       for (final t in list)
         RCard(
@@ -144,6 +145,33 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
             ],
           ),
         ),
+      ..._recentNotices(context),
+    ];
+  }
+
+  List<Widget> _recentNotices(BuildContext context) {
+    return [
+      const SizedBox(height: 4),
+      Row(children: [
+        Expanded(child: Text('Recent notices', style: hd(17))),
+        TextButton.icon(onPressed: () => showNotifySheet(context), icon: const Icon(Icons.campaign_outlined), label: const Text('New notice')),
+      ]),
+      if (maint.notices.isEmpty)
+        Text('Nothing sent yet. Tap Notify on a task, or New notice, to choose who to tell.', style: TextStyle(color: muted(context), fontSize: 12.5))
+      else
+        for (final n in maint.notices.take(6))
+          RCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(n.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(
+                '${shortDate(n.at)} · ${n.everyone ? 'All residents' : '${n.count} resident${n.count == 1 ? '' : 's'}'}'
+                '${n.text ? ' · text message to ${n.textCount}${n.noPhone > 0 ? ' (${n.noPhone} had no mobile number)' : ''}' : ' · in the app only'}',
+                style: TextStyle(color: muted(context), fontSize: 12.5),
+              ),
+            ]),
+          ),
     ];
   }
 
