@@ -85,6 +85,7 @@ function viewFin() {
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px"><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(-1)" aria-label="Previous month">&#8249;</button><b style="min-width:130px;text-align:center">' + LONG_MONTHS[selMon] + " " + selYear + '</b><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(1)" aria-label="Next month"' + (selKey >= thisMonthKey() ? " disabled" : "") + '>&#8250;</button>' +
         '<span style="font-size:13px;color:var(--muted)">Collected today: <b style="color:var(--ink,inherit)">' + peso(todayTotal) + "</b> &middot; This month: <b>" + peso(selTotal) + "</b></span></div>") +
       (state.finView === "month" ? barChart(perMonth, "₱") : dailyChart(perDay)) + "</div>" +
+    dayLogCard(dues) +
     '<div class="card" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
     '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "paid" ? "active" : "") + '" onclick="set({finFilter:\'paid\',finPage:0})">Paid (' + paidDues.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
     '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' +
@@ -172,6 +173,38 @@ function dailyExpensesCard() {
     '<div class="kv" style="font-size:13px"><span>Collected</span><b>' + peso(got) + "</b><span>Spent</span><b>" + peso(spent) + "</b><span>Net</span><b>" + (got - spent < 0 ? "-" + peso(spent - got) : peso(got - spent)) + "</b></div>" +
     (items.map(function (r) { var e = r.v; return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border2);font-size:13px"><span><b>' + esc(e.item) + '</b><br><span style="color:var(--muted);font-size:12px">' + esc(e.payee || e.category || "") + "</span></span><b>" + peso(expTotal(e)) + "</b></div>"; }).join("") || '<p class="hint" style="margin:0">Nothing recorded for this day yet.</p>') +
     '<button class="btn primary" onclick="expenseForm(null,state.finExpDay||dayKey(new Date()))">+ Add expense</button><button class="btn" onclick="set({view:\'expenses\'})">All expenses &amp; monthly report</button></div>';
+}
+// "Day by day": who paid on a day (today and before) and which charges fall due on a day (today and after).
+function dayKeyAdd(k, n) { var p = k.split("-"); return dayKey(new Date(+p[0], +p[1] - 1, +p[2] + n)); }
+function dayLogShift(n) { set({ logDay: dayKeyAdd(state.logDay || dayKey(new Date()), n) }); }
+function dayLogCard(dues) {
+  var today = dayKey(new Date()), sel = state.logDay || today;
+  var pays = vals("payment"), openDues = dues.filter(function (d) { return !d.v.paid; });
+  function paidOn(k) { return pays.filter(function (p) { var d = parseShort(p.date); return d && dayKey(d) === k; }); }
+  function dueOn(k) { return openDues.filter(function (d) { var x = parseShort(d.v.dueDate); return x && dayKey(x) === k; }); }
+  function sum(a, f) { return a.reduce(function (t, x) { return t + Number(f(x) || 0); }, 0); }
+  var strip = "";
+  for (var i = -3; i <= 3; i++) {
+    var k = dayKeyAdd(sel, i), p = k.split("-"), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+    var future = k > today, a = future ? dueOn(k) : paidOn(k);
+    var amt = sum(a, function (x) { return future ? x.v.amount : x.amount; });
+    strip += '<button class="btn' + (k === sel ? " primary" : "") + '" style="flex:1;min-width:74px;flex-direction:column;gap:2px;padding:8px 4px;min-height:0;line-height:1.25" onclick="set({logDay:\'' + k + '\'})">' +
+      '<span style="font-size:11px;opacity:.8">' + (k === today ? "Today" : dt.toLocaleDateString("en-US", { weekday: "short" })) + '</span><b style="font-size:14px">' + MONTHS[dt.getMonth()] + " " + dt.getDate() + '</b>' +
+      '<span style="font-size:11px;font-weight:600">' + (a.length ? a.length + (future ? " due" : " paid") + " · " + peso(amt) : "—") + "</span></button>";
+  }
+  var paid = paidOn(sel), due = dueOn(sel), isFuture = sel > today;
+  var selDate = parseShort(shortDateFromKey(sel));
+  var head = (sel === today ? "Today" : selDate.toLocaleDateString("en-US", { weekday: "long" })) + ", " + shortDateFromKey(sel);
+  function row(a, b, c) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border2);font-size:13.5px"><span style="min-width:0"><b>' + a + '</b><br><span style="color:var(--muted);font-size:12.5px">' + b + "</span></span><b>" + c + "</b></div>"; }
+  var paidHtml = isFuture ? "" : '<h3 style="margin:14px 0 2px;font-size:14px">Paid this day · ' + peso(sum(paid, function (x) { return x.amount; })) + "</h3>" +
+    (paid.length ? paid.map(function (x) { return row(esc(x.unit) + " · " + esc(x.payer || ""), esc(x.forText || "") + " · " + esc(x.method || "") + (x.receiptNo ? " · Receipt " + esc(x.receiptNo) : ""), peso(Number(x.amount))); }).join("") : '<p class="hint" style="margin:4px 0 0">Nobody paid on this day.</p>');
+  var dueHtml = '<h3 style="margin:14px 0 2px;font-size:14px">' + (sel < today ? "Was due this day and still unpaid" : "Due this day") + " · " + peso(sum(due, function (x) { return x.v.amount; })) + "</h3>" +
+    (due.length ? due.map(function (x) { return row(esc(x.v.unit) + (x.v.name ? " · " + esc(x.v.name) : ""), esc(x.v.note || ""), peso(Number(x.v.amount))); }).join("") : '<p class="hint" style="margin:4px 0 0">No charge falls due on this day.</p>');
+  return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Day by day</h2><p class="hint" style="margin:4px 0 0">See who paid on each day, and who is expected to pay on the coming days.</p></div>' +
+    '<div style="display:flex;gap:6px;align-items:center"><button class="btn" style="min-height:32px;padding:0 12px" onclick="dayLogShift(-1)" aria-label="Previous day">&#8249;</button><input type="date" value="' + escAttr(sel) + '" onchange="set({logDay:this.value||dayKey(new Date())})" style="min-height:32px"><button class="btn" style="min-height:32px;padding:0 12px" onclick="dayLogShift(1)" aria-label="Next day">&#8250;</button>' +
+    (sel !== today ? '<button class="btn" style="min-height:32px;padding:0 12px" onclick="set({logDay:\'\'})">Today</button>' : "") + "</div></div>" +
+    '<div style="display:flex;gap:6px;margin:12px 0 4px;overflow-x:auto">' + strip + "</div>" +
+    '<h3 style="margin:12px 0 0;font-size:15px">' + head + "</h3>" + paidHtml + dueHtml + "</div>";
 }
 // Bars for every day of a month (small labels, only days with money show an amount).
 function dailyChart(days) {

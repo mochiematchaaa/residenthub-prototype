@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v10", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v11", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -152,7 +152,7 @@
       });
       if (hi % 6 === 0) {
         var xid = tid();
-        R("due", xid, u.label, { id: xid, unit: u.label, name: u.house, amount: 300, note: "Parking sticker fee", dueDate: sd(dayOff(5 + hi % 6)) });
+        R("due", xid, u.label, { id: xid, unit: u.label, name: u.house, amount: 300, note: "Parking sticker fee", dueDate: sd(dayOff(1 + Math.floor(hi / 6) % 5)) });
       }
     });
     var sid = tid();
