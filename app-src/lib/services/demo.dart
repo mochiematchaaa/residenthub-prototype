@@ -259,7 +259,6 @@ List<CRow> _demoRows() {
         'btype': _pick(const ['Online selling', 'Tutoring', 'Home office', 'Baking']),
         'permit': 'DTI-${_ri(100000, 999999)}',
         'hours': 'Mon to Fri, 9 AM to 5 PM',
-        'visitors': '${_ri(1, 6)}',
         'phone': u.contact,
       };
     } else {

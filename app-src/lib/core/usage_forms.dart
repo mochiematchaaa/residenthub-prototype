@@ -59,7 +59,6 @@ const usageForms = <String, UsageForm>{
       UsageField('btype', 'Type of business', required: true, hint: 'e.g. Online selling, tutoring, home office'),
       UsageField('permit', "Business permit number (DTI or Mayor's permit)", required: true),
       UsageField('hours', 'Operating hours', hint: 'e.g. Mon to Fri, 9 AM to 5 PM'),
-      UsageField('visitors', 'Visitors or deliveries per day', type: UsageFieldType.number, hint: 'e.g. 5'),
       UsageField('phone', 'Contact number', required: true, type: UsageFieldType.phone, hint: '0917 123 4567'),
     ],
     ['Copy of the business permit', 'Valid ID of the owner', 'Any permit needed for signs or deliveries'],
