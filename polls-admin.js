@@ -82,7 +82,7 @@ function pollBuilderHtml() {
     '<div class="fl"><span>Description (optional)</span>' + richEditor("desc", d.descHtml, "Tell residents what this is for and how to answer", true) + "</div>" +
     '<div class="pb-row"><div class="fl"><span>Closes on</span><input type="date" min="' + dayKey(new Date()) + '" value="' + escAttr(d.closeKey) + '" onchange="pdSet(\'closeKey\',this.value)"></div>' +
     '<div class="fl"><span>Results for residents</span><select onchange="pdSet(\'showResults\',this.value)"><option value="vote"' + (d.showResults === "vote" ? " selected" : "") + '>Right after they vote</option><option value="closed"' + (d.showResults === "closed" ? " selected" : "") + ">Only when it closes</option></select></div></div>" +
-    '<h3 style="margin:18px 0 8px">' + (el ? "Positions and candidates" : "Questions") + "</h3>" + qcards +
+    '<h3 style="margin:18px 0 8px">' + (el ? "Positions and candidates" : "Questions") + '</h3><div class="pq-cards">' + qcards + "</div>" +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" onclick="pqAdd()">+ ' + (el ? "Add position" : "Add question") + "</button>" + (el ? '<button class="btn" onclick="pqBoard()">Add standard board positions</button>' : "") +
     '<button class="btn primary" style="margin-left:auto" onclick="publishPoll()">' + (el ? "Open the election" : "Publish poll") + "</button></div></div>";
 }
@@ -121,7 +121,7 @@ function viewPolls() {
     pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All (" + all.length + ")"]], state.pollFilter, "pollFilter") +
     '<div class="poll-list">' + (shown.map(function (p) {
       var election = p.kind === "election", hidden = election && p.open && p.showResults === "closed";
-      return '<div class="card poll-card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0"><span class="chip ' + (election ? "warn" : "info") + '" style="margin-bottom:8px">' + (election ? "Election" : "Poll") + '</span><h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
+      return '<div class="card poll-card' + (p.questions.length > 1 ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0"><span class="chip ' + (election ? "warn" : "info") + '" style="margin-bottom:8px">' + (election ? "Election" : "Poll") + '</span><h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
         (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes " : "Closed ") + esc(p.closes) + (p.legacy ? "" : " · " + p.questions.length + (election ? " position" : " question") + (p.questions.length === 1 ? "" : "s")) + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" +
         (hidden ? '<p class="poll-note">Ballots are secret. The results stay hidden until the election closes, so nobody can see who is ahead.</p>' : pollResultsHtml(p, null, true)) +
         (units ? '<div style="margin-top:14px">' + progressBar("Units that voted", p.ballots, units, "green") + "</div>" : "") +
