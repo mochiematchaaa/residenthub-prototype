@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v5", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v6", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -62,7 +62,14 @@
       var isNew = k === 5 || k === 11, isUpd = k === 2 || k === 8 || k === 15;
       var made = new Date(Date.now() - (isNew ? (k === 5 ? 1 : 3) : 20 + k) * 86400000).toISOString();
       var changed = isUpd ? new Date(Date.now() - (k === 2 ? 1 : k === 8 ? 2 : 4) * 86400000).toISOString() : made;
-      users.push({ id: id, email: email, password: PW, profile: { id: id, email: email, name: u.person, role: "resident", unit: u.label, phone: u.contact, suspended: false, must_change_password: false, contact_verified_at: verified, created_at: made, updated_at: changed, last_change: isUpd ? (k === 2 ? "Mobile number" : k === 8 ? "Email address" : "Unit") : (isNew ? "New account" : "") } });
+      // change history, newest first: { at, field, from, to }. "Account created" has no from/to.
+      var hist = [];
+      if (isUpd) {
+        var fld = k === 2 ? "Mobile number" : k === 8 ? "Email address" : "Unit";
+        hist.push({ at: changed, field: fld, from: k === 2 ? "0917 555 0102" : k === 8 ? u.key.split(".")[0] + "@oldmail.test" : "Unit " + (1 + (k % 9)) + "A", to: k === 2 ? u.contact : k === 8 ? email : u.label });
+      }
+      hist.push({ at: made, field: "Account created", from: "", to: "" });
+      users.push({ id: id, email: email, password: PW, profile: { id: id, email: email, name: u.person, role: "resident", unit: u.label, phone: u.contact, suspended: false, must_change_password: false, contact_verified_at: verified, created_at: made, updated_at: changed, last_change: isUpd ? (k === 2 ? "Mobile number" : k === 8 ? "Email address" : "Unit") : (isNew ? "New account" : ""), history: hist } });
     });
     var byUnit = {};
     U.forEach(function (u) { byUnit[u.label] = { unit: u.label, name: u.house, type: u.type, status: u.status, contact: u.contact, usage: u.type === "Tenant" ? "tenant" : "owner" }; });
@@ -448,8 +455,9 @@
               var u = db.users.filter(function (x) { return match(x.profile); })[0];
               if (u) {
                 var kk = Object.keys(q.patch || {}), shown = { name: "Name", phone: "Mobile number", email: "Email address", unit: "Unit" }, hit = kk.filter(function (x) { return shown[x] && String(q.patch[x]) !== String(u.profile[x]); });
+                var before = {}; hit.forEach(function (x) { before[x] = u.profile[x]; });
                 Object.assign(u.profile, q.patch);
-                if (hit.length) { u.profile.updated_at = new Date().toISOString(); u.profile.last_change = hit.map(function (x) { return shown[x]; }).join(", "); }
+                if (hit.length) { u.profile.history = (u.profile.history || []); hit.slice().reverse().forEach(function (x) { u.profile.history.unshift({ at: new Date().toISOString(), field: shown[x], from: before[x] == null ? "" : String(before[x]), to: String(q.patch[x]) }); }); u.profile.updated_at = new Date().toISOString(); u.profile.last_change = hit.map(function (x) { return shown[x]; }).join(", "); }
                 save(); chans.forEach(function (cb) { cb({}); }); }
               return resolve({ data: null, error: null });
             }
@@ -532,7 +540,7 @@
               if (b.action === "create") {
                 if (db.users.some(function (u) { return u.email === b.email; })) return bad("An account with that email already exists.");
                 var id = "u" + (++db.seq);
-                db.users.push({ id: id, email: b.email, password: "Temp#Pass1x", profile: { id: id, email: b.email, name: b.name, role: "resident", unit: b.unit, phone: b.phone, suspended: false, must_change_password: true, contact_verified_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_change: "New account" } });
+                db.users.push({ id: id, email: b.email, password: "Temp#Pass1x", profile: { id: id, email: b.email, name: b.name, role: "resident", unit: b.unit, phone: b.phone, suspended: false, must_change_password: true, contact_verified_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_change: "New account", history: [{ at: new Date().toISOString(), field: "Account created", from: "", to: "" }] } });
                 save(); return ok({ email: b.email, password: "Temp#Pass1x" });
               }
               var t = db.users.filter(function (u) { return u.id === b.userId; })[0];

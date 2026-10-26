@@ -160,6 +160,13 @@ class EventItem {
   EventItem(this.id, this.title, this.date, this.place, {this.about = ''});
 }
 
+/// One change to an account's contact info (or its creation), kept for the Update history list.
+class AccountChange {
+  final DateTime at;
+  final String field, from, to;
+  const AccountChange(this.at, this.field, {this.from = '', this.to = ''});
+}
+
 /// One sign-in account (a row of the profiles table), shown in Manage access.
 class Account {
   final String id;
@@ -172,8 +179,12 @@ class Account {
   /// When the account was created and last changed, and what changed (e.g. "Mobile number").
   DateTime? createdAt, updatedAt;
   String lastChange;
+
+  /// Every change to this account, newest first.
+  final List<AccountChange> history;
   Account(this.id, this.name, this.email, this.phone, this.unit, this.role, this.added,
-      {this.suspended = false, this.verified = false, this.createdAt, this.updatedAt, this.lastChange = ''});
+      {this.suspended = false, this.verified = false, this.createdAt, this.updatedAt, this.lastChange = '', List<AccountChange>? history})
+      : history = history ?? [];
 
   /// "New" if the account was created in the last [days] days.
   bool isNew([int days = 7]) => createdAt != null && DateTime.now().difference(createdAt!).inDays < days;
