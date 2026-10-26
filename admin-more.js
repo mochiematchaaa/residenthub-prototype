@@ -41,8 +41,15 @@ function viewFin() {
     return { label: m, value: Math.round(total), tone: i === new Date().getMonth() ? "pink" : "yellow" };
   });
   var proofs = newest(list("proof")).filter(function (r) { return r.v.status === "Pending"; });
-  var chosen = state.payDue ? getRow("due", state.payDue) : null;
-  if (chosen && chosen.value.paid) { chosen = null; state.payDue = ""; }
+  // the payment desk: one resident/unit, and the unpaid charges ticked as paid
+  var deskUnits = {}; open.forEach(function (d) { if (!deskUnits[d.v.unit]) deskUnits[d.v.unit] = d.v.name || ""; });
+  var deskUnitIds = sortedUnits().map(function (u) { return u.id; }).filter(function (id) { return deskUnits[id] !== undefined; });
+  Object.keys(deskUnits).forEach(function (id) { if (deskUnitIds.indexOf(id) < 0) deskUnitIds.push(id); });
+  if (state.payUnit && deskUnits[state.payUnit] === undefined) { state.payUnit = ""; state.payDues = []; }
+  var deskDues = open.filter(function (d) { return d.v.unit === state.payUnit; }).sort(function (x, y) { return Number(x.id) - Number(y.id); });
+  state.payDues = (state.payDues || []).filter(function (id) { return deskDues.some(function (d) { return String(d.id) === String(id); }); });
+  var deskTotal = deskDues.filter(function (d) { return state.payDues.indexOf(String(d.id)) >= 0; }).reduce(function (t, d) { return t + Number(d.v.amount || 0); }, 0);
+  var deskPending = state.payUnit ? list("proof").filter(function (o) { return o.unit === state.payUnit && o.v.status === "Pending"; }).length : 0;
   var methods = payMethods();
   var rate = setting("dues_rate").rate, mrate = setting("motor_rate").rate, drate = setting("motor_rate_daily").rate;
   return '<div class="grid cols-4">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value">' + esc(s[1]) + "</div></div>"; }).join("") + "</div>" +
@@ -76,13 +83,20 @@ function viewFin() {
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Daily rate (₱ / day)<input id="motorRateDay" type="number" min="0" value="' + escAttr(state.dailyDraft != null ? state.dailyDraft : (drate || "")) + '" oninput="state.dailyDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate_daily\',\'dailyDraft\',\'Daily parking rate\')">Update daily</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (drate ? peso(drate) + "/day" : "not set yet (daily option hidden)") + "</b></span></div></div></div>" +
     '<aside class="fin-side"><div class="card" id="payDesk" style="display:flex;flex-direction:column;gap:10px"><h2>Record payment</h2>' +
-    '<label class="fl">Resident / unit<select onchange="chooseDue(this.value)"><option value="">Select an unpaid charge</option>' + open.map(function (d) {
-      return '<option value="' + escAttr(d.id) + '" ' + (state.payDue === d.id ? "selected" : "") + ">" + esc(d.v.unit) + " — " + esc(d.v.note) + "</option>";
+    '<p class="hint" style="margin:0">The resident paid at the office or online but did not update the dashboard? Record it here. The charges you tick are marked paid and the resident\'s dues go down right away.</p>' +
+    '<label class="fl">Resident / unit<select onchange="choosePayUnit(this.value)"><option value="">Select a unit with unpaid charges</option>' + deskUnitIds.map(function (id) {
+      return '<option value="' + escAttr(id) + '" ' + (state.payUnit === id ? "selected" : "") + ">" + esc(id) + (deskUnits[id] ? " — " + esc(deskUnits[id]) : "") + "</option>";
     }).join("") + "</select></label>" +
+    (state.payUnit ? '<div class="fl"><span>Charges that were paid</span>' + deskDues.map(function (d) {
+      var on = state.payDues.indexOf(String(d.id)) >= 0;
+      return '<label style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13.5px;font-weight:600;color:var(--ink,inherit);cursor:pointer"><input type="checkbox" style="width:18px;height:18px;min-height:0;padding:0;margin:0;flex:none;accent-color:#6C5CC7" ' + (on ? "checked" : "") + " onchange=\"togglePayDue('" + escAttr(d.id) + "',this.checked)\"><span style=\"flex:1\">" + esc(d.v.note) + '</span><b>' + peso(Number(d.v.amount)) + "</b></label>";
+    }).join("") + "</div>" : "") +
+    (deskPending ? '<div class="chip warn" style="white-space:normal;line-height:1.4">This unit also sent ' + deskPending + " payment" + (deskPending > 1 ? "s" : "") + ' for checking. The matching one is closed when you record this, so it is not counted twice.</div>' : "") +
     '<label class="fl">Paid by<select onchange="state.payMethod=this.value">' + methods.map(function (m) { return "<option " + ((state.payMethod || PAY_OFFICE) === m.name ? "selected" : "") + ">" + esc(m.name) + "</option>"; }).join("") + "</select></label>" +
     '<label class="fl">Reference no. (optional)<input id="payRef" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label>' +
-    '<div class="kv" style="font-size:13px">' + (chosen ? "<span>Resident</span><b>" + esc(chosen.value.name || chosen.value.unit) + "</b><span>Amount due</span><b>" + peso(Number(chosen.value.amount)) + "</b>" : '<span style="grid-column:1/-1">Choose a charge to begin.</span>') + "</div>" +
-    '<button class="btn primary" onclick="recordPayment()">Record payment &amp; issue receipt</button></div>' +
+    '<label class="fl">Date paid<input type="date" id="payDate" max="' + dayKey(new Date()) + '" value="' + escAttr(state.payDate || dayKey(new Date())) + '" onchange="state.payDate=this.value"></label>' +
+    '<div class="kv" style="font-size:13px">' + (state.payUnit ? "<span>Charges ticked</span><b>" + state.payDues.length + "</b><span>Total received</span><b>" + peso(deskTotal) + "</b>" : '<span style="grid-column:1/-1">Choose a unit to begin.</span>') + "</div>" +
+    '<button class="btn primary" onclick="recordPayment()">Record payment &amp; update dues</button></div>' +
     '<div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Receipts</h2>' +
     (pays.slice(0, 6).map(function (r) {
       var p = r.v;
@@ -90,11 +104,27 @@ function viewFin() {
     }).join("") || '<p class="hint" style="margin:0">No payments recorded yet.</p>') +
     '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div></aside></div>';
 }
-// Picks a due in the payment desk.
+// "Collect" on a charge: opens the payment desk for that unit with that charge ticked.
 function chooseDue(id) {
-  state.payDue = id || "";
+  var row = id ? getRow("due", id) : null;
+  state.payUnit = row ? row.value.unit : "";
+  state.payDues = row ? [String(id)] : [];
   render();
   if (id) { var el = document.getElementById("payDesk"); if (el && window.innerWidth < 1100) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+}
+// Picks the resident / unit in the payment desk; the oldest unpaid charge is ticked first.
+function choosePayUnit(unit) {
+  state.payUnit = unit || "";
+  var first = unit ? firstOpenDue(unit) : null;
+  state.payDues = first ? [String(first.id)] : [];
+  render();
+}
+// Ticks or unticks a charge in the payment desk.
+function togglePayDue(id, on) {
+  var l = (state.payDues || []).filter(function (x) { return x !== String(id); });
+  if (on) l.push(String(id));
+  state.payDues = l;
+  render();
 }
 // Saves a changed rate (dues or parking).
 function saveRate(id, draftKey, label) {
@@ -112,26 +142,43 @@ function deleteDue(id) {
   confirmBox("Delete this charge?", "It will be removed for the resident too.", "Delete", async function () { await del("due", id); logAct("Charge deleted", "Finance"); }, true);
 }
 // Creates a payment record with a receipt number and marks the due as paid.
-async function issuePayment(unit, payer, forText, method, reference, amount, receiptNo) {
-  var no = receiptNo || nextReceiptNo(), date = shortDate(new Date()), pid = nextId();
+async function issuePayment(unit, payer, forText, method, reference, amount, receiptNo, dateText) {
+  var no = receiptNo || nextReceiptNo(), date = dateText || shortDate(new Date()), pid = nextId();
   await put("payment", pid, unit, { id: pid, receiptNo: no, unit: unit, payer: payer, forText: forText, method: method, reference: reference || "—", date: date, amount: amount });
   return { no: no, date: date };
 }
-// Admin records a payment received (cash, bank, GCash...).
+// Admin records a payment received (cash, bank, GCash...) for one or more charges of a unit. The charges become paid, so the resident's dues go down.
 function recordPayment() {
-  var row = state.payDue ? getRow("due", state.payDue) : null;
-  if (!row) return toast("Choose an unpaid charge first.");
+  if (!state.payUnit) return toast("Choose the resident or unit first.");
+  var ids = (state.payDues || []).slice().sort(function (x, y) { return Number(x) - Number(y); });
+  if (!ids.length) return toast("Tick the charge or charges that were paid.");
+  var when = null;
+  if (state.payDate) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(state.payDate);
+    when = m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+    if (!when || isNaN(when.getTime())) return toast("Enter a valid date paid.");
+    if (when.getTime() > Date.now()) return toast("The date paid cannot be in the future.");
+  }
+  var dateText = when ? shortDate(when) : shortDate(new Date());
   act(async function () {
-    var id = state.payDue, cur = row.value;
-    if (cur.paid) throw new Error("This charge is already paid.");
-    var method = state.payMethod || PAY_OFFICE;
-    await put("due", id, row.unit, Object.assign({}, cur, { paid: true }));
-    var r = await issuePayment(cur.unit, cur.name || cur.unit, cur.note, method, state.payRef, cur.amount);
-    var qid = nextId();
-    await put("proof", qid, cur.unit, { id: qid, unit: cur.unit, payer: cur.name || cur.unit, forText: cur.note, method: method, reference: state.payRef || "—", amount: cur.amount, date: r.date, status: "Confirmed", receiptNo: r.no, confirmedOn: r.date, direct: true });
-    logAct("Payment recorded, " + cur.unit, "Finance");
-    state.payDue = ""; state.payRef = "";
-    toast("Receipt " + r.no + " issued.");
+    var unit = state.payUnit, done = 0, total = 0, lastNo = "";
+    for (var k = 0; k < ids.length; k++) {
+      var row = getRow("due", ids[k]);
+      if (!row || row.value.paid) continue;
+      var cur = row.value;
+      // a submission the resident already sent for this charge is closed with the same receipt (so "Verify" cannot settle another charge later)
+      var pend = list("proof").filter(function (o) { return o.unit === cur.unit && o.v.status === "Pending" && o.v.forText === cur.note; })[0];
+      var method = state.payMethod || (pend && pend.v.method) || PAY_OFFICE, ref = state.payRef || (pend && pend.v.reference !== "—" ? pend.v.reference : "");
+      await put("due", ids[k], row.unit, Object.assign({}, cur, { paid: true }));
+      var r = await issuePayment(cur.unit, cur.name || cur.unit, cur.note, method, ref, cur.amount, "", dateText);
+      if (pend) await put("proof", pend.id, pend.unit, Object.assign({}, pend.v, { status: "Confirmed", method: method, reference: ref || "—", receiptNo: r.no, confirmedOn: r.date }));
+      else { var qid = nextId(); await put("proof", qid, cur.unit, { id: qid, unit: cur.unit, payer: cur.name || cur.unit, forText: cur.note, method: method, reference: ref || "—", amount: cur.amount, date: r.date, status: "Confirmed", receiptNo: r.no, confirmedOn: r.date, direct: true }); }
+      done++; total += Number(cur.amount || 0); lastNo = r.no;
+    }
+    if (!done) throw new Error("Those charges are already paid.");
+    logAct("Payment recorded, " + unit + " (" + done + " charge" + (done === 1 ? "" : "s") + ", " + peso(total) + ")", "Finance");
+    state.payUnit = ""; state.payDues = []; state.payRef = ""; state.payDate = "";
+    toast(done === 1 ? "Payment recorded. Receipt " + lastNo + " issued." : done + " charges marked paid (" + peso(total) + "). Receipts issued.");
   });
 }
 // Verifies a resident's payment proof and issues the receipt.

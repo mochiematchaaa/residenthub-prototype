@@ -1238,7 +1238,15 @@ class AppState extends ChangeNotifier {
     final d = dues.firstWhere((d) => d.id == id);
     if (d.paid) return null;
     d.paid = true;
-    final rec = _addPayment(d.unit, d.name, d.note, method, reference, d.amt);
+    // A submission the resident already sent for this charge is closed with the same receipt,
+    // so "Verify" can never settle another charge for the same money.
+    final pending = proofs.where((p) => p.status == 'Pending' && p.unit == d.unit && p.forText == d.note).firstOrNull;
+    if (pending != null) {
+      pending.status = 'Confirmed';
+      pending.receiptNo = nextReceiptNo();
+      pending.confirmedOn = shortDate(DateTime.now());
+    }
+    final rec = _addPayment(d.unit, d.name, d.note, method, reference, d.amt, proof: pending);
     logActivity('Payment recorded, ${d.unit}', 'Finance');
     _n();
     return rec;
