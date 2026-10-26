@@ -139,7 +139,7 @@
     var isCustom = customTypes().some(function (r) { return r.v.name === kind; });
     return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button class="btn primary" onclick="maintTaskForm(null)">+ Add task</button><span class="filters">' + kinds.map(function (k) {
       return '<button class="' + (kind === k[0] ? "active" : "") + '" onclick="set({mkind:\'' + k[0] + '\'})">' + k[1] + "</button>";
-    }).join("") + "</span>" + (isCustom ? '<button ' + BTN + ';color:#A02B1D" title="Remove this type from the list" onclick="maintDeleteType(\'' + escAttr(kind) + '\')">Delete type “' + esc(kind) + '”</button>' : "") + "</div>" +
+    }).join("") + "</span>" + (isCustom ? '<button ' + BTN + '" title="Change the name of this type" onclick="maintRenameType(\'' + escAttr(kind) + '\')">Rename type</button><button ' + BTN + ';color:#A02B1D" title="Remove this type from the list" onclick="maintDeleteType(\'' + escAttr(kind) + '\')">Delete type “' + esc(kind) + '”</button>' : "") + "</div>" +
       '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["TASK", "EQUIPMENT", "REPEATS", "NEXT DUE", "ASSIGNED TO", ""], "No maintenance tasks yet. Add the first one.") + "</div>";
   }
 
@@ -174,8 +174,8 @@
       title: id ? "Edit maintenance task" : "Add maintenance task",
       fields: [
         { name: "title", label: "Task", value: t.title, placeholder: "e.g. Elevator inspection" },
-        { name: "kind", label: "Type", type: "select", options: typeOptions(), value: t.kind || "Routine" },
-        { name: "newKind", label: "Or create a new type", value: "", placeholder: "e.g. Inspection (leave empty to use the type above)" },
+        { name: "kind", label: "Type", type: "select", options: typeOptions().concat([["__new__", "+ Add new type…"]]), value: t.kind || "Routine" },
+        { name: "newKind", label: "Name of the new type", value: "", placeholder: "e.g. Inspection" },
         { name: "equipId", label: "Equipment (optional)", type: "select", options: equipOptions(), value: t.equipId || "" },
         { name: "every", label: "Repeats", type: "select", options: FREQ.map(function (f) { return f[0]; }), value: t.every || "Monthly" },
         { name: "due", label: "Next due date", type: "date", value: t.due || dayKey(new Date()) },
@@ -185,6 +185,8 @@
         if (!d.title) return { error: "Enter the task." };
         if (!d.due) return { error: "Choose the next due date." };
         var kindName = d.kind || "Routine", nk = cleanTypeName(d.newKind);
+        if (kindName === "__new__") { if (!nk) return { error: "Type the name of the new type, or pick a type from the list." }; kindName = "Routine"; }
+        else nk = "";
         if (nk) {
           var known = typeOptions().filter(function (o) { return o[0].toLowerCase() === nk.toLowerCase() || o[1].toLowerCase() === nk.toLowerCase(); })[0];
           if (known) kindName = known[0];
@@ -196,7 +198,33 @@
         logAct((id ? "Maintenance task updated: " : "Maintenance task added: ") + d.title, "Maintenance");
       }
     });
+    wireTypePicker();
   };
+
+  // The Type dropdown ends with "+ Add new type…". Choosing it shows a name box with an Add button; the new type is
+  // saved at once, appears in the dropdown and is selected.
+  function wireTypePicker() {
+    var form = document.getElementById("rhForm"); if (!form) return;
+    var sel = form.querySelector('select[name="kind"]'), inp = form.querySelector('input[name="newKind"]'); if (!sel || !inp) return;
+    var lab = inp.parentNode; lab.style.display = "none";
+    var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;align-items:center";
+    lab.insertBefore(row, inp); row.appendChild(inp); inp.style.flex = "1";
+    var add = document.createElement("button"); add.type = "button"; add.className = "btn primary"; add.textContent = "Add type"; add.style.whiteSpace = "nowrap";
+    row.appendChild(add);
+    sel.addEventListener("change", function () { var isNew = sel.value === "__new__"; lab.style.display = isNew ? "" : "none"; if (isNew) inp.focus(); });
+    async function addType() {
+      var nk = cleanTypeName(inp.value); if (!nk) { inp.focus(); return; }
+      var known = typeOptions().filter(function (o) { return o[0].toLowerCase() === nk.toLowerCase() || o[1].toLowerCase() === nk.toLowerCase(); })[0], name;
+      if (known) name = known[0];
+      else {
+        await put("mtype", String(nextId()), "__admin", { name: nk }); name = nk; logAct("Maintenance type added: " + nk, "Maintenance");
+        var o = document.createElement("option"); o.value = nk; o.textContent = nk; sel.insertBefore(o, sel.querySelector('option[value="__new__"]'));
+      }
+      sel.value = name; inp.value = ""; lab.style.display = "none"; toast(known ? "That type already exists. Selected." : "Type “" + name + "” added.");
+    }
+    add.addEventListener("click", addType);
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addType(); } });
+  }
 
   window.maintEquipForm = function (id) {
     var e = id ? (getRow("equipment", id) || {}).value || {} : {};
@@ -299,6 +327,29 @@
       if (kind === "equipment") await syncClosures();
       logAct("Deleted " + label + ": " + name, "Maintenance");
     }, true);
+  };
+
+  window.maintRenameType = function (name) {
+    var row = customTypes().filter(function (r) { return r.v.name === name; })[0]; if (!row) return;
+    openForm({
+      title: "Rename type",
+      intro: "Every task of this type is renamed too.",
+      submit: "Save name",
+      fields: [{ name: "name", label: "Type name", value: name, placeholder: "e.g. Inspection" }],
+      onSubmit: async function (d) {
+        var nn = cleanTypeName(d.name);
+        if (!nn) return { error: "Enter the type name." };
+        if (nn !== name) {
+          var clash = typeOptions().some(function (o) { return o[0].toLowerCase() === nn.toLowerCase() || o[1].toLowerCase() === nn.toLowerCase(); });
+          if (clash) return { error: "There is already a type with that name." };
+          await put("mtype", row.id, "__admin", { name: nn });
+          var mine = tasks().filter(function (t) { return t.v.kind === name; });
+          for (var i = 0; i < mine.length; i++) await put("mtask", mine[i].id, "", Object.assign({}, mine[i].v, { kind: nn }));
+          set({ mkind: nn });
+          logAct("Maintenance type renamed: " + name + " to " + nn, "Maintenance");
+        }
+      }
+    });
   };
 
   window.maintDeleteType = function (name) {

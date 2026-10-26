@@ -307,6 +307,28 @@ class MaintenanceState extends ChangeNotifier {
     return name;
   }
 
+  /// Renames a custom type and every task that uses it. Returns an error text (or null when it worked) and the final name.
+  (String?, String) renameKind(String from, String raw, AppState app) {
+    if (!customKinds.contains(from)) return ('Only types you created can be renamed.', from);
+    var name = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) return ('Enter the type name.', from);
+    if (name.length > 30) name = name.substring(0, 30).trim();
+    if (name != from) {
+      for (final k in kinds) {
+        if (k != from && (k.toLowerCase() == name.toLowerCase() || kindLabel(k).toLowerCase() == name.toLowerCase())) {
+          return ('There is already a type with that name.', from);
+        }
+      }
+      customKinds[customKinds.indexOf(from)] = name;
+      for (final t in tasks) {
+        if (t.kind == from) t.kind = name;
+      }
+      app.logActivity('Task type renamed: $from to $name', 'Maintenance');
+      notifyListeners();
+    }
+    return (null, name);
+  }
+
   /// Removes a custom type. Its tasks become routine maintenance.
   void deleteKind(String k, AppState app) {
     if (!customKinds.remove(k)) return;

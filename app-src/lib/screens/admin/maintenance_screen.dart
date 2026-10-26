@@ -58,7 +58,13 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
             if (tab == 'Schedule' && maint.customKinds.contains(kind))
               Align(
                 alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
+                child: Wrap(spacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: () => showRenameKindSheet(context, kind, onRenamed: (n) => setState(() => kind = n)),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Rename this type'),
+                ),
+                OutlinedButton.icon(
                   onPressed: () async {
                     final ok = await confirmDialog(context, 'Delete type', 'Delete the type “$kind”? Its tasks stay and become routine maintenance.', confirm: 'Delete', destructive: true);
                     if (ok) {
@@ -70,6 +76,7 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
                   icon: const Icon(Icons.delete_outline_rounded, color: danger),
                   label: const Text('Delete this type'),
                 ),
+                ]),
               ),
             if (tab == 'Schedule') ..._schedule(context),
             if (tab == 'Equipment') ..._equipment(context),
