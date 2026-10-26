@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v6", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v7", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -361,15 +361,23 @@
       var at = Date.now() - Math.round(x[2] * 86400000) - ri(0, 3600000);
       R("activity", at, "__admin", { title: x[0], area: x[1], at: at });
     });
-    return { seedDay: dk(now), users: users, records: recs, seq: 0 };
+    /* The demo starts EMPTY so the import can be tried on empty lists. Only the settings (rates, payment methods, amenities,
+       directory) and the two sign-in accounts stay: the administrator and the resident Maria Reyes with her own unit.
+       "Load sample data" in the tools panel brings the made-up data back. */
+    var sample = false; try { sample = localStorage.getItem("__rhdemo_mode") === "sample"; } catch (e) { }
+    if (!sample) {
+      users = users.filter(function (u) { return u.id === "demo-admin" || u.id === "demo-u2"; });
+      recs = recs.filter(function (r) { return r.kind === "setting" || (r.kind === "unit" && r.id === "Unit 3B"); });
+    }
+    return { seedDay: dk(now), empty: !sample, users: users, records: recs, seq: 0 };
   }
 
   /* ---------------- the in-memory "Supabase" ---------------- */
   function today() { return dk(new Date()); }
   function fresh() { var d = buildSeed(); try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { } return d; }
   /* What you add (imported files, units, notices...) is kept in this browser and is not wiped when the sample data changes.
-     If an older copy of the data is found, it is carried over and the new fields are filled in. "Reset sample data" starts again. */
-  var OLD_KEYS = ["__rhdemo_v5", "__rhdemo_v4", "__rhdemo_v3", "__rhdemo_v2", "__rhdemo_v1"];
+     If an older copy of the data is found, it is carried over and the new fields are filled in. "Clear all data" starts again. */
+  var OLD_KEYS = []; /* older copies held sample data, so they are not carried over: everyone starts empty */
   function migrate(old) {
     var s = buildSeed(), byId = {};
     s.users.forEach(function (u) { byId[u.id] = u.profile; });
@@ -590,7 +598,11 @@
 
   /* ---------------- the DEMO panel (bottom-left) ---------------- */
   window.rhDemoReset = function () {
-    try { localStorage.removeItem(KEY); } catch (e) { }
+    try { localStorage.removeItem(KEY); localStorage.removeItem("__rhdemo_mode"); } catch (e) { }
+    location.href = location.pathname;
+  };
+  window.rhDemoSample = function () {
+    try { localStorage.removeItem(KEY); localStorage.setItem("__rhdemo_mode", "sample"); } catch (e) { }
     location.href = location.pathname;
   };
   function addPanel() {
@@ -608,9 +620,9 @@
     document.head.appendChild(st);
     var d = document.createElement("div"); d.id = "rhDemo";
     d.innerHTML =
-      '<div class="box"><p><b>Prototype tools.</b> Sample data, no database; what you change stays in this browser only.</p>' +
+      '<div class="box"><p><b>Prototype tools.</b> Starts empty, no database; what you add or import stays in this browser only.</p>' +
       '<p>Sign in (password <b>Demo@1234</b>) with an email or a mobile number:<br>Admin: <b>admin@demo.test</b> or <b>0917 000 0000</b><br>Resident: <b>resident@demo.test</b> or <b>0917 000 1108</b> (Unit 3B)</p>' +
-      '<div class="row"><a class="go" href="' + (admin ? "resident.html?as=resident" : "admin.html?as=admin") + '">Open as ' + (admin ? "Resident" : "Admin") + '</a><button onclick="rhDemoReset()">Reset sample data</button><a href="index.html">Website</a></div></div>' +
+      '<div class="row"><a class="go" href="' + (admin ? "resident.html?as=resident" : "admin.html?as=admin") + '">Open as ' + (admin ? "Resident" : "Admin") + '</a><button onclick="rhDemoReset()">Clear all data</button><button onclick="rhDemoSample()">Load sample data</button><a href="index.html">Website</a></div></div>' +
       '<button class="pill" onclick="document.getElementById(\'rhDemo\').classList.toggle(\'open\')">PROTOTYPE TOOLS</button>';
     document.body.appendChild(d);
   }
