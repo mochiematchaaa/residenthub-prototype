@@ -30,7 +30,7 @@ function rteInput(el) {
 /* ---------- the builder ---------- */
 var BOARD_POSITIONS = ["President", "Vice President", "Secretary", "Treasurer", "Auditor"];
 function blankQuestion(kind) {
-  return kind === "election" ? { type: "choice", html: "", options: "", seats: 1, required: false } : { type: "choice", html: "", options: "Option 1\nOption 2", max: 0, required: false };
+  return kind === "election" ? { type: "choice", html: "", options: ["", ""], seats: 1, required: false } : { type: "choice", html: "", options: ["Option 1", "Option 2"], max: 0, required: false };
 }
 function newPoll(kind) {
   var end = new Date(Date.now() + (kind === "election" ? 14 : 7) * 86400000);
@@ -43,7 +43,7 @@ function pqRedraw(i, field, v) { state.pollDraft.questions[i][field] = v; render
 function pqAdd() { state.pollDraft.questions.push(blankQuestion(state.pollDraft.kind)); render(); }
 function pqBoard() {
   var d = state.pollDraft;
-  d.questions = d.questions.filter(function (q) { return richText(q.html) || q.options.trim(); });
+  d.questions = d.questions.filter(function (q) { return richText(q.html) || q.options.join("").trim(); });
   BOARD_POSITIONS.forEach(function (n) { var q = blankQuestion("election"); q.html = esc(n); d.questions.push(q); });
   render();
 }
@@ -58,33 +58,67 @@ function pqDel(i) {
   qs.splice(i, 1); render();
 }
 function cancelPoll() { state.pollDraft = null; render(); }
+// One option or candidate per row: typing updates the draft without a redraw; Enter adds a row; pasting several lines makes several rows.
+function optSet(i, k, v) { state.pollDraft.questions[i].options[k] = v; }
+function optFocus(i, k) { var el = document.querySelector('[data-opt="' + i + "-" + k + '"]'); if (el) { el.focus(); el.select && el.select(); } }
+function optAdd(i, at) { var o = state.pollDraft.questions[i].options; o.splice(at == null ? o.length : at, 0, ""); render(); optFocus(i, at == null ? o.length - 1 : at); }
+function optDel(i, k) {
+  var o = state.pollDraft.questions[i].options;
+  if (o.length < 2) { o[0] = ""; render(); return optFocus(i, 0); }
+  o.splice(k, 1); render();
+}
+function optKey(e, i, k) { if (e.key === "Enter") { e.preventDefault(); optAdd(i, k + 1); } }
+function optPaste(e, i, k) {
+  var t = (e.clipboardData || window.clipboardData).getData("text/plain");
+  if (t.indexOf("\n") < 0) return;
+  e.preventDefault();
+  var lines = t.split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean), o = state.pollDraft.questions[i].options;
+  o.splice.apply(o, [k, 1].concat(lines)); render();
+}
+
+function optionRows(i, q, el) {
+  var mark = el ? "" : (q.type === "multi" ? "sq" : "rd");
+  var rows = q.options.map(function (t, k) {
+    return '<div class="opt-row"><span class="opt-no ' + mark + '">' + (el || !mark ? (k + 1) : "") + '</span><input type="text" data-opt="' + i + "-" + k + '" value="' + escAttr(t) + '" placeholder="' + (el ? "Candidate name — Unit 5A" : "Option " + (k + 1)) + '" oninput="optSet(' + i + "," + k + ',this.value)" onkeydown="optKey(event,' + i + "," + k + ')" onpaste="optPaste(event,' + i + "," + k + ')">' +
+      '<button type="button" class="opt-x" title="Remove" aria-label="Remove" onclick="optDel(' + i + "," + k + ')">&times;</button></div>';
+  }).join("");
+  return '<div class="opt-list">' + rows + '<button type="button" class="opt-add" onclick="optAdd(' + i + ')">+ Add ' + (el ? "candidate" : "option") + "</button></div>";
+}
 
 function pollBuilderHtml() {
   var d = state.pollDraft, el = d.kind === "election";
+  var nOpts = d.questions.reduce(function (t, q) { return t + q.options.filter(function (x) { return String(x).trim(); }).length; }, 0);
   var qcards = d.questions.map(function (q, i) {
     var typeSel = el ? "" : '<select class="pq-type" onchange="pqRedraw(' + i + ',\'type\',this.value)">' + POLL_TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (q.type === t[0] ? " selected" : "") + ">" + t[1] + "</option>"; }).join("") + "</select>";
     var body = "";
     if (el) {
-      body = '<div class="fl"><span>Candidates (one per line, for example: Maria Santos — Unit 5A)</span><textarea rows="4" oninput="pqSet(' + i + ',\'options\',this.value)" placeholder="Maria Santos — Unit 5A&#10;Ramon Dela Cruz — Unit 1B">' + esc(q.options) + "</textarea></div>" +
-        '<div class="fl" style="max-width:260px"><span>Residents can vote for up to</span><input type="number" min="1" max="20" value="' + (q.seats || 1) + '" oninput="pqSet(' + i + ',\'seats\',Math.max(1,Number(this.value)||1))"></div>';
+      body = '<div class="pq-label">Candidates <small>Press Enter for the next one, or paste a list</small></div>' + optionRows(i, q, true) +
+        '<div class="seat-row"><span>Residents can vote for up to</span><input type="number" min="1" max="20" value="' + (q.seats || 1) + '" oninput="pqSet(' + i + ',\'seats\',Math.max(1,Number(this.value)||1))"><small>' + ((q.seats || 1) > 1 ? "several seats" : "one winner") + "</small></div>";
     } else if (q.type === "choice" || q.type === "multi") {
-      body = '<div class="fl"><span>Options (one per line)</span><textarea rows="4" oninput="pqSet(' + i + ',\'options\',this.value)">' + esc(q.options) + "</textarea></div>" +
-        (q.type === "multi" ? '<div class="fl" style="max-width:260px"><span>Most choices allowed (leave 0 for no limit)</span><input type="number" min="0" max="20" value="' + (q.max || 0) + '" oninput="pqSet(' + i + ',\'max\',Math.max(0,Number(this.value)||0))"></div>' : "");
-    } else body = '<p class="hint" style="margin:0">' + (q.type === "text" ? "Residents type a short answer." : q.type === "para" ? "Residents type a longer answer." : "Residents rate from 1 to 5.") + "</p>";
-    return '<div class="pq-card"><div class="pq-head"><b>' + (el ? "Position " : "Question ") + (i + 1) + "</b>" + typeSel +
-      '<span class="pq-tools"><button type="button" class="btn" title="Move up" onclick="pqMove(' + i + ',-1)"' + (i === 0 ? " disabled" : "") + '>&#8593;</button><button type="button" class="btn" title="Move down" onclick="pqMove(' + i + ',1)"' + (i === d.questions.length - 1 ? " disabled" : "") + '>&#8595;</button><button type="button" class="btn" onclick="pqDup(' + i + ')">Duplicate</button><button type="button" class="btn" style="color:var(--bad-fg)" onclick="pqDel(' + i + ')">Delete</button></span></div>' +
-      '<div class="fl"><span>' + (el ? "Position (for example President)" : "Question") + "</span>" + richEditor("q:" + i, q.html, el ? "Position name" : "Type your question", true) + "</div>" + body +
+      body = '<div class="pq-label">Options <small>Press Enter for the next one, or paste a list</small></div>' + optionRows(i, q, false) +
+        (q.type === "multi" ? '<div class="seat-row"><span>Most choices allowed</span><input type="number" min="0" max="20" value="' + (q.max || 0) + '" oninput="pqSet(' + i + ',\'max\',Math.max(0,Number(this.value)||0))"><small>0 = no limit</small></div>' : "");
+    } else body = '<div class="pq-demo">' + (q.type === "rating" ? [1, 2, 3, 4, 5].map(function (n) { return "<span>" + n + "</span>"; }).join("") + "<small>Residents rate from 1 to 5</small>" : '<span class="line' + (q.type === "para" ? " tall" : "") + '">' + (q.type === "text" ? "Short answer" : "Long answer") + "</span>") + "</div>";
+    return '<div class="pq-card"><div class="pq-head"><span class="pq-badge">' + (i + 1) + "</span><b>" + (el ? "Position" : "Question") + "</b>" + typeSel +
+      '<span class="pq-tools"><button type="button" class="btn" title="Move up" onclick="pqMove(' + i + ',-1)"' + (i === 0 ? " disabled" : "") + '>&#8593;</button><button type="button" class="btn" title="Move down" onclick="pqMove(' + i + ',1)"' + (i === d.questions.length - 1 ? " disabled" : "") + '>&#8595;</button><button type="button" class="btn" onclick="pqDup(' + i + ')">Duplicate</button><button type="button" class="btn danger" onclick="pqDel(' + i + ')">Delete</button></span></div>' +
+      '<div class="pq-label">' + (el ? "Position name" : "Question") + "</div>" + richEditor("q:" + i, q.html, el ? "e.g. President" : "Type your question", true) + body +
       (el ? "" : '<label class="pq-req-row"><input type="checkbox" ' + (q.required ? "checked" : "") + ' onchange="pqSet(' + i + ',\'required\',this.checked)"> Required</label>') + "</div>";
   }).join("");
-  return '<div class="card pb"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><h2 style="margin:0">' + (el ? "New election" : "New poll") + '</h2><p class="hint" style="margin:4px 0 0">' +
+  var kindWord = el ? "position" : "question";
+  return '<div class="pb"><div class="pb-hero"><div><span class="pb-kind">' + (el ? "Election" : "Poll") + "</span><h2>" + (el ? "New election" : "New poll") + "</h2><p>" +
     (el ? "Each unit gets one secret ballot. Residents see the results only after the election closes." : "Ask one question or several, like a form. Each unit answers once.") + '</p></div><button class="btn" onclick="cancelPoll()">Cancel</button></div>' +
-    '<div class="fl" style="margin-top:14px"><span>' + (el ? "Election title" : "Poll title") + "</span>" + richEditor("title", d.titleHtml, el ? "e.g. 2026 Board of Directors election" : "e.g. Building facilities survey", true) + "</div>" +
-    '<div class="fl"><span>Description (optional)</span>' + richEditor("desc", d.descHtml, "Tell residents what this is for and how to answer", true) + "</div>" +
-    '<div class="pb-row"><div class="fl"><span>Closes on</span><input type="date" min="' + dayKey(new Date()) + '" value="' + escAttr(d.closeKey) + '" onchange="pdSet(\'closeKey\',this.value)"></div>' +
-    '<div class="fl"><span>Results for residents</span><select onchange="pdSet(\'showResults\',this.value)"><option value="vote"' + (d.showResults === "vote" ? " selected" : "") + '>Right after they vote</option><option value="closed"' + (d.showResults === "closed" ? " selected" : "") + ">Only when it closes</option></select></div></div>" +
-    '<h3 style="margin:18px 0 8px">' + (el ? "Positions and candidates" : "Questions") + '</h3><div class="pq-cards">' + qcards + "</div>" +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" onclick="pqAdd()">+ ' + (el ? "Add position" : "Add question") + "</button>" + (el ? '<button class="btn" onclick="pqBoard()">Add standard board positions</button>' : "") +
-    '<button class="btn primary" style="margin-left:auto" onclick="publishPoll()">' + (el ? "Open the election" : "Publish poll") + "</button></div></div>";
+    '<div class="pb-wrap"><div class="pb-main">' +
+    '<div class="card pb-sec"><div class="pb-sech"><span class="pb-step">1</span><h3>Details</h3></div>' +
+    '<div class="pq-label">' + (el ? "Election title" : "Poll title") + "</div>" + richEditor("title", d.titleHtml, el ? "e.g. 2026 Board of Directors election" : "e.g. Building facilities survey", true) +
+    '<div class="pq-label">Description <small>optional</small></div>' + richEditor("desc", d.descHtml, "Tell residents what this is for and how to answer") + "</div>" +
+    '<div class="card pb-sec"><div class="pb-sech"><span class="pb-step">2</span><h3>' + (el ? "Positions and candidates" : "Questions") + '</h3>' + (el ? '<button class="btn" style="margin-left:auto" onclick="pqBoard()">Add standard board positions</button>' : "") + "</div>" +
+    '<div class="pq-cards">' + qcards + '</div><button type="button" class="pq-addtile" onclick="pqAdd()">+ Add ' + kindWord + "</button></div></div>" +
+    '<aside class="pb-side"><div class="card pb-sec"><div class="pb-sech"><span class="pb-step">3</span><h3>Settings</h3></div>' +
+    '<div class="pq-label">Closes on</div><input type="date" min="' + dayKey(new Date()) + '" value="' + escAttr(d.closeKey) + '" onchange="pdSet(\'closeKey\',this.value)">' +
+    '<div class="pq-label">Results for residents</div><select onchange="pdSet(\'showResults\',this.value)"><option value="vote"' + (d.showResults === "vote" ? " selected" : "") + '>Right after they vote</option><option value="closed"' + (d.showResults === "closed" ? " selected" : "") + ">Only when it closes</option></select>" +
+    (el ? '<p class="hint" style="margin:10px 0 0">Ballots are secret. You can see who voted, but not who they voted for.</p>' : "") + "</div>" +
+    '<div class="card pb-sec pb-sum"><div class="pb-sum-row"><b>' + d.questions.length + "</b><span>" + kindWord + (d.questions.length === 1 ? "" : "s") + "</span></div>" +
+    (nOpts ? '<div class="pb-sum-row"><b>' + nOpts + "</b><span>" + (el ? "candidates" : "options") + "</span></div>" : "") +
+    '<button class="btn primary" style="width:100%;margin-top:10px" onclick="publishPoll()">' + (el ? "Open the election" : "Publish poll") + '</button><p class="hint" style="margin:8px 0 0;text-align:center">Residents can vote right away.</p></div></aside></div></div>';
 }
 
 // Checks the draft and publishes it.
@@ -94,7 +128,7 @@ function publishPoll() {
   var qs = [], err = "";
   d.questions.forEach(function (q, i) {
     if (err) return;
-    var text = richText(q.html), opts = q.options.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var text = richText(q.html), opts = q.options.map(function (s) { return String(s).trim(); }).filter(Boolean);
     if (!text) { err = (el ? "Position " : "Question ") + (i + 1) + " needs a name."; return; }
     var type = el ? ((q.seats || 1) > 1 ? "multi" : "choice") : q.type, choice = type === "choice" || type === "multi";
     if (choice && opts.length < (el ? 1 : 2)) { err = (el ? "Add at least one candidate for “" : "Add at least two options for “") + text + "”."; return; }
