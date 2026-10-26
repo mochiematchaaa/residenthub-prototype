@@ -605,26 +605,20 @@ function toggleRsvp(id) {
     toast(going ? "Removed from the event." : "See you there!");
   });
 }
-// PAGE: Polls.
+// PAGE: Polls and elections.
 function viewPolls() {
   var all = pollsAll(), open = all.filter(function (p) { return p.open; }).length;
   var shown = all.filter(function (p) { return state.pollFilter === "all" || (state.pollFilter === "open") === p.open; });
   return pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All"]], state.pollFilter, "pollFilter") +
-    '<div class="event-grid">' + (shown.map(function (p) {
-      var voted = myVote(p.id), showResults = !p.open || voted !== undefined, total = pollTotal(p);
-      return '<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div><h2>' + esc(p.q) + '</h2><small style="color:var(--muted)">' + (p.open ? "Closes" : "Closed") + " " + esc(p.closes) + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" +
-        (showResults ? pollBars(p, voted) : '<div class="options">' + p.options.map(function (o, i) { return '<label class="opt"><input type="radio" name="poll-' + p.id + '" value="' + i + '"><span>' + esc(o.t) + "</span></label>"; }).join("") + '</div><button class="btn primary" style="margin-top:12px" onclick="castVote(' + p.id + ')">Submit my vote</button>') +
-        (showResults ? '<p class="hint" style="margin:12px 0 0">' + total + " vote" + (total === 1 ? "" : "s") + " so far" + (voted !== undefined ? " · thank you for voting" : "") + "</p>" : "") + "</div>";
+    '<div class="poll-list">' + (shown.map(function (p) {
+      var voted = myVote(p.id), election = p.kind === "election";
+      var canSee = !p.open || (voted !== undefined && p.showResults !== "closed");
+      var body = p.open && voted === undefined ? pollBallotHtml(p) + '<button class="btn primary" style="margin-top:6px" onclick="castVote(' + p.id + ')">' + (election ? "Submit my ballot" : "Submit my answers") + "</button>"
+        : canSee ? pollResultsHtml(p, voted, false) + '<p class="hint" style="margin:12px 0 0">' + p.ballots + (election ? " ballot" : " response") + (p.ballots === 1 ? "" : "s") + " so far" + (voted !== undefined ? " · thank you for voting" : "") + "</p>"
+        : '<p class="poll-note">Your ballot was recorded. The results are shown when voting closes on <b>' + esc(p.closes) + "</b>.</p>";
+      return '<div class="card poll-card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0"><span class="chip ' + (election ? "warn" : "info") + '" style="margin-bottom:8px">' + (election ? "Election" : "Poll") + '</span><h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
+        (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes" : "Closed") + " " + esc(p.closes) + (election ? " · secret ballot, one ballot per unit" : "") + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" + body + "</div>";
     }).join("") || '<p class="empty">No polls here.</p>') + "</div>";
-}
-// Saves my unit's vote (one per unit, cannot be changed).
-function castVote(id) {
-  var picked = document.querySelector('input[name="poll-' + id + '"]:checked');
-  if (!picked) return toast("Pick an option first.");
-  act(async function () {
-    await put("vote", myUnit() + "|" + id, myUnit(), { poll: Number(id), option: Number(picked.value) });
-    toast("Your vote was recorded. Thank you!");
-  });
 }
 
 /* ==========================================================================

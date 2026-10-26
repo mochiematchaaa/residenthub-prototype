@@ -453,23 +453,6 @@ function slotClosed(f, i) {
   var b = setting("blocked");
   return b.day === dayKey(new Date()) && (b.keys || []).indexOf(slotKey(f, i)) >= 0;
 }
-// All polls with their vote counts.
-function pollsAll() {
-  var votes = list("vote");
-  return newest(list("poll")).map(function (r) {
-    var p = r.v;
-    var opts = (p.options || []).map(function (t) { return { t: t, votes: 0 }; });
-    votes.forEach(function (x) {
-      if (Number(x.v.poll) === Number(r.id) && opts[x.v.option]) opts[x.v.option].votes++;
-    });
-    return { id: Number(r.id), q: p.question || "", open: !!p.open, closes: p.closes || "—", options: opts };
-  });
-}
-// The signed-in unit's vote for a poll (one vote per unit).
-function myVote(pollId) {
-  var r = getRow("vote", myUnit() + "|" + pollId);
-  return r ? Number(r.value.option) : undefined;
-}
 // Month number of a date text, used to compare 'same month'.
 function monthOf(dateText) { var d = parseShort(dateText); return d ? d.getFullYear() * 12 + d.getMonth() : null; }
 // Month number of today.

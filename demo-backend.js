@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v11", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v12", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -238,6 +238,52 @@
     POLLS.forEach(function (p) {
       var id = tid(); R("poll", id, "", { id: id, question: p[0], open: p[1], closes: sd(dayOff(p[2])), options: p[3] });
       withAcc.forEach(function (u) { if (u.label !== "Unit 3B" || p[0].indexOf("Best day") === 0) { if (rnd() < 0.65) R("vote", u.label + "|" + id, u.label, { poll: id, option: Math.floor(rnd() * p[3].length) }); } });
+    });
+
+    /* ---------- elections and a survey (formatted text, several questions) ---------- */
+    function pollRec(kind, titleHtml, descHtml, title, closesIn, showResults, open, qs) {
+      var id = tid(), d = dayOff(closesIn);
+      R("poll", id, "", { id: id, kind: kind, question: title, titleHtml: titleHtml, descHtml: descHtml, open: open, closes: sd(d), closeKey: d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2), showResults: showResults, options: qs[0].options || [], questions: qs });
+      return id;
+    }
+    function cast(id, qs, share, fn) {
+      withAcc.forEach(function (u) {
+        if (u.label === "Unit 3B" && share < 1) return;
+        if (rnd() > share) return;
+        var a = {}; qs.forEach(function (q, i) { var v = fn(q, i); if (v != null) a[q.id] = v; });
+        R("vote", u.label + "|" + id, u.label, { poll: id, answers: a, at: new Date(dayOff(-1).getTime() - Math.floor(rnd() * 6 * 86400000)).toISOString() });
+      });
+    }
+    function pickN(n, k) { var all = []; for (var i = 0; i < n; i++) all.push(i); var out = []; while (out.length < k && all.length) out.push(all.splice(Math.floor(rnd() * all.length), 1)[0]); return out; }
+    function pos(i, name, cands, seats) { return { id: "q" + i, type: seats > 1 ? "multi" : "choice", html: name, text: name.replace(/<[^>]+>/g, ""), required: false, max: seats, options: cands }; }
+    var elQs = [
+      pos(1, "<b>President</b>", ["Carla Aquino \u2014 Unit 5A", "Ramon Dela Cruz \u2014 Unit 1B", "Liza Villanueva \u2014 Unit 4B"], 1),
+      pos(2, "<b>Vice President</b>", ["Marco Chua \u2014 Unit 6B", "Anna Reyes \u2014 Unit 3B"], 1),
+      pos(3, "<b>Secretary</b>", ["Joy Torres \u2014 Unit 2C", "Ben Santos \u2014 Unit 1A"], 1),
+      pos(4, "<b>Treasurer</b>", ["Grace Evangelista \u2014 Unit 12B", "Paolo Mendoza \u2014 Unit 8C"], 1),
+      pos(5, "<b>Board Directors</b> <i>(vote for up to 3)</i>", ["Carla Aquino \u2014 Unit 5A", "Ben Santos \u2014 Unit 1A", "Marco Chua \u2014 Unit 6B", "Joy Torres \u2014 Unit 2C", "Liza Villanueva \u2014 Unit 4B"], 3)
+    ];
+    var elId = pollRec("election", "<b>2026 Board of Directors election</b>", "Choose the people who will manage the building for <b>2026\u20132027</b>.<ul><li>Each unit has <b>one secret ballot</b>.</li><li>You may leave a position blank to abstain.</li><li>The results are shown when voting closes.</li></ul>", "2026 Board of Directors election", 12, "closed", true, elQs);
+    cast(elId, elQs, 0.7, function (q) { return q.type === "multi" ? pickN(q.options.length, 1 + Math.floor(rnd() * 3)) : (rnd() < 0.08 ? null : Math.floor(rnd() * q.options.length)); });
+    var oldQs = [
+      pos(1, "<b>Chairperson</b>", ["Elena Castillo \u2014 Unit 7A", "Roberto Lim \u2014 Unit 9B"], 1),
+      pos(2, "<b>Committee members</b> <i>(vote for up to 2)</i>", ["Nina Flores \u2014 Unit 3A", "Victor Gomez \u2014 Unit 10A", "Teresa Ramos \u2014 Unit 11C"], 2)
+    ];
+    var oldId = pollRec("election", "<b>2025 Homeowners\u2019 committee election</b>", "Closed election. Thank you to everyone who voted.", "2025 Homeowners\u2019 committee election", -40, "closed", false, oldQs);
+    cast(oldId, oldQs, 0.75, function (q) { return q.type === "multi" ? pickN(q.options.length, 2) : Math.floor(rnd() * q.options.length); });
+    var svQs = [
+      { id: "q1", type: "choice", html: "<b>How often</b> do you use the pool?", text: "How often do you use the pool?", required: true, max: 0, options: ["Every week", "A few times a month", "Rarely", "Never"] },
+      { id: "q2", type: "multi", html: "Which facilities should be <u>improved first</u>? <i>(choose up to 3)</i>", text: "Which facilities should be improved first?", required: true, max: 3, options: ["Pool", "Gym", "Function Hall", "Parking", "Lobby", "Coffee lounge"] },
+      { id: "q3", type: "rating", html: "How satisfied are you with the <b>cleanliness</b> of the common areas?", text: "How satisfied are you with the cleanliness of the common areas?", required: true, max: 0, options: [] },
+      { id: "q4", type: "para", html: "Anything else you would like the board to know?", text: "Anything else you would like the board to know?", required: false, max: 0, options: [] }
+    ];
+    var NOTES = ["More lighting near the parking area, please.", "The gym needs two more treadmills.", "Please repaint the lobby soon.", "Thank you for the quick repairs in March!", "Add more bike racks.", "Quiet hours should be enforced on weekends."];
+    var svId = pollRec("poll", "<b>Building facilities survey</b>", "Help us decide what to improve first. It takes <i>two minutes</i>. Your answers are shared with the board.", "Building facilities survey", 9, "vote", true, svQs);
+    cast(svId, svQs, 0.6, function (q) {
+      if (q.id === "q1") return Math.floor(rnd() * 4);
+      if (q.id === "q2") return pickN(6, 1 + Math.floor(rnd() * 3));
+      if (q.id === "q3") return 2 + Math.floor(rnd() * 4);
+      return rnd() < 0.4 ? NOTES[Math.floor(rnd() * NOTES.length)] : null;
     });
 
     /* ---------- bookings ---------- */

@@ -621,6 +621,7 @@
     } catch (e) { toast("Could not create the Excel file: " + (e && e.message || e)); }
   };
   window.__buildExportSheets = buildSheets; // used by the automatic test
+  window.__rhXlsx = { resetStyles: resetStyles, makeXlsx: makeXlsx, tableSheet: tableSheet, saveBlob: saveBlob }; // used by the polls export
 
   /* ---------- buttons on the page (the real files are not edited) ---------- */
   var origReports = window.viewReports;
