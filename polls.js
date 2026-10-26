@@ -110,7 +110,7 @@ function pollQuestionResults(p, q, mine, admin) {
     var status = pollElected(p, q);
     return q.opts.map(function (o, i) {
       var pct = q.n ? Math.round(o.votes / q.n * 100) : 0, chip = status[i] ? ' <span class="chip ' + (status[i] === "Tie" ? "warn" : "good") + '">' + status[i] + "</span>" : "";
-      return '<div class="pollbar ' + (mark(i) ? "mine" : "") + '"><div class="pollbar-top"><span>' + esc(o.t) + (mark(i) ? " · your vote" : "") + chip + "</span><b>" + pct + '%</b></div><div class="pbar-track"><i class="' + POLL_TONES[i % 4] + '" style="width:' + pct + '%"></i></div><small>' + o.votes + " vote" + (o.votes === 1 ? "" : "s") + "</small></div>";
+      return '<div class="pollbar ' + (mark(i) ? "mine" : "") + '"><div class="pollbar-top"><span class="pn">' + esc(o.t) + (mark(i) ? " · your vote" : "") + chip + '</span><span class="pv">' + o.votes + " vote" + (o.votes === 1 ? "" : "s") + "</span><b>" + pct + '%</b></div><div class="pbar-track"><i class="' + POLL_TONES[i % 4] + '" style="width:' + pct + '%"></i></div></div>';
     }).join("");
   }
   if (q.type === "rating") {
@@ -118,7 +118,7 @@ function pollQuestionResults(p, q, mine, admin) {
     return '<p class="pq-avg"><b>' + avg + '</b> out of 5 <span>· ' + q.n + " response" + (q.n === 1 ? "" : "s") + (mine && picked.length ? " · you gave " + picked[0] : "") + "</span></p>" +
       [5, 4, 3, 2, 1].map(function (s) {
         var c = q.counts[s - 1], pct = q.n ? Math.round(c / q.n * 100) : 0;
-        return '<div class="pollbar ' + (mine && Number(picked[0]) === s ? "mine" : "") + '"><div class="pollbar-top"><span>' + s + " star" + (s === 1 ? "" : "s") + "</span><b>" + pct + '%</b></div><div class="pbar-track"><i class="' + POLL_TONES[(5 - s) % 4] + '" style="width:' + pct + '%"></i></div><small>' + c + " response" + (c === 1 ? "" : "s") + "</small></div>";
+        return '<div class="pollbar ' + (mine && Number(picked[0]) === s ? "mine" : "") + '"><div class="pollbar-top"><span class="pn">' + s + " star" + (s === 1 ? "" : "s") + '</span><span class="pv">' + c + " response" + (c === 1 ? "" : "s") + "</span><b>" + pct + '%</b></div><div class="pbar-track"><i class="' + POLL_TONES[(5 - s) % 4] + '" style="width:' + pct + '%"></i></div></div>';
       }).join("");
   }
   if (!admin) return '<p class="hint" style="margin:0">' + q.n + " written answer" + (q.n === 1 ? "" : "s") + " received. Only the office reads them.</p>";
@@ -126,16 +126,17 @@ function pollQuestionResults(p, q, mine, admin) {
 }
 // All the results of a poll, question by question.
 function pollResultsHtml(p, mine, admin) {
-  return p.questions.map(function (q, i) {
+  var blocks = p.questions.map(function (q, i) {
     var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (p.kind === "election" ? "" : (i + 1) + ".") + '</span><div>' + richHtml(q.html, q.text) + "</div></div>";
-    return '<div class="pq-block">' + head + pollQuestionResults(p, q, mine, admin) + "</div>";
+    return '<div class="pq-block' + (q.type === "text" || q.type === "para" ? " pq-wide" : "") + '">' + head + pollQuestionResults(p, q, mine, admin) + "</div>";
   }).join("");
+  return p.legacy ? blocks : '<div class="pq-grid">' + blocks + "</div>";
 }
 
 // The ballot a resident fills in.
 function pollBallotHtml(p) {
   var name = function (q) { return "pq-" + p.id + "-" + q.id; };
-  return p.questions.map(function (q, i) {
+  var blocks = p.questions.map(function (q, i) {
     var hint = "", body = "";
     if (q.type === "choice") {
       body = '<div class="options">' + q.opts.map(function (o, k) { return '<label class="opt"><input type="radio" name="' + name(q) + '" value="' + k + '"><span>' + esc(o.t) + "</span></label>"; }).join("") + "</div>";
@@ -147,8 +148,9 @@ function pollBallotHtml(p) {
     else if (q.type === "para") body = '<textarea class="pq-input" rows="3" maxlength="1000" name="' + name(q) + '" placeholder="Your answer"></textarea>';
     else body = '<div class="rate-row">' + [1, 2, 3, 4, 5].map(function (s) { return '<label class="rate"><input type="radio" name="' + name(q) + '" value="' + s + '"><span>' + s + "</span></label>"; }).join("") + '</div><div class="rate-ends"><span>Not satisfied</span><span>Very satisfied</span></div>';
     var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (p.kind === "election" ? "" : (i + 1) + ".") + "</span><div>" + richHtml(q.html, q.text) + (q.required ? ' <span class="pq-req" title="Required">*</span>' : "") + "</div></div>";
-    return '<div class="pq-block">' + head + (hint ? '<p class="hint" style="margin:0 0 8px">' + hint + "</p>" : "") + body + "</div>";
+    return '<div class="pq-block' + (q.type === "para" ? " pq-wide" : "") + '">' + head + (hint ? '<p class="hint" style="margin:0 0 8px">' + hint + "</p>" : "") + body + "</div>";
   }).join("");
+  return p.legacy ? blocks : '<div class="pq-grid">' + blocks + "</div>";
 }
 // Reads the ballot of one poll from the page; returns {answers} or {error}.
 function readBallot(p) {

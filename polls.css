@@ -1,14 +1,17 @@
 /* Polls and elections */
-.poll-list{display:flex;flex-direction:column;gap:14px;margin-top:14px}
-.poll-card{max-width:860px}
+.poll-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px;margin-top:14px;align-items:start}
+.poll-card.wide{grid-column:1/-1}
+.poll-card{min-width:0}
 .poll-title{margin:0 0 4px;font-weight:500}
 .poll-title b,.pq-title b{font-weight:800}
 .poll-desc{margin:4px 0 8px;font-size:14px;color:var(--muted);line-height:1.5}
 .poll-desc ul,.poll-desc ol,.pq-title ul,.pq-title ol{margin:4px 0 4px 20px;padding:0}
 .poll-note{margin:0;padding:12px 14px;border-radius:14px;background:var(--beige);font-size:13.5px}
-.pq-block{margin:0 0 18px;padding-top:14px;border-top:1px solid var(--border2)}
-.pq-block:first-of-type{border-top:0;padding-top:0}
-.pq-title{display:flex;gap:8px;align-items:baseline;font-weight:500;font-size:15px;margin-bottom:10px;line-height:1.4}
+.pq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;align-items:start}
+.pq-block{margin:0;padding:14px 16px;border:1px solid var(--border2);border-radius:18px;min-width:0}
+.pq-grid .pq-wide{grid-column:1/-1}
+.poll-card>.pq-block{margin:0 0 14px}
+.pq-title{display:flex;gap:8px;align-items:baseline;font-weight:500;font-size:14.5px;margin-bottom:10px;line-height:1.4}
 .pq-title h3{margin:0;font-size:17px}
 .pq-no{color:var(--muted);min-width:1.4em}
 .pq-no:empty{display:none}
@@ -53,3 +56,15 @@
 .voters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;max-height:300px;overflow:auto}
 .voters-grid div{display:flex;flex-direction:column;padding:8px 12px;border-radius:12px;background:var(--beige);font-size:13.5px}
 .voters-grid span{color:var(--muted);font-size:12.5px}
+/* compact result bars */
+.pq-block .pollbar{margin-bottom:9px}
+.pq-block .pollbar-top{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;font-size:13.5px}
+.pq-block .pollbar-top .pn{flex:1;min-width:0}
+.pq-block .pollbar-top .pv{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.pq-block .pollbar-top b{min-width:38px;text-align:right}
+.pq-block .pbar-track{height:8px}
+.pq-block .options{gap:6px}
+.pq-block .opt{padding:9px 14px;font-size:13.5px;border-radius:14px}
+.pq-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:12px;align-items:start}
+.pq-cards .pq-card{margin-top:0}
+@media(max-width:560px){.poll-list{grid-template-columns:1fr}.pq-grid{grid-template-columns:1fr}.pq-cards{grid-template-columns:1fr}}
