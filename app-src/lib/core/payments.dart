@@ -43,6 +43,9 @@ class PaymentProof {
   String status; // Pending | Confirmed | Rejected
   String forText, receiptNo, confirmedOn;
 
+  /// Why the administrator rejected it (shown to the resident, kept in the record).
+  String reason, rejectedOn;
+
   /// True for a payment the office recorded itself (no "I have paid" message from the resident).
   final bool direct;
 
@@ -54,6 +57,8 @@ class PaymentProof {
       this.forText = '',
       this.receiptNo = '',
       this.confirmedOn = '',
+      this.reason = '',
+      this.rejectedOn = '',
       this.direct = false,
       this.slot = ''});
 
@@ -70,6 +75,8 @@ class PaymentProof {
         'status': status,
         'receiptNo': receiptNo,
         if (confirmedOn.isNotEmpty) 'confirmedOn': confirmedOn,
+        if (reason.isNotEmpty) 'reason': reason,
+        if (rejectedOn.isNotEmpty) 'rejectedOn': rejectedOn,
         if (direct) 'direct': true,
         if (slot.isNotEmpty) 'slot': slot,
       };
@@ -92,6 +99,8 @@ class PaymentProof {
       forText: s('forText'),
       receiptNo: s('receiptNo'),
       confirmedOn: s('confirmedOn'),
+      reason: s('reason'),
+      rejectedOn: s('rejectedOn'),
       direct: j['direct'] == true,
       slot: s('slot'),
     );

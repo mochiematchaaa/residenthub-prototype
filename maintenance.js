@@ -1,6 +1,6 @@
 /* DEMO ONLY: maintenance management for ResidentHub.
    Adds (1) a preventive maintenance schedule, (2) an equipment list, (3) a maintenance staff list and
-   (4) repair assignment on grievances (who, target date, equipment, note).
+   (4) repair assignment on complaints (who, target date, equipment, note).
    Loaded by demo/admin.html and demo/resident.html after the real scripts. The real website and the real
    database do not load this file, so nothing here touches production.
    Data kinds (all stored in the demo's in-memory records table):
@@ -418,7 +418,7 @@
     }, true);
   };
 
-  /* ----- repair assignment on grievances ----- */
+  /* ----- repair assignment on complaints ----- */
   window.maintAssignForm = function (id) {
     var row = getRow("grievance", id); if (!row) return;
     var g = row.value;
@@ -453,14 +453,14 @@
     });
   };
 
-  // Resolving a grievance asks what was done and what it cost. The cost becomes an expense linked to the equipment.
+  // Resolving a complaint asks what was done and what it cost. The cost becomes an expense linked to the equipment.
   window.advanceGr = function (id) {
     var row = getRow("grievance", id); if (!row) return;
     var st = Math.min(2, (Number(row.value.stage) || 0) + 1);
     if (st < 2) {
       return act(async function () {
         await put("grievance", id, row.unit, Object.assign({}, row.value, { stage: st }));
-        logAct("Grievance in progress: " + row.value.title, "Requests");
+        logAct("Complaint in progress: " + row.value.title, "Requests");
       });
     }
     openForm({
@@ -479,7 +479,7 @@
           await syncClosures();
         }
         await recordCost(d, "Repair: " + g.title, { category: "Repairs and improvements", equipId: g.equipId, who: g.assignee, link: { equipId: g.equipId || "", grievanceId: Number(id) } });
-        logAct("Grievance resolved: " + g.title + (v.cost ? " (" + money(v.cost) + ")" : ""), "Requests");
+        logAct("Complaint resolved: " + g.title + (v.cost ? " (" + money(v.cost) + ")" : ""), "Requests");
       }
     });
   };
@@ -506,7 +506,7 @@
       return '<div class="card"><div><div style="font:700 17px \'Bricolage Grotesque\',\'Source Sans 3\',sans-serif">' + esc(g.title) + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Reported by ' + esc(g.by || r.unit) + '</div><p style="font-size:13px;color:var(--muted);margin:8px 0 0">' + esc(g.body) + "</p></div>" +
         assignBlock(r) + '<div style="display:flex;gap:6px;margin:10px 0">' + steps + "</div>" +
         (s < 2 ? '<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" style="flex:1" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div>" : "") + "</div>";
-    }).join("") + "</div>" : emptyCard("No grievances from residents yet.");
+    }).join("") + "</div>" : emptyCard("No complaints from residents yet.");
     return head + docsPart;
   };
 
@@ -538,9 +538,9 @@
   if (!IS_ADMIN) {
     window.viewGr = function () {
       var all = newest(list("grievance")).filter(function (r) { return r.unit === myUnit(); }), names = ["Open", "In progress", "Resolved"];
-      return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a grievance</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed.</p>' +
-        '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"></textarea></label><button class="btn primary" style="margin-top:4px" onclick="submitGr()">Submit grievance</button></div></div>' +
-        '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">My grievances</h2>' + (all.length === 0 ? '<div style="padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)">No grievances submitted yet.</div>' :
+      return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a complaint</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed.</p>' +
+        '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"></textarea></label><button class="btn primary" style="margin-top:4px" onclick="submitGr()">Submit complaint</button></div></div>' +
+        '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">My complaints</h2>' + (all.length === 0 ? '<div style="padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)">No complaints submitted yet.</div>' :
           all.map(function (r) {
             var g = r.v, s = Math.min(2, Math.max(0, Number(g.stage) || 0));
             var info = g.assignee ? '<div style="margin-top:8px;font-size:13px;line-height:1.5">Assigned to <b>' + esc(g.assignee) + "</b>" + (g.target ? " · target " + esc(fd(g.target)) : "") +
@@ -580,7 +580,7 @@
   var origView = window.view;
   window.view = function () { return state.view === "maint" ? (IS_ADMIN ? viewMaint() : viewMaintRes()) : origView(); };
 
-  // Adds the Maintenance button to the side menu, right after Grievances.
+  // Adds the Maintenance button to the side menu, right after Complaints.
   var origMount = window.mountApp;
   window.mountApp = function (app, html) {
     var tag = IS_ADMIN ? (dueCount() ? dueCount() + " due" : "") : "";

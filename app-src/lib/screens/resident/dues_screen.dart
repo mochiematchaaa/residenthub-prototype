@@ -90,7 +90,7 @@ class _ResDuesState extends State<ResDues> {
         final err = app.submitProof(v['method'] as String, v['ref'] as String, v['amount'] as String, due: due);
         if (err == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) msg(context, 'Sent. The administrator will confirm your payment.');
+            if (context.mounted) msg(context, 'Sent. The administrator will verify your payment.');
           });
         }
         return err;
@@ -451,8 +451,8 @@ class _ResDuesState extends State<ResDues> {
                 for (final p in app.myProofs)
                   ListTile(
                     title: Text('${p.method} · ${peso(p.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text('Ref. ${p.reference} · ${p.date}'),
-                    trailing: Pill(p.status),
+                    subtitle: Text('Ref. ${p.reference} · ${p.date}${p.status == 'Rejected' && p.reason.isNotEmpty ? '\nReason: ${p.reason}' : ''}'),
+                    trailing: Pill(p.status == 'Confirmed' ? 'Verified' : p.status),
                   ),
               ],
             ),

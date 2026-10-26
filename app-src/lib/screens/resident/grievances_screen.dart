@@ -17,19 +17,19 @@ class ResGrievances extends StatelessWidget {
       builder: (context, _) {
         final list = app.myGrievances;
         return SubPage(
-          title: 'Grievances',
+          title: 'Complaints',
           subtitle: 'Submit a concern and track its status. The association will follow up here.',
           fab: FloatingActionButton.extended(
             backgroundColor: lav,
             foregroundColor: ink,
             onPressed: () => showFormSheet(
               context,
-              title: 'Submit a grievance',
+              title: 'Submit a complaint',
               fields: const [
                 FieldSpec('title', 'Subject', hint: 'e.g. Leaking pipe in the hallway'),
                 FieldSpec('body', 'Details', hint: 'Describe the concern', lines: 4),
               ],
-              submit: 'Submit grievance',
+              submit: 'Submit complaint',
               onSubmit: (v) {
                 final t = (v['title'] as String).trim();
                 if (t.isEmpty) return 'Add a subject so the office knows what this is about.';
@@ -41,7 +41,7 @@ class ResGrievances extends StatelessWidget {
             label: const Text('New'),
           ),
           children: [
-            if (list.isEmpty) const EmptyBox('No grievances submitted yet.', icon: Icons.sentiment_satisfied_alt_outlined),
+            if (list.isEmpty) const EmptyBox('No complaints submitted yet.', icon: Icons.sentiment_satisfied_alt_outlined),
             for (final g in list)
               RCard(
                 child: Column(

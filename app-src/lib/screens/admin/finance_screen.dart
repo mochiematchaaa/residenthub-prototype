@@ -70,6 +70,32 @@ class _AdminFinanceState extends State<AdminFinance> {
     if (mounted) msg(context, '${hits.length} payment${hits.length > 1 ? 's' : ''} recorded from the file.');
   }
 
+  /// Another submission (any unit) that used the same payment method and reference number, or null.
+  PaymentProof? _duplicateOf(PaymentProof p) {
+    if (p.reference.trim().isEmpty || p.reference == '—') return null;
+    for (final o in app.proofs) {
+      if (o.id != p.id && o.status != 'Rejected' && o.method == p.method && o.reference.toLowerCase() == p.reference.toLowerCase()) return o;
+    }
+    return null;
+  }
+
+  /// Rejects a submission: the administrator gives the reason, and the resident sees it.
+  void _reject(PaymentProof p) {
+    showFormSheet(
+      context,
+      title: 'Reject payment details',
+      subtitle: '${p.unit} · ${p.method} · Ref. ${p.reference}. Tell the resident what is wrong. They can send the correct details. The rejected submission stays in the record with your reason and gets no receipt.',
+      fields: const [FieldSpec('reason', 'Reason', hint: 'e.g. Reference number not found. Please check it.', lines: 3)],
+      submit: 'Reject',
+      onSubmit: (v) {
+        final reason = (v['reason'] as String).trim();
+        if (reason.isEmpty) return 'Enter the reason so the resident knows what to correct.';
+        app.rejectProof(p, reason);
+        return null;
+      },
+    );
+  }
+
   void _recordPayment(Due d) {
     final methods = [for (final m in app.payMethods) m.name];
     showFormSheet(
@@ -309,7 +335,7 @@ class _AdminFinanceState extends State<AdminFinance> {
                 Row(children: [
                   const IconBadge(Icons.fact_check_outlined, accent: true),
                   const SizedBox(width: 12),
-                  Expanded(child: Text('Payment proofs to check', style: hd(17))),
+                  Expanded(child: Text('Payments to verify', style: hd(17))),
                 ]),
                 const SizedBox(height: 4),
                 for (final p in pendingProofs) ...[
@@ -317,13 +343,18 @@ class _AdminFinanceState extends State<AdminFinance> {
                   Text('${p.unit} · ${p.payer}', style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text('${p.method} · Ref. ${p.reference} · ${p.date}', style: TextStyle(color: muted(context), fontSize: 12.5)),
+                  if (_duplicateOf(p) != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('Duplicate reference: also sent by ${_duplicateOf(p)!.unit}', style: const TextStyle(color: Color(0xFF8A6D00), fontSize: 12.5, fontWeight: FontWeight.w700)),
+                    ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Text(peso(p.amount), style: hd(17)),
                       const Spacer(),
                       TextButton(
-                        onPressed: () => app.rejectProof(p),
+                        onPressed: () => _reject(p),
                         child: const Text('Reject'),
                       ),
                       const SizedBox(width: 6),
@@ -332,9 +363,9 @@ class _AdminFinanceState extends State<AdminFinance> {
                         onPressed: () {
                           final rec = app.confirmProof(p);
                           final slot = p.forText == parkingPayFor ? app.slotOf(p.unit) : null;
-                          msg(context, slot != null ? 'Payment confirmed. ${slot.id} is now assigned to ${p.unit}. Receipt ${rec.receiptNo} issued.' : 'Payment confirmed. Receipt ${rec.receiptNo} issued.');
+                          msg(context, slot != null ? 'Payment verified. ${slot.id} is now assigned to ${p.unit}. Receipt ${rec.receiptNo} issued.' : 'Payment verified. Receipt ${rec.receiptNo} issued.');
                         },
-                        child: const Text('Confirm'),
+                        child: const Text('Verify'),
                       ),
                     ],
                   ),

@@ -102,9 +102,7 @@
     ] });
     var AM = [
       { id: "pool", name: "Swimming Pool", open: "06:00", close: "20:00", mins: 120, note: "Free for residents. Guests pay ₱150 per visit, collected at the gate." },
-      { id: "hall", name: "Function Hall", open: "08:00", close: "22:00", mins: 120, note: "Good for up to 60 guests. Clean the hall after use." },
-      { id: "gym", name: "Gym", open: "06:00", close: "22:00", mins: 120, note: "Bring a towel and wipe the equipment after use." },
-      { id: "game", name: "Game Room", open: "10:00", close: "22:00", mins: 120, note: "Billiards, table tennis and board games." }
+      { id: "hall", name: "Function Hall", open: "08:00", close: "22:00", mins: 120, note: "Good for up to 60 guests. Clean the hall after use." }
     ];
     R("setting", "amenities", "", { list: AM });
     R("setting", "directory", "", {
@@ -231,7 +229,7 @@
     book("Unit 3B", 0, 2, 6, "Approved"); book("Unit 3B", 1, 0, 3, "Pending"); book("Unit 3B", 0, 4, -6, "Approved");
     var n = 0, guard = 0;
     while (n < 52 && guard++ < 600) {
-      var u = pick(withAcc), off = ri(-12, 14), ai = Math.floor(rnd() * 4), si = Math.floor(rnd() * slotCount(AM[ai])), status;
+      var u = pick(withAcc), off = ri(-12, 14), ai = Math.floor(rnd() * 2), si = Math.floor(rnd() * slotCount(AM[ai])), status;
       var x = rnd();
       status = off < 0 ? (x < 0.85 ? "Approved" : "Denied") : (x < 0.55 ? "Approved" : x < 0.88 ? "Pending" : "Denied");
       if (book(u.label, ai, si, off, status)) n++;
@@ -268,8 +266,8 @@
     var EQX = {
       "E-01": ["", 0, "LiftCare Services", -60], "E-02": ["", 0, "LiftCare Services", 20], "E-03": ["", 0, "AquaFlow Trading", 300], "E-04": ["", 0, "PowerPro Gensets", 200],
       "E-05": ["", 0, "SafeGuard Fire Systems", 400], "E-06": ["", 0, "SafeGuard Fire Systems", null], "E-07": ["Swimming Pool", 1, "AquaFlow Trading", 150],
-      "E-08": ["Gym", 0, "FitGear Supply", -30], "E-09": ["", 0, "CoolAir Services", 90], "E-10": ["", 0, "SecureTech", 10], "E-11": ["Gym", 0, "AquaFlow Trading", -200],
-      "E-12": ["", 0, "SecureTech", 260], "E-13": ["Game Room", 1, "FitGear Supply", null]
+      "E-08": ["", 0, "FitGear Supply", -30], "E-09": ["", 0, "CoolAir Services", 90], "E-10": ["", 0, "SecureTech", 10], "E-11": ["", 0, "AquaFlow Trading", -200],
+      "E-12": ["", 0, "SecureTech", 260], "E-13": ["", 0, "FitGear Supply", null]
     };
     var equipName = {};
     EQUIP.forEach(function (x) {
@@ -366,7 +364,7 @@
        "Load sample data" in the tools panel brings the made-up data back. */
     var sample = false; try { sample = localStorage.getItem("__rhdemo_mode") === "sample"; } catch (e) { }
     if (!sample) {
-      users = users.filter(function (u) { return u.id === "demo-admin" || u.id === "demo-u2"; });
+      users = users.filter(function (u) { return u.id === "demo-admin" || u.email === "resident@demo.test"; });
       recs = recs.filter(function (r) { return r.kind === "setting" || (r.kind === "unit" && r.id === "Unit 3B"); });
     }
     return { seedDay: dk(now), empty: !sample, users: users, records: recs, seq: 0 };

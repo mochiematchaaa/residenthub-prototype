@@ -62,8 +62,8 @@ function notifs() {
   var over = myOpenDues().filter(function (r) { return isOverdue(r.v); });
   if (over.length) out.push([over.length === 1 ? "A charge is overdue: " + over[0].v.note + "." : over.length + " charges are overdue.", "bad", "dues"]);
   myProofs().slice(0, 3).forEach(function (r) {
-    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was confirmed. The receipt is under Dues.", "good", "dues"]);
-    else if (r.v.status === "Rejected") out.push(["Your payment (ref. " + r.v.reference + ") could not be confirmed. Please check the reference number.", "bad", "dues"]);
+    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was verified. The receipt is under Dues.", "good", "dues"]);
+    else if (r.v.status === "Rejected") out.push(["Your payment (ref. " + r.v.reference + ") was rejected" + (r.v.reason ? ": " + String(r.v.reason).replace(/[.\s]+$/, "") : " (please check the reference number)") + ". You can send the correct details.", "bad", "dues"]);
   });
   if (u.usageStatus === "approved") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " was approved.", "good", "rental"]);
   else if (u.usageStatus === "rejected") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " was not approved. " + (u.usageRemark || ""), "bad", "rental"]);
@@ -89,7 +89,7 @@ function titles() {
     events: ["Community events", "See what is coming up and tell us you are going."],
     polls: ["Polls & voting", "Have your say on community decisions. One vote per unit."],
     directory: ["Directory", "Who to call, house rules, and answers to common questions."],
-    gr: ["Grievances", "Submit a concern and track its status."],
+    gr: ["Complaints", "Submit a concern and track its status."],
     docs: ["Community documents", "Files shared by the association."],
     rental: ["Unit status", "Renting out your unit or running a business from it? Declare it here."],
     settings: ["Settings", "Manage your profile, password, appearance, and where you're signed in."]
@@ -120,7 +120,7 @@ function render() {
   keepFocus(function () {
     mountApp(app, '<div class="shell"><aside class="side"><div class="side-brand"><img src="logo.jpg" alt=""><span>ResidentHub</span></div>' +
       '<div class="side-label">General</div><nav>' + navBtn("home", "Home") + navBtn("book", "Book a facility") + navBtn("res", "Reservations") + navBtn("dues", "Dues") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("events", "Events") + "</nav>" +
-      '<div class="side-label">Community</div><nav>' + navBtn("polls", "Polls") + navBtn("directory", "Directory") + navBtn("gr", "Grievances") + navBtn("docs", "Documents") + "</nav>" +
+      '<div class="side-label">Community</div><nav>' + navBtn("polls", "Polls") + navBtn("directory", "Directory") + navBtn("gr", "Complaints") + navBtn("docs", "Documents") + "</nav>" +
       '<div class="side-label">Account</div><nav>' + navBtn("rental", "Unit status") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><div class="side-user"><span class="avatar">' + esc(initials(myName())) + "</span><span><b>" + esc(myName()) + "</b><small>" + esc(myUnit()) + "</small></span></div>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>Log out</span></button></div></aside>" +
@@ -145,7 +145,7 @@ function viewHome() {
   var u = myRec(), open = myOpenDues(), bal = balanceFor(myUnit()), next = open[0], nb = nextBooking();
   var going = list("rsvp").filter(function (r) { return r.unit === myUnit(); }).length;
   var toVote = pollsAll().filter(function (p) { return p.open && myVote(p.id) === undefined; }).length;
-  var quick = [["Book a facility", "book"], ["Vote in polls", "polls"], ["See events", "events"], ["Declare unit usage", "rental"], ["Submit a grievance", "gr"]];
+  var quick = [["Book a facility", "book"], ["Vote in polls", "polls"], ["See events", "events"], ["Declare unit usage", "rental"], ["Submit a complaint", "gr"]];
   var anns = publishedAnns().slice(0, 4), ns = notifs().slice(0, 5);
   var unitNo = String(myUnit()).replace(/^Unit\s*/i, "");
   return '<div class="sc-grid">' +
@@ -465,7 +465,7 @@ function howToPayHtml() {
     return '<div style="padding:8px 0;border-top:1px solid var(--border2)"><b style="font-size:14px">' + esc(m.name) + '</b><div style="font-size:12.5px;color:var(--muted);white-space:pre-line">' + esc(m.details) + "</div></div>";
   }).join("") + "</div>";
 }
-// Sends the payment proof (the admin confirms it).
+// Sends the payment proof (the admin verifies it).
 function submitPaymentProof() {
   var amount = parseFloat(state.payAmt), ref = state.payRef.trim();
   if (!state.payFor) return toast("Choose what the payment is for.");
@@ -490,8 +490,8 @@ function myPaymentsHtml() {
   var l = myProofs();
   return '<div class="card"><h2 style="font-size:17px;margin-bottom:8px">My payments</h2>' + (l.length ? l.map(function (r) {
     var p = r.v;
-    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b style="font-size:14px">' + esc(p.forText || "") + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + "</div>" + (p.receiptNo ? '<div style="font-size:12.5px;color:var(--muted)">Receipt ' + esc(p.receiptNo) + "</div>" : "") +
-      '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="chip ' + chipFor(p.status) + '">' + esc(p.status) + "</span>" + (p.status === "Confirmed" ? '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Receipt</button>' : "") + "</div></div>";
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b style="font-size:14px">' + esc(p.forText || "") + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + "</div>" + (p.receiptNo ? '<div style="font-size:12.5px;color:var(--muted)">Receipt ' + esc(p.receiptNo) + "</div>" : "") + (p.status === "Rejected" && p.reason ? '<div style="font-size:12.5px;color:#b3261e">Reason: ' + esc(p.reason) + "</div>" : "") +
+      '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="chip ' + chipFor(p.status) + '">' + esc(statusText(p.status)) + "</span>" + (p.status === "Confirmed" ? '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Receipt</button>' : "") + "</div></div>";
   }).join("") : '<p style="margin:0;font-size:13px;color:var(--muted)">No payments sent yet. After you pay, send the details above.</p>') + "</div>";
 }
 // Parking slots in natural order.
@@ -515,7 +515,7 @@ function viewParkingPage() {
   else if (req && pick) {
     var st = proof ? (proof.v.status === "Confirmed" ? 3 : 2) : 1;
     var steps = '<div class="rental-steps" style="margin:14px 0 8px"><div class="rental-step done"><div class="dot">✓</div><div class="lbl">Slot chosen</div></div><div class="rental-step ' + (st === 1 ? "current" : "done") + '"><div class="dot">' + (st === 1 ? "2" : "✓") + '</div><div class="lbl">Pay ' + (amount ? peso(amount) : "the rental") + '</div></div><div class="rental-step ' + (st === 3 ? "done" : st === 2 ? "current" : "") + '"><div class="dot">' + (st === 3 ? "✓" : "3") + '</div><div class="lbl">Office approves</div></div></div>';
-    var msg = st === 1 ? "Pay the rental, then send the payment details. The slot is held for you until the office decides." : st === 2 ? "Payment details sent (ref. " + esc(proof.v.reference) + "). The office will confirm and assign the slot." : "Payment confirmed. The office will assign the slot.";
+    var msg = st === 1 ? "Pay the rental, then send the payment details. The slot is held for you until the office decides." : st === 2 ? "Payment details sent (ref. " + esc(proof.v.reference) + "). The office will verify and assign the slot." : "Payment verified. The office will assign the slot.";
     hero = '<div class="card"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="park-big" style="width:72px;height:72px;font-size:22px;background:var(--warn-bg);color:var(--warn-fg)">' + esc(pick) + '</div><div style="flex:1 1 220px"><h2 style="font-size:19px;margin:0 0 2px">Slot ' + esc(pick) + ' reserved for you</h2><p class="hint" style="margin:0">' + (amount ? "Charge: <b>" + peso(amount) + "</b> · " + esc(parkPlanText(rv.plan, rv.days)) : "No rate set yet") + "</p></div></div>" + steps +
       '<p class="hint" style="margin:0 0 12px">' + msg + '</p><div style="display:flex;gap:10px;flex-wrap:wrap">' + (st === 1 && amount ? '<button class="btn primary" onclick="payForParking()">Pay now</button>' : "") + (st === 1 ? '<button class="btn" onclick="cancelParkingRequest()">Cancel reservation</button>' : "") + "</div></div>";
   } else if (req) hero = '<div class="card park-hero warn"><div class="park-big">…</div><div><h2 style="font-size:19px;margin:0 0 2px">Request sent</h2><p class="hint" style="margin:0 0 10px">The office will assign you a slot when one is free. You will get a notice here.</p><button class="btn" onclick="cancelParkingRequest()">Cancel my request</button></div></div>';
@@ -529,7 +529,7 @@ function viewParkingPage() {
   }).join("");
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero +
     (slots.length ? '<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="font-size:19px">Parking map</h2><span class="hint" style="margin:0">' + free + " of " + slots.length + ' free' + (canPick ? " · tap a free slot" : "") + '</span></div><div class="pk-grid">' + grid + '</div><div class="pk-legend"><span><i class="free"></i>Free</span><span><i class="held"></i>Held</span><span><i class="taken"></i>Taken</span>' + (mine || pick ? '<span><i class="mine"></i>Yours</span>' : "") + "</div></div>" : "") +
-    '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">How it works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tap a free slot on the map. The slot is held for you.</li><li>You choose a monthly or daily rental, and it shows up as a charge. Pay at the office, by bank transfer, GCash or Maya, then send the payment details.</li><li>When the office confirms your payment, the slot is yours. You get your receipt under Dues.</li></ol></div></div></div>';
+    '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">How it works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tap a free slot on the map. The slot is held for you.</li><li>You choose a monthly or daily rental, and it shows up as a charge. Pay at the office, by bank transfer, GCash or Maya, then send the payment details.</li><li>When the office verifies your payment, the slot is yours. You get your receipt under Dues.</li></ol></div></div></div>';
 }
 // Requests a parking slot.
 function reserveSlot(id) {
@@ -612,14 +612,14 @@ function castVote(id) {
 }
 
 /* ==========================================================================
-   Directory, grievances, documents
+   Directory, complaints, documents
    ========================================================================== */
 var FAQ = [
   ["How do I book the pool or the Function Hall?", "Open Book a facility, pick the place, tap an open time slot and send your request. The office approves it and you will see the result under Reservations."],
   ["When are monthly dues due?", "Your balance, due dates and history are under Dues."],
   ["I rent out my unit. What do I need to do?", "Open Unit status and declare how your unit is used. Long-term leases are saved right away. Short-term rentals and home businesses need the administrator's approval."],
-  ["How do I request motor parking?", "Open Parking, tap a free slot on the map and pay the monthly rental. When the office confirms your payment, the slot is yours."],
-  ["How do I report a problem in the building?", "Use Grievances to describe the concern. You can follow its status from Open to In progress to Resolved."]
+  ["How do I request motor parking?", "Open Parking, tap a free slot on the map and pay the monthly rental. When the office verifies your payment, the slot is yours."],
+  ["How do I report a problem in the building?", "Use Complaints to describe the concern. You can follow its status from Open to In progress to Resolved."]
 ];
 // The saved contacts and house rules.
 function directory() { var d = setting("directory"); return { contacts: d.contacts || [], rules: d.rules || [] }; }
@@ -632,18 +632,18 @@ function viewDirectory() {
     '<div class="two-lists"><section><div class="sec-head"><h2>House rules</h2></div><div class="lrows">' + (d.rules.map(function (r) { return '<div class="lrow rule"><span class="lmain"><b>' + esc(r[0]) + "</b><small>" + esc(r[1]) + "</small></span></div>"; }).join("") || '<p class="empty">The office has not added house rules yet.</p>') + "</div></section>" +
     '<section><div class="sec-head"><h2>Questions we hear a lot</h2></div><div class="faq">' + FAQ.map(function (f) { return "<details><summary>" + esc(f[0]) + "</summary><p>" + esc(f[1]) + "</p></details>"; }).join("") + "</div></section></div>";
 }
-// PAGE: Grievances.
+// PAGE: Complaints.
 function viewGr() {
   var all = newest(list("grievance")).filter(function (r) { return r.unit === myUnit(); }), names = ["Open", "In progress", "Resolved"];
-  return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a grievance</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed.</p>' +
-    '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"></textarea></label><button class="btn primary" style="margin-top:4px" onclick="submitGr()">Submit grievance</button></div></div>' +
-    '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">My grievances</h2>' + (all.length === 0 ? '<div style="padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)">No grievances submitted yet.</div>' :
+  return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a complaint</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed.</p>' +
+    '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"></textarea></label><button class="btn primary" style="margin-top:4px" onclick="submitGr()">Submit complaint</button></div></div>' +
+    '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">My complaints</h2>' + (all.length === 0 ? '<div style="padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)">No complaints submitted yet.</div>' :
       all.map(function (r) {
         var g = r.v, s = Math.min(2, Math.max(0, Number(g.stage) || 0));
         return '<div style="padding:12px 0;border-top:1px solid var(--border2)"><div style="font-weight:700;font-size:15px">' + esc(g.title) + '</div><div style="font-size:13px;color:var(--muted);margin:2px 0 6px">' + esc(g.body) + '</div><span class="chip ' + (s === 2 ? "good" : s === 1 ? "warn" : "info") + '">' + names[s] + "</span></div>";
       }).join("")) + "</div></div>";
 }
-// Sends a grievance to the admin.
+// Sends a complaint to the admin.
 function submitGr() {
   var title = document.getElementById("grTitle").value.trim();
   if (!title) return toast("Enter a subject first.");
@@ -651,8 +651,8 @@ function submitGr() {
   act(async function () {
     var id = nextId();
     await put("grievance", id, myUnit(), { id: id, title: title, body: body, by: myUnit(), stage: 0 });
-    logAct("Grievance sent, " + myUnit() + ": " + title, "Requests");
-    toast("Grievance sent. The office will review it.");
+    logAct("Complaint sent, " + myUnit() + ": " + title, "Requests");
+    toast("Complaint sent. The office will review it.");
   });
 }
 // PAGE: Documents.
@@ -786,7 +786,7 @@ function changePasswordForm() {
 
 /* ---------- search and bell ---------- */
 function searchIndex() {
-  var pages = [["Book a facility", "book"], ["My reservations", "res"], ["Dues and payments", "dues"], ["Motor parking", "parking"], ["Community events", "events"], ["Polls", "polls"], ["Directory", "directory"], ["Grievances", "gr"], ["Documents", "docs"], ["Unit status", "rental"], ["Settings", "settings"]];
+  var pages = [["Book a facility", "book"], ["My reservations", "res"], ["Dues and payments", "dues"], ["Motor parking", "parking"], ["Community events", "events"], ["Polls", "polls"], ["Directory", "directory"], ["Complaints", "gr"], ["Documents", "docs"], ["Unit status", "rental"], ["Settings", "settings"]];
   var d = directory();
   return [].concat(
     list("event").map(function (r) { return { t: esc(r.v.title), s: esc((r.v.date || "") + " · " + (r.v.place || "")), tag: "Event", v: "events" }; }),

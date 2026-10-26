@@ -155,7 +155,7 @@ class AdminHome extends StatelessWidget {
                 onTap: () => adminJump(context, 12),
               ),
               ImageTile(
-                title: 'Grievances',
+                title: 'Complaints',
                 metric: '${app.openGrievances}',
                 subtitle: 'open concern(s)',
                 image: 'assets/images/need_grievances.png',
@@ -271,7 +271,7 @@ class AdminHome extends StatelessWidget {
             child: app.activityLog.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text('Nothing yet. Bookings, payments, grievances and announcements appear here as they happen.',
+                    child: Text('Nothing yet. Bookings, payments, complaints and announcements appear here as they happen.',
                         style: TextStyle(color: muted(context), fontSize: 13, height: 1.35)),
                   )
                 : Column(

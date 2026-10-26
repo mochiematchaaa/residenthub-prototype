@@ -520,7 +520,7 @@ function downloadReceipt(p) {
 function receiptFor(kind, id) {
   var r = getRow(kind, id);
   if (!r) return toast("Receipt not found.");
-  if (kind === "proof" && r.value.status !== "Confirmed") return toast("The receipt is available once the office confirms the payment.");
+  if (kind === "proof" && r.value.status !== "Confirmed") return toast("The receipt is available once the office verifies the payment.");
   downloadReceipt(r.value);
 }
 
@@ -580,6 +580,8 @@ function openInfo(title, bodyHtml) {
   openModal("<h2>" + esc(title) + "</h2>" + bodyHtml + '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">Done</button></div>');
 }
 // Asks 'are you sure?' and runs fn only if the user confirms.
+/* The paper calls a checked payment "Verified"; the stored value stays "Confirmed" so older records keep working. */
+function statusText(s) { return s === "Confirmed" ? "Verified" : s; }
 function confirmBox(title, text, label, fn, danger) {
   openForm({ title: title, intro: esc(text), fields: [], submit: label, onSubmit: async function () { return await fn(); } });
   if (danger) { var b = $("#modal button[type=submit]"); if (b) b.style.background = "#A02B1D"; }

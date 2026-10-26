@@ -77,7 +77,7 @@ void startDemo(Role role) {
     maint.appRef = app;
     app.closedForMaintenance = (name) => maint.closureOf(name) != null;
   }
-  if (admin) app.setAccounts([for (final a in _demoAccounts()) if (kSampleData || a.id == 'demo-u2') a]);
+  if (admin) app.setAccounts([for (final a in _demoAccounts()) if (kSampleData || a.unit == kDemoResidentUnit) a]);
   app.changed();
 }
 
@@ -303,8 +303,6 @@ List<CRow> _demoRows() {
   const amenities = <Map<String, dynamic>>[
     {'id': 'pool', 'name': 'Swimming Pool', 'open': '06:00', 'close': '20:00', 'mins': 120, 'note': 'Free for residents. Guests pay ₱150 per visit, collected at the gate.'},
     {'id': 'hall', 'name': 'Function Hall', 'open': '08:00', 'close': '22:00', 'mins': 120, 'note': 'Good for up to 60 guests. Clean the hall after use.'},
-    {'id': 'gym', 'name': 'Gym', 'open': '06:00', 'close': '22:00', 'mins': 120, 'note': 'Bring a towel and wipe the equipment after use.'},
-    {'id': 'game', 'name': 'Game Room', 'open': '10:00', 'close': '22:00', 'mins': 120, 'note': 'Billiards, table tennis and board games.'},
   ];
   r('setting', 'amenities', '', {'list': amenities});
   r('setting', 'directory', '', {
@@ -547,7 +545,7 @@ List<CRow> _demoRows() {
   while (made < 52 && tries++ < 600) {
     final u = _pick(withAcc);
     final off = _ri(-12, 14);
-    final ai = (_rnd() * 4).floor();
+    final ai = (_rnd() * 2).floor();
     final si = (_rnd() * slotCount(amenities[ai])).floor();
     final x = _rnd();
     final status = off < 0 ? (x < 0.85 ? 'Approved' : 'Denied') : (x < 0.55 ? 'Approved' : x < 0.88 ? 'Pending' : 'Denied');
@@ -703,7 +701,7 @@ List<CRow> _demoRows() {
     ['Booking denied, ', 'Facilities'],
     ['Account created for ', 'Access'],
     ['Unit usage declaration received, ', 'Units'],
-    ['Grievance in progress: ', 'Requests'],
+    ['Complaint in progress: ', 'Requests'],
     ['Parking rented to ', 'Parking'],
   ];
   const fixedActs = <List<String>>[

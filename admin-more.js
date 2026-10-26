@@ -1,4 +1,4 @@
-/* Administrator dashboard — finance, expenses, reports, grievances and documents, parking,
+/* Administrator dashboard — finance, expenses, reports, complaints and documents, parking,
    rentals, activity log, access, settings, profile, search and notifications. */
 
 /* ==========================================================================
@@ -46,11 +46,14 @@ function viewFin() {
   var methods = payMethods();
   var rate = setting("dues_rate").rate, mrate = setting("motor_rate").rate, drate = setting("motor_rate_daily").rate;
   return '<div class="grid cols-4">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value">' + esc(s[1]) + "</div></div>"; }).join("") + "</div>" +
-    '<div class="card" style="margin-top:16px"><h2>Payments to verify</h2><p class="hint">Residents pay at the office, by bank, GCash or Maya, then send the amount, method and reference number. Check them against your records, then confirm to issue a receipt.</p>' +
+    '<div class="card" style="margin-top:16px"><h2>Payments to verify</h2><p class="hint">Residents pay at the office, by bank, GCash or Maya, then send the amount, method and reference number. Check them against your records, then verify to issue a receipt. If the details are wrong, reject them and give the reason.</p>' +
     (proofs.length ? proofs.map(function (r) {
       var p = r.v;
+      // the same reference number and method already used by another submission (any unit) is flagged
+      var dup = list("proof").filter(function (o) { return String(o.id) !== String(r.id) && o.v.status !== "Rejected" && p.reference && p.reference !== "—" && String(o.v.reference).toLowerCase() === String(p.reference).toLowerCase() && o.v.method === p.method; })[0];
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b>' + esc(p.unit) + " · " + esc(p.payer) + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.forText || "") + " · " + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + " · " + esc(p.date) +
-        '</div></div><div style="display:flex;gap:8px"><button class="btn" onclick="rejectProof(\'' + escAttr(r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(r.id) + '\')">Confirm</button></div></div>';
+        (dup ? ' <span class="chip warn" title="This reference number was already submitted">Duplicate reference · also sent by ' + esc(dup.v.unit) + "</span>" : "") +
+        '</div></div><div style="display:flex;gap:8px"><button class="btn" onclick="rejectProof(\'' + escAttr(r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(r.id) + '\')">Verify</button></div></div>';
     }).join("") : '<p class="hint" style="margin:6px 0 0">Nothing waiting. New submissions from residents appear here right away.</p>') + "</div>" +
     '<div class="fin-grid"><div class="fin-main">' +
     '<div class="card"><h2>Collection summary</h2><p class="hint">Money collected each month of ' + year + ", in pesos.</p>" + barChart(perMonth, "₱") + "</div>" +
@@ -131,7 +134,7 @@ function recordPayment() {
     toast("Receipt " + r.no + " issued.");
   });
 }
-// Confirms a resident's payment proof and issues the receipt.
+// Verifies a resident's payment proof and issues the receipt.
 function confirmProof(id) {
   var row = getRow("proof", id);
   if (!row || row.value.status !== "Pending") return;
@@ -161,17 +164,27 @@ function confirmProof(id) {
         assigned = p.slot;
       }
     }
-    toast(assigned ? "Payment confirmed. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment confirmed. Receipt " + p.receiptNo + " is ready for " + p.unit + ".");
+    toast(assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Receipt " + p.receiptNo + " is ready for " + p.unit + ".");
   });
 }
-// Rejects a payment proof with a reason.
+// Rejects a payment proof. The administrator gives a reason; it is kept with the submission and shown to the resident.
 function rejectProof(id) {
   var row = getRow("proof", id);
   if (!row || row.value.status !== "Pending") return;
-  act(async function () {
-    await put("proof", id, row.unit, Object.assign({}, row.value, { status: "Rejected" }));
-    logAct("Payment reference not confirmed, " + row.value.unit, "Finance");
-    toast("Payment details rejected. The resident will see this.");
+  openForm({
+    title: "Reject payment details",
+    intro: "Tell the resident what is wrong, for example a wrong reference number or amount. They can then send the correct details. The rejected submission stays in the record with your reason, does not count toward the balance and gets no receipt.",
+    submit: "Reject",
+    fields: [{ name: "reason", label: "Reason", type: "textarea", value: "", placeholder: "e.g. Reference number not found. Please check it." }],
+    onSubmit: async function (d) {
+      var reason = String(d.reason || "").trim();
+      if (!reason) return { error: "Enter the reason so the resident knows what to correct." };
+      var cur = getRow("proof", id);
+      if (!cur || cur.value.status !== "Pending") return { error: "This submission was already handled." };
+      await put("proof", id, cur.unit, Object.assign({}, cur.value, { status: "Rejected", reason: reason, rejectedOn: shortDate(new Date()) }));
+      logAct("Payment rejected, " + cur.value.unit + ": " + reason, "Finance");
+      toast("Payment details rejected. The resident will see the reason.");
+    }
   });
 }
 // Creates the monthly dues for the units.
@@ -358,7 +371,7 @@ function viewReports() {
     '<div class="two-col-e"><div class="card"><h2>Collections, last 6 months</h2><p class="hint">Money received, in pesos.</p>' + barChart(r.months, "₱") + "</div>" +
     '<div class="card"><h2>Dues ageing</h2><p class="hint">Unpaid charges by how long they are overdue.</p>' + (r.age.some(Boolean) ? barChart(ageing) : empty) + "</div>" +
     '<div class="card"><h2>Unit usage</h2><p class="hint">From the ' + total + " units on record.</p>" + (usage.length ? donutChart(usage, String(total), "units") : empty) + "</div>" +
-    '<div class="card"><h2>Grievances by status</h2><p class="hint">Updates as you move requests forward.</p>' + (r.gr.some(Boolean) ? donutChart(grd, String(r.gr[0] + r.gr[1] + r.gr[2]), "requests") : empty) + "</div>" +
+    '<div class="card"><h2>Complaints by status</h2><p class="hint">Updates as you move requests forward.</p>' + (r.gr.some(Boolean) ? donutChart(grd, String(r.gr[0] + r.gr[1] + r.gr[2]), "requests") : empty) + "</div>" +
     '<div class="card"><h2>Facility use this month</h2><p class="hint">Approved bookings.</p>' + (r.fac.some(function (f) { return f.value; }) ? barChart(r.fac) : empty) + "</div>" +
     '<div class="card"><h2>Poll turnout</h2><p class="hint">Units that voted in each open poll.</p>' + (openPolls.map(function (p) { return progressBar(esc(p.q), list("vote").filter(function (x) { return Number(x.v.poll) === p.id; }).length, total, "blue"); }).join("") || '<p class="empty">No open polls.</p>') + "</div></div>";
 }
@@ -373,7 +386,7 @@ function downloadReport() {
 }
 
 /* ==========================================================================
-   Grievances and documents
+   Complaints and documents
    ========================================================================== */
 function viewReq() {
   var grs = newest(list("grievance")), names = ["Open", "In progress", "Resolved"];
@@ -383,7 +396,7 @@ function viewReq() {
     var steps = names.map(function (n, k) { return '<span class="chip ' + (k === s ? (k === 2 ? "good" : k === 1 ? "warn" : "bad") : "info") + '" style="' + (k === s ? "" : "background:#F1E9D8;color:#6F6753") + '">' + n + "</span>"; }).join(" ");
     return '<div class="card"><div><div style="font:700 17px \'Bricolage Grotesque\',\'Source Sans 3\',sans-serif">' + esc(g.title) + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Reported by ' + esc(g.by || r.unit) + '</div><p style="font-size:13px;color:var(--muted);margin:8px 0 0">' + esc(g.body) + "</p></div>" +
       '<div style="display:flex;gap:6px;margin:10px 0">' + steps + "</div>" + (s < 2 ? '<button class="btn primary" style="width:100%" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start working on it" : "Mark resolved") + "</button>" : "") + "</div>";
-  }).join("") + "</div>" : emptyCard("No grievances from residents yet.")) +
+  }).join("") + "</div>" : emptyCard("No complaints from residents yet.")) +
     '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 18px"><h2 style="font-size:19px;flex-grow:1">Community documents</h2>' +
     '<select id="docCat" style="height:38px">' + DOC_CATS.map(function (c) { return "<option>" + c + "</option>"; }).join("") + '</select><select id="docAud" style="height:38px"><option value="all">Everyone</option><option value="admin">Admin only</option></select>' +
     '<input type="file" id="docFileInput" style="display:none" onchange="uploadDoc(this)"><button class="btn primary" onclick="document.getElementById(\'docFileInput\').click()">+ Upload file</button></div>' +
@@ -393,13 +406,13 @@ function viewReq() {
         (d.audience === "admin" ? '<span class="chip warn">Admin only</span>' : "") + '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="openDoc(\'' + escAttr(r.id) + '\')">View</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDoc(\'' + escAttr(r.id) + '\')">Delete</button></div>';
     }).join("") || '<div style="padding:18px;border-top:1px solid var(--border2);color:var(--muted)">No documents yet. Upload a file (up to 2 MB).</div>') + "</div>";
 }
-// Moves a grievance to its next stage.
+// Moves a complaint to its next stage.
 function advanceGr(id) {
   var row = getRow("grievance", id); if (!row) return;
   act(async function () {
     var st = Math.min(2, (Number(row.value.stage) || 0) + 1);
     await put("grievance", id, row.unit, Object.assign({}, row.value, { stage: st }));
-    logAct("Grievance " + (st === 2 ? "resolved" : "in progress") + ": " + row.value.title, "Requests");
+    logAct("Complaint " + (st === 2 ? "resolved" : "in progress") + ": " + row.value.title, "Requests");
   });
 }
 // Uploads a document for residents.
@@ -443,12 +456,12 @@ function viewParking() {
     '<div class="two-col-r" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Motor parking slots</h2><button class="btn" onclick="addSlotsForm()">+ Add slots</button></div>' +
     '<p class="hint">Tap a slot to assign it, remove the resident, rename it or delete it. Rates: ' + (rate ? peso(rate) + "/month" : "monthly not set") + " · " + (setting("motor_rate_daily").rate ? peso(setting("motor_rate_daily").rate) + "/day" : "daily not set") + " (change them under Finance).</p>" +
     '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + "</small></button>"; }).join("") + "</div></div>" +
-    '<div class="card"><h2>Requests</h2><p class="hint">Residents who reserved or asked for a slot. A reserved slot is approved when its payment is confirmed.</p>' + (reqs.map(function (r) {
+    '<div class="card"><h2>Requests</h2><p class="hint">Residents who reserved or asked for a slot. A reserved slot is approved when its payment is verified.</p>' + (reqs.map(function (r) {
       var v = r.v, pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", state;
       var btns;
       if (v.slot && v.amount) {
-        state = pr ? (pst === "Confirmed" ? '<span class="chip good">Paid</span>' : '<span class="chip warn">Payment sent · Ref ' + esc(pr.v.reference) + "</span>") : '<span class="chip info">Waiting for payment</span>';
-        btns = pr ? (pst === "Confirmed" ? '<button class="btn primary" onclick="approveParking(\'' + escAttr(r.id) + '\')">Assign ' + esc(v.slot) + "</button>" : '<button class="btn primary" onclick="confirmProof(\'' + escAttr(pr.id) + '\')">Confirm payment</button>') : '<button class="btn" onclick="approveParkingFree(\'' + escAttr(r.id) + '\')">Assign without payment</button>';
+        state = pr ? (pst === "Confirmed" ? '<span class="chip good">Verified</span>' : '<span class="chip warn">Payment sent · Ref ' + esc(pr.v.reference) + "</span>") : '<span class="chip info">Waiting for payment</span>';
+        btns = pr ? (pst === "Confirmed" ? '<button class="btn primary" onclick="approveParking(\'' + escAttr(r.id) + '\')">Assign ' + esc(v.slot) + "</button>" : '<button class="btn primary" onclick="confirmProof(\'' + escAttr(pr.id) + '\')">Verify payment</button>') : '<button class="btn" onclick="approveParkingFree(\'' + escAttr(r.id) + '\')">Assign without payment</button>';
         btns += '<button class="btn" onclick="declineParking(\'' + escAttr(r.id) + '\')">Decline</button>';
       } else {
         state = v.slot ? '<span class="chip info">Chose ' + esc(v.slot) + "</span>" : "";
@@ -837,20 +850,20 @@ function viewProfile() {
     '<div class="card"><h2>Personal information</h2><div class="kv" style="margin-top:10px"><span>Full name</span><b>' + esc(p.name || "—") + "</b><span>Role</span><b>Administrator</b><span>Email</span><b>" + esc(p.email) + "</b><span>Phone</span><b>" + esc(p.phone || "Not added yet") + '</b></div><div style="margin-top:12px"><button class="btn" onclick="changePasswordForm()">Change password</button></div></div>' +
     '<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center"><h2>Recent activity</h2><button class="btn" onclick="set({view:\'log\'})">Full log</button></div><div class="tl-list">' +
     (mine.map(function (a) { return '<div class="tl-row"><span class="tl-dot"></span><div><b>' + esc(a.v.title) + "</b><small>" + new Date(Number(a.v.at)).toLocaleString() + "</small></div></div>"; }).join("") || '<p class="empty">Nothing yet.</p>') + "</div></div></div>" +
-    '<aside class="profile-col"><div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Quick links</h2><button class="btn" onclick="set({view:\'ann\'})">Announcements</button><button class="btn" onclick="set({view:\'req\'})">Grievances &amp; files</button><button class="btn" onclick="set({view:\'fin\'})">Finance</button><button class="btn" onclick="set({view:\'settings\'})">Settings</button></div></aside></div>';
+    '<aside class="profile-col"><div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Quick links</h2><button class="btn" onclick="set({view:\'ann\'})">Announcements</button><button class="btn" onclick="set({view:\'req\'})">Complaints &amp; files</button><button class="btn" onclick="set({view:\'fin\'})">Finance</button><button class="btn" onclick="set({view:\'settings\'})">Settings</button></div></aside></div>';
 }
 
 /* ==========================================================================
    Search and notifications
    ========================================================================== */
 function searchIndex() {
-  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Grievances", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
+  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Complaints", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
   return [].concat(
     sortedUnits().map(function (r) { return { t: esc(r.id + " · " + (r.v.name || "—")), s: esc((r.v.type || "") + " · " + (r.v.contact || "")), tag: "Unit", v: "units" }; }),
     list("announcement").map(function (r) { return { t: esc(r.v.title), s: esc(r.v.body || ""), tag: "Announcement", v: "ann" }; }),
     list("event").map(function (r) { return { t: esc(r.v.title), s: esc((r.v.date || "") + " · " + (r.v.place || "")), tag: "Event", v: "ann" }; }),
     pollsAll().map(function (p) { return { t: esc(p.q), s: p.open ? "Open poll" : "Closed poll", tag: "Poll", v: "polls" }; }),
-    list("grievance").map(function (r) { return { t: esc(r.v.title), s: esc("Reported by " + (r.v.by || r.unit)), tag: "Grievance", v: "req" }; }),
+    list("grievance").map(function (r) { return { t: esc(r.v.title), s: esc("Reported by " + (r.v.by || r.unit)), tag: "Complaint", v: "req" }; }),
     list("doc").map(function (r) { return { t: esc(r.v.name), s: esc((r.v.cat || "") + " · " + (r.v.date || "")), tag: "Document", v: "req" }; }),
     DB.accounts.map(function (a) { return { t: esc(a.name), s: esc(a.role + " · " + a.email), tag: "Account", v: "manage" }; }),
     pages.map(function (p) { return { t: p[0], s: "Open this page", tag: "Page", v: p[1] }; }));
@@ -861,7 +874,7 @@ function bellItems() {
   if (c.bookings) l.push({ t: c.bookings + " booking request" + (c.bookings > 1 ? "s" : "") + " to review", s: "Facility", v: "fac" });
   if (c.proofs) l.push({ t: c.proofs + " payment" + (c.proofs > 1 ? "s" : "") + " to verify", s: "Finance", v: "fin" });
   if (c.unpaid) l.push({ t: c.unpaid + " unpaid charge" + (c.unpaid > 1 ? "s" : ""), s: "Finance", v: "fin" });
-  if (c.grievances) l.push({ t: c.grievances + " open grievance" + (c.grievances > 1 ? "s" : ""), s: "Grievances", v: "req" });
+  if (c.grievances) l.push({ t: c.grievances + " open complaint" + (c.grievances > 1 ? "s" : ""), s: "Complaints", v: "req" });
   if (c.rentals) l.push({ t: c.rentals + " unit status to review", s: "Unit status", v: "rentals" });
   if (c.parking) l.push({ t: c.parking + " parking request" + (c.parking > 1 ? "s" : ""), s: "Parking", v: "parking" });
   return l;

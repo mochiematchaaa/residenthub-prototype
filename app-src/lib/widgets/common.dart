@@ -40,6 +40,7 @@ Tone toneForStatus(String s) {
     case 'Resolved':
     case 'Published':
     case 'Confirmed':
+    case 'Verified':
       return Tone.good;
     case 'Pending':
     case 'In progress':
