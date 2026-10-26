@@ -1771,7 +1771,7 @@ class AppState extends ChangeNotifier {
   }
 
   // ---- poll categories ----
-  String? _catName(String raw, {String? except}) {
+  String? _catName(String raw) {
     final name = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (name.isEmpty) return null;
     return name;
