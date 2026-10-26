@@ -649,3 +649,15 @@ main{padding-top:10px}
 .expense-table tfoot{background:var(--head-bg)}
 @media(max-width:900px){.expense-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.expense-fields,.expense-stats{grid-template-columns:1fr}}
+
+/* Finance charges table: one tidy line per charge */
+.fin-charges{overflow-x:auto!important}
+.fin-charges table{min-width:760px}
+.fin-charges td.nw{white-space:nowrap}
+.fin-charges th:last-child{text-align:right}
+.cell-sub{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.35}
+.cell-sub .cell-sub{margin:0}
+.row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+.row-actions .btn{min-height:32px;padding:0 12px;font-size:12.5px;white-space:nowrap}
+.row-actions .btn.danger{color:#A02B1D}
+.fin-charges .cell-sub{white-space:nowrap}
