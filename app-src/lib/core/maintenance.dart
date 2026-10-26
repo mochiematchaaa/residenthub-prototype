@@ -28,6 +28,16 @@ class Equipment {
       {this.facility = '', this.closes = false, this.vendor = '', this.warranty});
 }
 
+/// Names of the two built-in task types. The administrator can add more (see MaintenanceState.addKind).
+const String kindRoutine = 'Routine', kindCompliance = 'Compliance';
+const String kindRoutineLabel = 'Routine maintenance', kindComplianceLabel = 'Permit, certificate or test';
+
+/// The text shown for a task type ('Compliance' is shown as 'Permit, certificate or test').
+String kindLabel(String k) => k == kindRoutine ? kindRoutineLabel : (k == kindCompliance ? kindComplianceLabel : k);
+
+/// The stored type for a label picked in the form (a custom type is stored as typed).
+String kindFromLabel(String l) => l == kindRoutineLabel ? kindRoutine : (l == kindComplianceLabel ? kindCompliance : l);
+
 /// A routine job that repeats, such as 'Generator test run' every 2 weeks.
 class MTask {
   final int id;
@@ -273,6 +283,37 @@ class MaintenanceState extends ChangeNotifier {
       if (due != null) existing.due = due;
       app.logActivity('Maintenance task updated: $title', 'Maintenance');
     }
+    notifyListeners();
+  }
+
+  // ---- task types
+
+  /// Types the administrator created, in the order they were added.
+  final List<String> customKinds = [];
+
+  /// Every type a task can have, as stored: the two built-in ones and the custom ones.
+  List<String> get kinds => [kindRoutine, kindCompliance, ...customKinds];
+
+  /// Adds a task type and returns the stored name (the existing one when it is already there), or null for an empty name.
+  String? addKind(String raw) {
+    var name = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) return null;
+    if (name.length > 30) name = name.substring(0, 30).trim();
+    for (final k in kinds) {
+      if (k.toLowerCase() == name.toLowerCase() || kindLabel(k).toLowerCase() == name.toLowerCase()) return k;
+    }
+    customKinds.add(name);
+    notifyListeners();
+    return name;
+  }
+
+  /// Removes a custom type. Its tasks become routine maintenance.
+  void deleteKind(String k, AppState app) {
+    if (!customKinds.remove(k)) return;
+    for (final t in tasks) {
+      if (t.kind == k) t.kind = kindRoutine;
+    }
+    app.logActivity('Task type deleted: $k', 'Maintenance');
     notifyListeners();
   }
 
