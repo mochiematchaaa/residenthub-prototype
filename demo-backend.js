@@ -85,7 +85,7 @@
       var u = U[x[0]]; if (u.status !== "Occupied") return;
       var b = byUnit[u.label]; b.usage = x[1]; b.usageStatus = (k === 3 || k === 5) ? "pending" : "approved";
       if (x[1] === "shortterm") b.usageInfo = { platform: pick(["Airbnb", "Booking.com", "Agoda"]), contact: u.person, phone: u.contact, start: dk(dayOff(-ri(30, 200))), listing: "Cozy unit with city view" };
-      else if (x[1] === "business") b.usageInfo = { bname: u.person.split(" ")[1] + " Online Shop", btype: pick(["Online selling", "Tutoring", "Home office", "Baking"]), permit: "DTI-" + ri(100000, 999999), hours: "Mon to Fri, 9 AM to 5 PM", visitors: String(ri(1, 6)), phone: u.contact };
+      else if (x[1] === "business") b.usageInfo = { bname: u.person.split(" ")[1] + " Online Shop", btype: pick(["Online selling", "Tutoring", "Home office", "Baking"]), permit: "DTI-" + ri(100000, 999999), hours: "Mon to Fri, 9 AM to 5 PM", phone: u.contact };
       else b.usageInfo = { work: pick(["New tiles in the kitchen and bathroom", "Repainting and new ceiling", "New cabinets and countertop"]), contractor: pick(["J. Villanueva Builders", "Metro Renovations", "Santos Interiors"]), phone: "0917 000 " + ri(3000, 3999), start: dk(dayOff(ri(3, 12))), end: dk(dayOff(ri(20, 45))) };
     });
     U.forEach(function (u) { R("unit", u.label, u.label, byUnit[u.label]); });

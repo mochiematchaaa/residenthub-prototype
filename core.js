@@ -79,7 +79,6 @@ var USAGE_FORMS = {
       { k: "btype", label: "Type of business", req: 1, ph: "e.g. Online selling, tutoring, home office" },
       { k: "permit", label: "Business permit number (DTI or Mayor's permit)", req: 1 },
       { k: "hours", label: "Operating hours", ph: "e.g. Mon to Fri, 9 AM to 5 PM" },
-      { k: "visitors", label: "Visitors or deliveries per day", type: "number", ph: "e.g. 5" },
       { k: "phone", label: "Contact number", req: 1, type: "tel", ph: "0917 123 4567" }
     ],
     bring: ["Copy of the business permit", "Valid ID of the owner", "Any permit needed for signs or deliveries"]
