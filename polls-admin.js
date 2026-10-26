@@ -34,7 +34,7 @@ function blankQuestion(kind) {
 }
 function newPoll(kind) {
   var end = new Date(Date.now() + (kind === "election" ? 14 : 7) * 86400000);
-  state.pollDraft = { kind: kind, titleHtml: "", descHtml: "", closeKey: dayKey(end), showResults: kind === "election" ? "closed" : "vote", questions: [blankQuestion(kind)] };
+  state.pollDraft = { kind: kind, category: kind === "election" ? "Governance & elections" : "General", titleHtml: "", descHtml: "", closeKey: dayKey(end), showResults: kind === "election" ? "closed" : "vote", questions: [blankQuestion(kind)] };
   render();
 }
 function pdSet(field, v) { state.pollDraft[field] = v; }
@@ -108,6 +108,7 @@ function pollBuilderHtml() {
     (el ? "Each unit gets one secret ballot. Residents see the results only after the election closes." : "Ask one question or several, like a form. Each unit answers once.") + '</p></div><button class="btn" onclick="cancelPoll()">Cancel</button></div>' +
     '<div class="pb-wrap"><div class="pb-main">' +
     '<div class="card pb-sec"><div class="pb-sech"><span class="pb-step">1</span><h3>Details</h3></div>' +
+    '<div class="pq-label">Category</div><select class="pb-cat" onchange="pdSet(\'category\',this.value)">' + POLL_CATEGORIES.map(function (c) { return '<option' + (d.category === c ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>" +
     '<div class="pq-label">' + (el ? "Election title" : "Poll title") + "</div>" + richEditor("title", d.titleHtml, el ? "e.g. 2026 Board of Directors election" : "e.g. Building facilities survey", true) +
     '<div class="pq-label">Description <small>optional</small></div>' + richEditor("desc", d.descHtml, "Tell residents what this is for and how to answer") + "</div>" +
     '<div class="card pb-sec"><div class="pb-sech"><span class="pb-step">2</span><h3>' + (el ? "Positions and candidates" : "Questions") + '</h3>' + (el ? '<button class="btn" style="margin-left:auto" onclick="pqBoard()">Add standard board positions</button>' : "") + "</div>" +
@@ -138,7 +139,7 @@ function publishPoll() {
   if (!d.closeKey || d.closeKey < dayKey(new Date())) return toast("Pick a closing date that is today or later.");
   act(async function () {
     var id = nextId(), p = d.closeKey.split("-");
-    await put("poll", id, "", { id: id, kind: d.kind, question: richText(d.titleHtml), titleHtml: cleanRich(d.titleHtml), descHtml: cleanRich(d.descHtml), open: true,
+    await put("poll", id, "", { id: id, kind: d.kind, category: d.category || "General", question: richText(d.titleHtml), titleHtml: cleanRich(d.titleHtml), descHtml: cleanRich(d.descHtml), open: true,
       closes: shortDate(new Date(+p[0], +p[1] - 1, +p[2])), closeKey: d.closeKey, showResults: d.showResults, options: qs[0].options, questions: qs });
     logAct((el ? "Election opened: " : "Poll published: ") + richText(d.titleHtml), "Polls");
     state.pollDraft = null; state.pollFilter = "open";
@@ -150,12 +151,12 @@ function publishPoll() {
 function viewPolls() {
   if (state.pollDraft) return pollBuilderHtml();
   var all = pollsAll(), open = all.filter(function (p) { return p.open; }).length, units = list("unit").length;
-  var shown = all.filter(function (p) { return state.pollFilter === "all" || (state.pollFilter === "open") === p.open; });
+  var shown = all.filter(function (p) { return (state.pollFilter === "all" || (state.pollFilter === "open") === p.open) && pollCatMatch(p); });
   return '<div class="filters" style="margin-bottom:4px"><button class="btn primary" onclick="newPoll(\'poll\')">+ New poll</button><button class="btn" onclick="newPoll(\'election\')">+ New election</button></div>' +
-    pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All (" + all.length + ")"]], state.pollFilter, "pollFilter") +
+    pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All (" + all.length + ")"]], state.pollFilter, "pollFilter") + pollCatFilterHtml(all) +
     '<div class="poll-list">' + (shown.map(function (p) {
       var election = p.kind === "election", hidden = election && p.open && p.showResults === "closed";
-      return '<div class="card poll-card' + (p.questions.length > 1 ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0"><span class="chip ' + (election ? "warn" : "info") + '" style="margin-bottom:8px">' + (election ? "Election" : "Poll") + '</span><h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
+      return '<div class="card poll-card' + (p.questions.length > 1 ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0">' + pollChips(p) + '<h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
         (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes " : "Closed ") + esc(p.closes) + (p.legacy ? "" : " · " + p.questions.length + (election ? " position" : " question") + (p.questions.length === 1 ? "" : "s")) + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" +
         (hidden ? '<p class="poll-note">Ballots are secret. The results stay hidden until the election closes, so nobody can see who is ahead.</p>' : pollResultsHtml(p, null, true)) +
         (units ? '<div style="margin-top:14px">' + progressBar("Units that voted", p.ballots, units, "green") + "</div>" : "") +
@@ -218,7 +219,7 @@ function pollSheets(p) {
   var byUnit = {}; votes.forEach(function (x) { byUnit[x.unit] = x; });
   var title = richText(p.titleHtml) || p.q, sheets = [];
   sheets.push(X.tableSheet({ name: "Overview", group: "System", info: "Results exported " + shortDate(new Date()), cols: [["Item", "text", { w: 30 }], ["Details", "text", { w: 64, wrap: true }]], rows: [
-    ["Title", title], ["Type", election ? "Election (secret ballot)" : "Poll"], ["Description", richText(p.descHtml)], ["Status", p.open ? "Open" : "Closed"], ["Closes", p.closes],
+    ["Title", title], ["Type", election ? "Election (secret ballot)" : "Poll"], ["Category", p.category], ["Description", richText(p.descHtml)], ["Status", p.open ? "Open" : "Closed"], ["Closes", p.closes],
     ["Results shown to residents", p.showResults === "closed" ? "Only when it closes" : "Right after they vote"], [election ? "Ballots cast" : "Responses", p.ballots], ["Units in the building", units.length], ["Units that voted", Object.keys(byUnit).length], ["Turnout", pct(Object.keys(byUnit).length, units.length)]] }));
   var rows = [];
   p.questions.forEach(function (q, i) {
