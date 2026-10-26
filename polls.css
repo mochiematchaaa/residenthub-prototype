@@ -113,3 +113,9 @@
 .pb-sum-row b{font-size:26px;min-width:34px}
 .pb-sum-row span{color:var(--muted);font-size:14px}
 @media(max-width:1100px){.pb-wrap{grid-template-columns:1fr}.pb-side{position:static}}
+/* categories */
+.poll-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip.cat{background:rgba(123,107,214,.14);color:#4B3FA0}
+label.poll-cat{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:10px;margin:12px 0 0;font-size:13px;font-weight:700;width:auto}
+.poll-cat select{min-height:38px;border-radius:12px;max-width:100%}
+.pb-cat{width:100%;max-width:360px}

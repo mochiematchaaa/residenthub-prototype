@@ -4,6 +4,7 @@
    An election is a poll whose questions are positions with candidates; the ballot is secret and the results appear when it closes.
    Each unit votes once. Older single-question polls (a plain question and a list of options) still work. */
 
+var POLL_CATEGORIES = ["General", "Facilities & amenities", "Maintenance & repairs", "Finance & budget", "Safety & security", "Events & community", "Rules & policies", "Governance & elections"];
 var POLL_TYPES = [["choice", "Multiple choice"], ["multi", "Checkboxes"], ["text", "Short answer"], ["para", "Paragraph"], ["rating", "Rating (1 to 5)"]];
 var RICH_OK = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, BR: 1, UL: 1, OL: 1, LI: 1, P: 1, DIV: 1, H3: 1 };
 
@@ -76,7 +77,7 @@ function pollsAll() {
     });
     var kind = p.kind || "poll";
     return {
-      id: id, kind: kind, legacy: !(p.questions && p.questions.length), q: p.question || qs[0].text, titleHtml: p.titleHtml || "", descHtml: p.descHtml || "",
+      id: id, kind: kind, category: p.category || (kind === "election" ? "Governance & elections" : "General"), legacy: !(p.questions && p.questions.length), q: p.question || qs[0].text, titleHtml: p.titleHtml || "", descHtml: p.descHtml || "",
       open: !!p.open && !(p.closeKey && p.closeKey < today), closes: p.closes || "—", closeKey: p.closeKey || "",
       showResults: p.showResults || (kind === "election" ? "closed" : "vote"), ballots: ballots, questions: qs, options: qs[0].opts
     };
@@ -185,3 +186,16 @@ function castVote(id) {
   if (p.kind === "election") confirmBox("Submit your ballot?", "Each unit has one ballot. It is secret and cannot be changed after you submit.", "Submit ballot", save);
   else save();
 }
+
+// The category filter above the poll list (shared by both pages).
+function pollCatFilterHtml(all) {
+  var cur = state.pollCat || "all", used = POLL_CATEGORIES.filter(function (c) { return all.some(function (p) { return p.category === c; }); });
+  all.forEach(function (p) { if (used.indexOf(p.category) < 0) used.push(p.category); });
+  if (used.length < 2) return "";
+  return '<label class="poll-cat"><span>Category</span><select onchange="set({pollCat:this.value})"><option value="all">All categories (' + all.length + ")</option>" + used.map(function (c) {
+    return '<option value="' + escAttr(c) + '"' + (cur === c ? " selected" : "") + ">" + esc(c) + " (" + all.filter(function (p) { return p.category === c; }).length + ")</option>";
+  }).join("") + "</select></label>";
+}
+function pollCatMatch(p) { return !state.pollCat || state.pollCat === "all" || p.category === state.pollCat; }
+// The little labels on a poll card: its kind and its category.
+function pollChips(p) { return '<div class="poll-chips"><span class="chip ' + (p.kind === "election" ? "warn" : "info") + '">' + (p.kind === "election" ? "Election" : "Poll") + '</span><span class="chip cat">' + esc(p.category) + "</span></div>"; }
