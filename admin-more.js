@@ -4,13 +4,19 @@
 /* ==========================================================================
    Finance
    ========================================================================== */
+var FIN_PAGE = 10;
+// Goes to another page of the charges list.
+function goFinPage(n) { state.finPage = Math.max(0, n); render(); }
 function viewFin() {
   var dues = newest(list("due")), open = dues.filter(function (d) { return !d.v.paid; });
   var outstanding = open.reduce(function (s, d) { return s + Number(d.v.amount || 0); }, 0);
   var unpaidUnits = {}; open.forEach(function (d) { unpaidUnits[d.v.unit] = 1; });
   var pays = newest(list("payment"));
   var stats = [["Collected this month", peso(monthEarnings())], ["Outstanding", peso(outstanding)], ["Units with unpaid dues", String(Object.keys(unpaidUnits).length)], ["Payments recorded", String(pays.length)]];
-  var rows = (state.finFilter === "unpaid" ? open : dues);
+  var fq = (state.finQ || "").trim().toLowerCase();
+  var shownDues = (state.finFilter === "unpaid" ? open : dues).filter(function (d) { return !fq || (d.v.unit + " " + d.v.note + " " + (d.v.name || "")).toLowerCase().indexOf(fq) >= 0; });
+  var finPages = Math.max(1, Math.ceil(shownDues.length / FIN_PAGE)), finPage = Math.min(Math.max(0, state.finPage || 0), finPages - 1);
+  var rows = shownDues.slice(finPage * FIN_PAGE, (finPage + 1) * FIN_PAGE);
   var year = new Date().getFullYear();
   var perMonth = MONTHS.map(function (m, i) {
     var total = vals("payment").filter(function (p) { return monthOf(p.date) === year * 12 + i; }).reduce(function (s, p) { return s + Number(p.amount || 0); }, 0);
@@ -31,13 +37,14 @@ function viewFin() {
     '<div class="fin-grid"><div class="fin-main">' +
     '<div class="card"><h2>Collection summary</h2><p class="hint">Money collected each month of ' + year + ", in pesos.</p>" + barChart(perMonth, "₱") + "</div>" +
     '<div class="card" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
-    '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\'})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\'})">All (' + dues.length + ')</button></div>' +
+    '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
+    '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' +
     tableRows(rows.map(function (r) {
       var d = r.v;
       return '<tr><td style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + '</td><td style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td style="font-weight:700">' + peso(Number(d.amount)) + "</td><td>" +
         (d.paid ? '<span class="chip good">Paid</span>' : '<button class="btn" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button> ' + (isOverdue(d) ? '<span class="chip bad">Overdue</span>' : "")) +
         ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteDue(\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
-    }), ["UNIT", "FOR", "DUE", "AMOUNT", "STATUS"], dues.length ? "Nothing unpaid. Everyone is up to date." : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + "</div>" +
+    }), ["UNIT", "FOR", "DUE", "AMOUNT", "STATUS"], dues.length ? (fq ? "No charge matches your search." : "Nothing unpaid. Everyone is up to date.") : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + (shownDues.length > FIN_PAGE ? pagerHtml(shownDues.length, finPage, FIN_PAGE, "goFinPage") : "") + "</div>" +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Dues settings</h2><p class="hint" style="margin:0">The monthly amount is what “Bill monthly dues” charges every unit.</p>' +
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:180px">Monthly dues per unit (₱)<input id="duesRate" type="number" min="0" step="0.01" value="' + escAttr(state.duesDraft != null ? state.duesDraft : (rate || "")) + '" oninput="state.duesDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'dues_rate\',\'duesDraft\',\'Monthly dues\')">Save amount</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (rate ? peso(rate) + " per unit" : "not set yet") + '</b></span></div>' +
