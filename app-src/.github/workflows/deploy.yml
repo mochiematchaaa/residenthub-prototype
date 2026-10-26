@@ -1,0 +1,55 @@
+name: Deploy web to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      # The demo: the same app with made-up sample data and no database (see lib/services/demo.dart).
+      # It is published next to the real app at /<repo>/demo/. If it fails to build, the real app is still deployed.
+      - name: Build demo (no database)
+        continue-on-error: true
+        run: |
+          flutter build web --release --base-href "/${{ github.event.repository.name }}/demo/" --dart-define=DEMO=true
+          rm -rf build/demo_web
+          mv build/web build/demo_web
+      - name: Build the real app
+        run: |
+          rm -rf build/web
+          flutter build web --release --base-href "/${{ github.event.repository.name }}/" \
+            --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }}
+      - name: Add the demo to the site
+        run: |
+          if [ -d build/demo_web ]; then mv build/demo_web build/web/demo; echo "demo added"; else echo "no demo build"; fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

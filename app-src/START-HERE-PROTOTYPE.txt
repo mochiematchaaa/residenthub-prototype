@@ -1,0 +1,20 @@
+ResidentHub app: FRONT-END PROTOTYPE (no database)
+==================================================
+This is the same app, but it never connects to Supabase or any database.
+All people, units, dues and bookings are made-up sample data kept in memory.
+Nothing is saved, and it resets when the page is closed.
+The word "demo" is not shown on screen.
+
+Run it (Windows, Flutter installed, Developer Mode on):
+  1. Double-click RUN-PROTOTYPE.bat
+     (or run: flutter run -d chrome --dart-define=PROTOTYPE=true)
+  2. On the sign-in screen, tap "Continue as Administrator" or "Continue as Resident".
+     Or type an email or mobile number, then the password.
+       Administrator: admin@demo.test or 0917 000 0000
+       Resident:      resident@demo.test or 0917 000 1108
+       Password:      Demo@1234
+
+Web build you can host or open later: double-click BUILD-PROTOTYPE-WEB.bat (output: build\web).
+
+The OFFICIAL app (with the database) is the same code run with NO --dart-define flag.
+Full notes: README.md. The official app documentation is in docs\README-official-app.md.

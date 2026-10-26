@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ResidentHub App — City Residences Condominium</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Use the ResidentHub app for City Residences: facility booking, dues, announcements and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,600;0,8..60,700;1,8..60,600&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="index.css">
+<link rel="stylesheet" href="profile-refresh.css">
+<link rel="stylesheet" href="app.css">
+<script src="app-links.js" defer></script>
+</head>
+<body class="app-page">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16"/><path d="M14 10h5a1 1 0 0 1 1 1v10"/><path d="M2.5 21h19"/><path d="M8 8h2M8 12h2M8 16h2M17 14h.01M17 17.5h.01"/></symbol>
+</svg>
+
+<header class="header scrolled">
+  <div class="container header-inner">
+    <a class="logo" href="index.html">
+      <img src="logo.jpg" alt="ResidentHub logo">
+      <span><b>ResidentHub</b><small>CITY RESIDENCES</small></span>
+    </a>
+    <ul class="menu" id="menu">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="index.html#amenities">Amenities</a></li>
+      <li><a href="index.html#about">About</a></li>
+      <li><a class="active" href="app.html">The App</a></li>
+    </ul>
+    <a class="btn btn-navy" href="index.html"><svg class="icon" style="transform:rotate(180deg)"><use href="#i-arrow"/></svg>Website</a>
+  </div>
+</header>
+
+<main>
+  <section class="app-hero">
+    <div class="container app-hero-grid">
+
+      <div>
+        <span class="eyebrow">ResidentHub App</span>
+        <h1>Sign in and use <span class="accent">ResidentHub</span></h1>
+        <p class="lead">The ResidentHub app, right here in your browser. Residents book facilities and check dues. The administrator manages units, bookings, finance and expenses.</p>
+
+        <div class="app-actions">
+          <a class="btn btn-navy" data-app-link="androidApp" href="#" rel="noopener">Download the Android app</a>
+        </div>
+
+      </div>
+
+      <div class="phone-wrap">
+        <div>
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="phone-loading">
+                <img src="logo.jpg" alt="">
+                <span>Loading the app…<br><small style="font-weight:400">The first load can take a few seconds.</small></span>
+              </div>
+              <iframe id="appFrame" title="ResidentHub app" allow="clipboard-write; fullscreen"></iframe>
+            </div>
+          </div>
+          <p class="phone-open">App not showing? <a data-app-link="webApp" href="#" target="_blank" rel="noopener">Open it in a new tab</a></p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<script>
+  // Put the app inside the phone. The address comes from app-links.js.
+  window.addEventListener("DOMContentLoaded", function () {
+    var url = window.RESIDENTHUB && window.RESIDENTHUB.webApp;
+    var frame = document.getElementById("appFrame");
+    frame.addEventListener("load", function () { frame.classList.add("ready"); });
+    if (url) frame.src = url;
+  });
+</script>
+</body>
+</html>

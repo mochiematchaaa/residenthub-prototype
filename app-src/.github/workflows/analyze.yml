@@ -1,0 +1,37 @@
+name: Analyze
+
+# Runs the Dart analyzer on every push and reports the problems as an annotation on the run,
+# so they can be read without downloading the log.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - name: Analyze
+        run: |
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1
+          code=$?
+          python3 - <<'PY'
+          import re
+          t = open('analyze.txt').read()
+          errs = [l.strip() for l in t.splitlines() if re.match(r'^\s*error\b', l)]
+          warn = [l.strip() for l in t.splitlines() if re.match(r'^\s*warning\b', l)]
+          if errs:
+              body = '\n'.join(errs + ['-- warnings --'] + warn[:40])
+              kind = 'error'
+          else:
+              body = 'No errors. ' + str(len(warn)) + ' warnings.\n' + '\n'.join(warn[:40])
+              kind = 'notice'
+          body = body.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::' + kind + ' title=analyze::' + body[:60000])
+          PY
+          exit $code

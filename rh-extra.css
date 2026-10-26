@@ -1,0 +1,265 @@
+/* Small additions for the live (Supabase) version of the dashboards. */
+.rules{list-style:none;margin:2px 0 6px;padding:0;display:grid;gap:3px;font-size:12px;color:var(--muted);text-align:left;width:100%}
+.rules li::before{content:"○ ";color:#b9b09b}
+.rules li.ok{color:var(--good-fg,#1d6b3a)}
+.rules li.ok::before{content:"✓ ";color:var(--good-fg,#1d6b3a)}
+.formerr{margin-top:12px;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:600;color:#A02B1D;background:var(--bad-bg,#fbe3de)}
+.modal form,form.modal{max-height:92vh;overflow:auto}
+.modal .fl select,.modal .fl input,.modal .fl textarea{width:100%}
+.login-form button.btn,.auth-form button.btn{width:100%}
+.login-form .btn:not(.primary),.auth-form .btn:not(.primary){height:44px}
+.card .stat-value{overflow-wrap:anywhere}
+@media(max-width:600px){#toasts{left:12px;right:12px;bottom:12px}}
+
+/* Phones and small tablets: keep the sidebar as a slim top bar (the refreshed theme made it full height) */
+@media (max-width: 900px) {
+  .side { position: static !important; height: auto !important; min-height: 0 !important; }
+  .shell { min-height: 0; }
+}
+
+/* Choose how to get a verification code */
+.chans { display: grid; gap: 10px; margin: 4px 0 2px; }
+.chan { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1.5px solid #d9dcec; border-radius: 14px; background: rgba(255,255,255,.7); cursor: pointer; text-align: left; }
+.chan input { width: 18px; height: 18px; accent-color: #6f66c8; flex: none; }
+.chan span { display: grid; gap: 2px; }
+.chan b { font-size: 14px; color: #263650; }
+.chan small { font-size: 12px; color: #6b7690; }
+.chan:has(input:checked) { border-color: #6f66c8; background: #f3f0ff; box-shadow: 0 0 0 3px #6f66c826; }
+.chan.off { opacity: .55; cursor: not-allowed; }
+.chans label.chan { flex-direction: row !important; align-items: center !important; gap: 12px !important; font-weight: 400; }
+.chans label.chan input { width: 18px !important; height: 18px !important; padding: 0 !important; margin: 0; }
+.chans label.chan span { text-align: left; }
+
+/* Phone: keep Log out in view at the end of the top bar */
+@media (max-width: 900px) {
+  .side-foot { position: sticky; right: 0; z-index: 2; padding-left: 8px !important; background: linear-gradient(90deg, rgba(88,120,170,0), #5b84a8 22%); border-radius: 0 16px 16px 0; }
+}
+
+/* Administrator sign-in uses the same building photo as the resident sign-in */
+.login-wrap { background: linear-gradient(rgba(10,32,78,.38), rgba(10,32,78,.38)), url("resident-login-bg.jpg") center/cover no-repeat !important; }
+.login-wrap::before, .login-wrap::after { display: none !important; }
+
+/* Unit rental: type cards with icons, a proper details form, and a checklist */
+.usage-card .ico{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:var(--info-bg);color:var(--info-fg);margin-bottom:4px}
+.usage-card.active .ico{background:var(--ink);color:#fff}
+.usage-sec{display:flex;align-items:center;gap:10px;font:700 15px 'Source Sans 3',sans-serif;color:var(--ink);margin:2px 0 10px}
+.usage-sec .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:var(--ink);color:#fff;font-size:12.5px}
+.uf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.uf{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.uf.wide{grid-column:1 / -1}
+.uf input,.uf select,.uf textarea{width:100%;box-sizing:border-box;height:46px;padding:0 14px;color:var(--ink);font-size:14px;font-weight:400}
+.uf textarea{height:auto;padding:10px 14px;resize:vertical}
+.req{color:#A02B1D}
+.uf-check{display:flex !important;flex-direction:row !important;align-items:flex-start;gap:10px;margin-top:4px;padding:12px 14px;border-radius:14px;background:var(--beige,rgba(0,0,0,.04));font-size:13px;font-weight:600;line-height:1.45;cursor:pointer}
+.uf-check input{margin-top:2px;width:18px;height:18px;flex:none}
+.note-box{padding:11px 14px;border-radius:14px;background:var(--warn-bg);color:var(--warn-fg);font-size:13px;line-height:1.45}
+.note-box.good{background:var(--good-bg);color:var(--good-fg)}
+.checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.checklist li{position:relative;padding-left:30px;font-size:13.5px;line-height:1.4;color:var(--ink)}
+.checklist li::before{content:"✓";position:absolute;left:0;top:-1px;width:20px;height:20px;border-radius:999px;background:var(--good-bg);color:var(--good-fg);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.rental-kv{margin-top:14px;grid-template-columns:minmax(120px,max-content) 1fr}
+.rental-kv b{font-weight:600;word-break:break-word}
+.detail-kv{margin-top:10px;font-size:13px;padding:12px 14px;grid-template-columns:minmax(110px,max-content) 1fr}
+.detail-kv b{font-weight:600;word-break:break-word}
+@media (max-width:640px){.uf-grid{grid-template-columns:1fr}.rental-kv,.detail-kv{grid-template-columns:1fr;gap:2px}.rental-kv span,.detail-kv span{margin-top:8px;font-size:12px}}
+
+/* Resident parking page */
+.park-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.park-big{flex:none;width:84px;height:84px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:var(--info-bg);color:var(--info-fg);font:800 28px 'Bricolage Grotesque','Source Sans 3',sans-serif}
+.park-hero.good .park-big{background:var(--ink);color:#fff}
+.park-hero.warn .park-big{background:var(--warn-bg);color:var(--warn-fg)}
+.pk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px}
+.pk{display:flex;flex-direction:column;align-items:center;gap:1px;padding:9px 0;border-radius:12px;font-size:13px}
+.pk small{font-size:10.5px;font-weight:600;opacity:.85}
+.pk.free{background:var(--good-bg);color:var(--good-fg)}
+.pk.taken{background:var(--bad-bg);color:var(--bad-fg)}
+.pk.mine{background:var(--ink);color:#fff}
+.pk-legend{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}
+.pk-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.pk-legend i.free{background:var(--good-fg)}.pk-legend i.taken{background:var(--bad-fg)}.pk-legend i.mine{background:var(--ink)}
+.park-hero>div:last-child{flex:1 1 220px;min-width:0}
+input[id^="rentalNote-"]{width:100%;min-width:240px}.field:has(>input[id^="rentalNote-"]){display:flex;flex-direction:column;gap:6px}
+
+/* small tag on a menu item, e.g. "5 free" next to Parking */
+.side nav button .nav-tag{margin-left:auto;font-style:normal;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.22);color:inherit;white-space:nowrap}
+.side nav button.active .nav-tag{background:rgba(0,0,0,.08)}
+@media (max-width:900px){.side nav button .nav-tag{display:none}}
+
+/* parking: a slot a resident reserved and has not paid for yet */
+.pslot.held{border:1.5px dashed var(--gold-dark,#A97B25);background:var(--warn-bg,#F7E4A5);color:var(--warn-fg,#6B4A00)}
+.pk.held{background:var(--warn-bg);color:var(--warn-fg)}
+.pk.held.mine-held{background:var(--warn-bg);color:var(--warn-fg);box-shadow:inset 0 0 0 2px var(--ink)}
+.pk-legend i.held{background:var(--warn-fg)}
+button.pk{border:0;cursor:pointer;font-family:inherit}
+button.pk.pick{transition:transform .2s,box-shadow .2s}
+button.pk.pick:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0,.16);outline:2px solid var(--ink)}
+
+/* ---------- Resident Dues: ring, trail, charge cards, pay steps ---------- */
+.dz-wrap{display:flex;flex-direction:column;gap:18px}
+.dz-hero{display:flex;align-items:center;gap:26px;flex-wrap:wrap;background:linear-gradient(135deg,var(--gold-soft),var(--card) 62%);position:relative;overflow:hidden}
+.dz-hero.done{background:linear-gradient(135deg,var(--good-bg),var(--card) 70%)}
+.dz-ring{position:relative;width:132px;height:132px;flex:0 0 auto;border:0;background:none;padding:0;color:var(--ink);transition:transform .3s var(--ease)}
+.dz-ring:hover{transform:scale(1.05) rotate(-3deg)}
+.dz-ring.pop{animation:dzpop .55s var(--ease)}
+.dz-ring svg{width:100%;height:100%}
+.dz-ring .bg{fill:none;stroke:var(--border);stroke-width:11}
+.dz-ring .fg{fill:none;stroke:var(--gold);stroke-width:11;stroke-linecap:round}
+.dz-hero.done .dz-ring .fg{stroke:var(--good-fg)}
+.dz-hero.fresh .dz-ring .fg{animation:dzring 1s var(--ease) both}
+.dz-ring span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.dz-ring b{font:700 25px 'Bricolage Grotesque','Source Sans 3',sans-serif}
+.dz-ring small{font-size:12px;color:var(--muted);font-weight:600}
+.dz-hero-main{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.dz-eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dz-big{font:700 clamp(34px,6vw,50px)/1 'Bricolage Grotesque','Source Sans 3',sans-serif;color:var(--bad-num)}
+.dz-big.zero{color:var(--good-fg)}
+.dz-mood{margin:0;font-size:15px;color:var(--ink)}
+.dz-badges{display:flex;gap:8px;flex-wrap:wrap}
+.dz-badge{padding:4px 12px;border-radius:999px;font-size:12.5px;font-weight:700;background:var(--beige);color:var(--ink);border:1.5px solid var(--border)}
+.dz-badge.good{background:var(--good-bg);color:var(--good-fg);border-color:transparent}
+.dz-badge.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:transparent}
+.dz-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+@keyframes dzring{from{stroke-dasharray:0 400}}
+@keyframes dzpop{0%{transform:scale(1)}35%{transform:scale(1.18) rotate(6deg)}100%{transform:scale(1)}}
+
+.dz-trail-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.dz-trail-h h2{font-size:18px}
+.dz-blocks{display:flex;gap:8px;flex-wrap:wrap}
+.dz-block{width:54px;height:62px;border-radius:14px;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:inherit;transition:transform .25s var(--ease),box-shadow .25s}
+.dz-block i{display:flex;width:20px;height:20px}
+.dz-block i svg{width:100%;height:100%}
+.dz-block small{font-size:11px;font-weight:700}
+.dz-block.good{background:var(--good-bg);color:var(--good-fg)}
+.dz-block.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.dz-block.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.dz-block.info{background:var(--info-bg);color:var(--info-fg)}
+.dz-block:hover{transform:translateY(-4px) rotate(-2deg);box-shadow:var(--shadow-md)}
+
+.dz-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.dz-left{display:flex;flex-direction:column}
+.dz-right{display:flex;flex-direction:column;gap:16px}
+.dz-item{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:20px;background:var(--card);border:1.5px solid var(--border);box-shadow:var(--shadow-sm);transition:transform .25s var(--ease),box-shadow .25s,border-color .25s}
+.dz-item:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.dz-item.bad{border-color:var(--bad-fg)}
+.dz-item.flash{animation:dzflash 1.4s ease}
+@keyframes dzflash{0%,60%{box-shadow:0 0 0 5px var(--pink)}100%{box-shadow:var(--shadow-sm)}}
+.dz-ic{flex:0 0 auto;width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center}
+.dz-ic svg{width:22px;height:22px}
+.dz-ic.good{background:var(--good-bg);color:var(--good-fg)}
+.dz-ic.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.dz-ic.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.dz-ic.info{background:var(--info-bg);color:var(--info-fg)}
+.dz-main{flex:1 1 auto;min-width:0}
+.dz-main>b{display:block;font-size:15px;overflow-wrap:anywhere}
+.dz-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12.5px}
+.dz-date{color:var(--muted)}
+.dz-cd{font-weight:700;padding:2px 9px;border-radius:999px}
+.dz-cd.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.dz-cd.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.dz-cd.info{background:var(--info-bg);color:var(--info-fg)}
+.dz-end{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+.dz-amt{font:700 18px 'Bricolage Grotesque','Source Sans 3',sans-serif}
+.dz-mini{min-height:34px;padding:0 14px;font-size:13px}
+.dz-empty{display:flex;flex-direction:column;align-items:center;gap:4px;padding:34px 16px;text-align:center;border:2px dashed var(--border);border-radius:20px;color:var(--muted)}
+.dz-empty b{color:var(--ink);font-size:16px}
+
+.dz-pay{display:flex;flex-direction:column;gap:14px}
+.dz-pay.pulse{animation:dzpulse 1.1s ease}
+@keyframes dzpulse{0%{box-shadow:0 0 0 0 var(--pink)}40%{box-shadow:0 0 0 8px var(--pink)}100%{box-shadow:0 0 0 0 transparent}}
+.dz-step{display:flex;gap:12px;align-items:flex-start}
+.dz-step .n{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:var(--beige);color:var(--ink);border:1.5px solid var(--border);transition:background .3s,color .3s}
+.dz-step .n.ok{background:var(--good-bg);color:var(--good-fg);border-color:transparent}
+.dz-step>div{flex:1;min-width:0}
+.dz-lab{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.dz-lab input,.dz-lab select{font-weight:400;color:var(--ink)}
+.dz-methods{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
+.dz-method{min-height:38px;padding:0 14px;border-radius:999px;border:1.5px solid var(--border);background:var(--btn-bg);color:var(--ink);font:600 13px 'Source Sans 3',sans-serif;transition:transform .2s var(--ease),background .2s,border-color .2s}
+.dz-method:hover{transform:translateY(-2px)}
+.dz-method.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.dz-how{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:14px;background:var(--info-bg);color:var(--info-fg);font-size:12.5px;white-space:pre-line}
+.dz-send{width:100%;min-height:46px}
+
+.dz-confetti{position:fixed;width:0;height:0;z-index:300;pointer-events:none}
+.dz-confetti i{position:absolute;left:0;top:0;width:9px;height:14px;border-radius:2px;opacity:0;animation:dzfly 1.4s cubic-bezier(.15,.7,.3,1) forwards}
+@keyframes dzfly{0%{opacity:1;transform:translate(0,0) rotate(0)}70%{opacity:1}100%{opacity:0;transform:translate(var(--x),calc(var(--y) + 110px)) rotate(var(--r))}}
+@media (max-width:760px){.dz-cols{grid-template-columns:minmax(0,1fr)!important}.dz-item{flex-wrap:wrap}.dz-end{flex-direction:row;align-items:center;width:100%;justify-content:space-between}.dz-ring{width:112px;height:112px}}
+@media (prefers-reduced-motion:reduce){.dz-hero.fresh .dz-ring .fg,.dz-item.flash,.dz-pay.pulse,.dz-ring.pop{animation:none}.dz-item,.dz-block,.dz-ring{transition:none}}
+
+/* booking: the selected time has an x so it can be cleared */
+.slot{position:relative}
+.slot-x{position:absolute;top:6px;right:9px;font:700 16px/1 'Source Sans 3',sans-serif;opacity:.85}
+.slot.picked:hover .slot-x{opacity:1}
+
+/* pager (activity log) */
+.pager{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;border-top:1px solid var(--border2)}
+.pager-info{font-size:13px;color:var(--muted)}
+.pager-btns{display:flex;gap:6px;flex-wrap:wrap}
+.pg-btn{min-width:38px;height:38px;padding:0 12px;border-radius:12px;border:1.5px solid var(--border);background:var(--btn-bg);color:var(--ink);font:600 13px 'Source Sans 3',sans-serif;transition:transform .2s var(--ease),background .2s}
+.pg-btn:hover:not(:disabled){transform:translateY(-2px);background:var(--beige)}
+.pg-btn.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- Book a facility: facility cards, month calendar, times ---------- */
+.bk-wrap{display:flex;flex-direction:column;gap:14px}
+.bk-facs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.bk-fac{display:flex;gap:14px;align-items:flex-start;text-align:left;padding:16px 18px;border-radius:24px;border:2px solid var(--border);background:var(--card);color:var(--ink);font-family:inherit;box-shadow:var(--shadow-sm);transition:transform .25s var(--ease),box-shadow .25s,border-color .25s}
+.bk-fac:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.bk-fac.active{border-color:#3B6FD8;box-shadow:0 0 0 3px rgba(59,111,216,.18)}
+.bk-fic{flex:0 0 auto;width:42px;height:42px;border-radius:14px;background:var(--info-bg);color:var(--info-fg);display:flex;align-items:center;justify-content:center}
+.bk-fic svg{width:22px;height:22px}
+.bk-ftxt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bk-ftxt b{font-size:16px}
+.bk-ftxt small{font-size:12.5px;color:var(--muted)}
+.bk-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.bk-chips i{font-style:normal;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+.bk-chips .good{background:var(--good-bg);color:var(--good-fg)}
+.bk-chips .bad{background:var(--bad-bg);color:var(--bad-fg)}
+.bk-chips .warn{background:var(--warn-bg);color:var(--warn-fg)}
+.bk-cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.bk-cal-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.bk-cal-h h2{font-size:19px}
+.bk-cal-sub{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:10px}
+.link-btn{border:0;background:none;color:var(--info-fg);font:700 13px 'Source Sans 3',sans-serif;text-decoration:underline;padding:4px}
+.bk-week,.bk-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.bk-week span{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding:2px 0 6px}
+.bk-day{position:relative;min-height:70px;padding:8px 6px;border-radius:16px;border:2px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:inherit;color:var(--ink);transition:transform .2s var(--ease),box-shadow .2s}
+.bk-day.pad{background:none;border:0;pointer-events:none}
+.bk-day b{font-size:16px}
+.bk-day small{font-size:10.5px;line-height:1.15;text-align:center}
+.bk-day em{position:absolute;bottom:3px;font-style:normal;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.bk-day.vacant{background:var(--good-bg);color:var(--good-fg)}
+.bk-day.part{background:var(--info-bg);color:var(--info-fg)}
+.bk-day.full{background:var(--bad-bg);color:var(--bad-fg)}
+.bk-day.pend{background:var(--warn-bg);color:var(--warn-fg)}
+.bk-day.past{background:var(--info-bg);opacity:.45;color:var(--muted);cursor:not-allowed}
+.bk-day:not(.past):not(.pad):hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.bk-day.sel{border-color:#1F4FB4;box-shadow:0 0 0 3px rgba(31,79,180,.2)}
+.bk-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.bk-legend span{font-size:12px;font-weight:700;padding:3px 12px;border-radius:999px}
+.bk-legend .vacant{background:var(--good-bg);color:var(--good-fg)}
+.bk-legend .part{background:var(--info-bg);color:var(--info-fg)}
+.bk-legend .full{background:var(--bad-bg);color:var(--bad-fg)}
+.bk-legend .pend{background:var(--warn-bg);color:var(--warn-fg)}
+.bk-day-card{display:flex;flex-direction:column;gap:10px}
+.bk-note{font-size:13px;background:var(--good-bg);color:var(--good-fg);border-radius:12px;padding:8px 12px}
+.bk-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.slot.off{background:var(--info-bg);color:var(--muted);opacity:.7;cursor:not-allowed}
+.slot.pending{background:var(--warn-bg);color:var(--warn-fg);cursor:not-allowed}
+.bk-req{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:18px;background:var(--info-bg);color:var(--info-fg)}
+.bk-req-k{font-size:12.5px;font-weight:700}
+.bk-req-v{font:700 17px 'Bricolage Grotesque','Source Sans 3',sans-serif;color:var(--ink)}
+.bk-req-s{font-size:13px}
+.bk-req-b{display:flex;gap:8px}
+@media (max-width:900px){.bk-cols{grid-template-columns:minmax(0,1fr)}.bk-day{min-height:58px}.bk-day small{display:none}.bk-day.vacant small,.bk-day.part small{display:none}}
+
+/* classmate: selected badge on the facility card, "Administrator access" box on the resident sign-in */
+.bk-fac{position:relative}
+.bk-sel{position:absolute;top:12px;right:14px;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:999px;background:#3B6FD8;color:#fff}
+
+/* styled suggestion list for the Unit box (Create a resident account) */
+.combo{position:relative}
+.combo-menu{position:absolute;z-index:30;left:0;top:calc(100% + 6px);min-width:100%;max-height:240px;overflow:auto;padding:6px;border-radius:14px;background:var(--card);border:1px solid var(--border);box-shadow:0 14px 34px rgba(20,30,60,.20)}
+.combo-menu[hidden]{display:none}
+.combo-opt{display:block;width:100%;text-align:left;padding:9px 12px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:600 14px 'Source Sans 3',sans-serif;cursor:pointer;white-space:nowrap}
+.combo-opt:hover,.combo-opt.on{background:var(--hover);color:var(--ink)}
+.combo-none{padding:10px 12px;color:var(--muted);font-size:13px}

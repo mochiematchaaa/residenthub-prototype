@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>City Residences Condominium — Comfortable Living, Beautiful Spaces</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="City Residences is a fully occupied condominium community with a swimming pool, function hall, gym, coffee lounge and game corner.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,600;0,8..60,700;1,8..60,600&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="index.css">
+<script src="index.js" defer></script>
+<script src="app-links.js" defer></script>
+<link rel="stylesheet" href="profile-refresh.css">
+</head>
+<body>
+
+<!-- Icons used on this page (each one is drawn once here, then reused with <use href="#name">) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16"/><path d="M14 10h5a1 1 0 0 1 1 1v10"/><path d="M2.5 21h19"/><path d="M8 8h2M8 12h2M8 16h2M17 14h.01M17 17.5h.01"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c2.4 0 4 1.7 4 4"/></symbol>
+  <symbol id="i-waves" viewBox="0 0 24 24"><path d="M3 8c1.5 0 1.5 1.5 3 1.5S7.5 8 9 8s1.5 1.5 3 1.5S13.5 8 15 8s1.5 1.5 3 1.5S19.5 8 21 8"/><path d="M3 13c1.5 0 1.5 1.5 3 1.5S7.5 13 9 13s1.5 1.5 3 1.5S13.5 13 15 13s1.5 1.5 3 1.5S19.5 13 21 13"/><path d="M3 18c1.5 0 1.5 1.5 3 1.5S7.5 18 9 18s1.5 1.5 3 1.5S13.5 18 15 18s1.5 1.5 3 1.5S19.5 18 21 18"/></symbol>
+  <symbol id="i-party" viewBox="0 0 24 24"><path d="m4 20 3.5-10 6.5 6.5L4 20z"/><path d="M14 4v2M19 8h2M17.5 11.5l1.5 1.5M10 5l1 1.5"/></symbol>
+  <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M4 9h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V9z"/><path d="M16 10h2a2.5 2.5 0 0 1 0 5h-2"/><path d="M8 3v3M12 3v3"/></symbol>
+  <symbol id="i-gamepad" viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7.5 10.5v4M5.5 12.5h4"/><circle cx="15.5" cy="11.5" r=".8"/><circle cx="18" cy="13.5" r=".8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.8c0 4.4 3.1 7.9 7.5 9.2 4.4-1.3 7.5-4.8 7.5-9.2V6L12 3z"/><path d="m8.7 12 2.3 2.3 4.3-4.6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+</svg>
+
+<div class="progress" id="progress"></div>
+
+<!-- ============ HEADER ============ -->
+<header class="header" id="header">
+  <div class="container header-inner">
+    <a class="logo" href="#home" data-home>
+      <img src="logo.jpg" alt="ResidentHub logo">
+      <span><b>ResidentHub</b><small>CITY RESIDENCES</small></span>
+    </a>
+
+    <ul class="menu" id="menu">
+      <li><a href="#home" data-home>Home</a></li>
+      <li><a href="#amenities">Amenities</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#contact">Contact</a></li>
+      <li><a href="#app">Get the App</a></li>
+      <li class="menu-signin"><a href="resident.html">Sign In</a></li>
+    </ul>
+
+    <a class="btn btn-navy" href="resident.html"><svg class="icon"><use href="#i-user"/></svg>Sign In</a>
+    <button class="menu-button" id="menuButton" aria-label="Open menu" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ HOME ============ -->
+<section class="hero" id="home">
+  <span class="blob blob-1"></span>
+  <span class="blob blob-2"></span>
+
+  <div class="container hero-grid">
+    <div class="hero-text">
+      <span class="eyebrow">City Residences Condominium Corp.</span>
+      <h1>
+        <span class="line"><span class="word" style="--i:0">Welcome</span> <span class="word" style="--i:1">home</span> <span class="word" style="--i:2">to</span></span>
+        <span class="line"><span class="word accent" style="--i:3">City</span> <span class="word accent" style="--i:4">Residences</span></span>
+      </h1>
+      <p class="lead">A fully occupied condominium community that brings together comfort, convenience and a warm sense of belonging — with a pool, function hall, gym, coffee lounge and game corner right at home.</p>
+      <div class="hero-buttons">
+        <a class="btn btn-gold" href="#amenities">Explore Amenities <svg class="icon"><use href="#i-arrow"/></svg></a>
+        <a class="btn btn-outline" href="#about">About Us</a>
+      </div>
+      <div class="hero-points">
+        <span><svg class="icon"><use href="#i-waves"/></svg>On-site amenities</span>
+        <span><svg class="icon"><use href="#i-building"/></svg>Fully occupied community</span>
+      </div>
+    </div>
+
+    <div class="hero-visual" id="heroVisual">
+      <div class="tilt" id="tilt">
+        <div class="hero-photo"><div></div></div>
+        <div class="float-card card-c"><i></i><b>Welcome to City Residences</b></div>
+        <div class="float-card card-a">
+          <span class="icon-box"><svg class="icon"><use href="#i-users"/></svg></span>
+          <span><b>A Warm Community</b><small>Neighbors who feel like family</small></span>
+        </div>
+        <div class="float-card card-b">
+          <span class="icon-box"><svg class="icon"><use href="#i-shield"/></svg></span>
+          <span><b>Safe &amp; Comfortable</b><small>Peaceful living, every day</small></span>
+        </div>
+        <div class="ring">
+          <svg class="spin" viewBox="0 0 120 120" aria-hidden="true">
+            <defs><path id="circle" d="M60,60 m-45,0 a45,45 0 1,1 90,0 a45,45 0 1,1 -90,0"/></defs>
+            <text><textPath href="#circle" textLength="280" lengthAdjust="spacing">CITY RESIDENCES • COMFORT • COMMUNITY •</textPath></text>
+          </svg>
+          <svg class="icon"><use href="#i-building"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="scroll-hint" aria-hidden="true"></span>
+</section>
+
+<!-- Scrolling strip of amenity names (the group is repeated so the loop never has a gap) -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <div class="marquee-group">
+      <span><svg class="icon"><use href="#i-waves"/></svg>Swimming Pool</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-party"/></svg>Function Hall</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-dumbbell"/></svg>Gym &amp; Fitness Center</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-coffee"/></svg>Coffee Lounge</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-gamepad"/></svg>Game Corner</span><em>✦</em>
+    </div>
+    <div class="marquee-group">
+      <span><svg class="icon"><use href="#i-waves"/></svg>Swimming Pool</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-party"/></svg>Function Hall</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-dumbbell"/></svg>Gym &amp; Fitness Center</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-coffee"/></svg>Coffee Lounge</span><em>✦</em>
+      <span><svg class="icon"><use href="#i-gamepad"/></svg>Game Corner</span><em>✦</em>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NUMBERS ============ -->
+<section class="numbers">
+  <div class="container numbers-grid">
+    <div class="number reveal" style="--delay:0s">
+      <div class="circle"><svg class="icon"><use href="#i-building"/></svg></div>
+      <b data-count="52">52</b><p>Units</p>
+    </div>
+    <div class="number reveal" style="--delay:.1s">
+      <div class="circle"><svg class="icon"><use href="#i-users"/></svg></div>
+      <b data-count="184">184</b><p>Residents</p>
+    </div>
+    <div class="number reveal" style="--delay:.2s">
+      <div class="circle"><svg class="icon"><use href="#i-waves"/></svg></div>
+      <b data-count="5">5</b><p>On-site amenities</p>
+    </div>
+    <div class="number reveal" style="--delay:.3s">
+      <div class="circle"><svg class="icon"><use href="#i-shield"/></svg></div>
+      <b data-count="100" data-suffix="%">100%</b><p>Occupied</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AMENITIES ============ -->
+<section class="section amenities" id="amenities">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Amenities</span>
+      <h2>Spaces to Relax, Play &amp; Gather</h2>
+      <p>Everything you need to unwind, stay active and enjoy time with the people you love — all under one roof. Tap or hover over a photo to explore.</p>
+    </div>
+
+    <div class="panels reveal" id="panels">
+
+      <div class="panel active" tabindex="0" style="--img:url('amenity-pool.jpg');--pos:center 62%">
+        <span class="panel-icon"><svg class="icon"><use href="#i-waves"/></svg></span>
+        <span class="panel-label">Swimming Pool</span>
+        <div class="panel-info">
+          <small>Leisure</small>
+          <h3>Swimming Pool</h3>
+          <p>Take a refreshing dip right at home — the perfect way to cool off and unwind after a long day.</p>
+          <ul>
+            <li><svg class="icon"><use href="#i-clock"/></svg>6:00 AM – 8:00 PM</li>
+            <li><svg class="icon"><use href="#i-users"/></svg>Free for residents · ₱150 per guest</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel" tabindex="0" style="--img:url('amenity-hall.jpg');--pos:center 55%">
+        <span class="panel-icon"><svg class="icon"><use href="#i-party"/></svg></span>
+        <span class="panel-label">Function Hall</span>
+        <div class="panel-info">
+          <small>Events</small>
+          <h3>Function Hall</h3>
+          <p>An elegant, spacious venue for celebrations, meetings and community gatherings.</p>
+          <ul>
+            <li><svg class="icon"><use href="#i-clock"/></svg>8:00 AM – 10:00 PM</li>
+            <li><svg class="icon"><use href="#i-users"/></svg>Parties &amp; gatherings</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel" tabindex="0" style="--img:url('amenity-gym.jpg');--pos:center 60%">
+        <span class="panel-icon"><svg class="icon"><use href="#i-dumbbell"/></svg></span>
+        <span class="panel-label">Gym &amp; Fitness Center</span>
+        <div class="panel-info">
+          <small>Fitness</small>
+          <h3>Gym &amp; Fitness Center</h3>
+          <p>Keep up your routine without leaving the building — bright, airy and always close to home.</p>
+          <ul><li><svg class="icon"><use href="#i-users"/></svg>Open to residents</li></ul>
+        </div>
+      </div>
+
+      <div class="panel" tabindex="0" style="--img:url('amenity-coffee.jpg');--pos:center 48%">
+        <span class="panel-icon"><svg class="icon"><use href="#i-coffee"/></svg></span>
+        <span class="panel-label">Coffee Lounge</span>
+        <div class="panel-info">
+          <small>Lifestyle</small>
+          <h3>Coffee Lounge</h3>
+          <p>A cozy corner to slow down, catch up with neighbors and enjoy a good cup.</p>
+          <ul><li><svg class="icon"><use href="#i-users"/></svg>Open to residents</li></ul>
+        </div>
+      </div>
+
+      <div class="panel" tabindex="0" style="--img:url('amenity-game.jpg');--pos:center 62%">
+        <span class="panel-icon"><svg class="icon"><use href="#i-gamepad"/></svg></span>
+        <span class="panel-label">Game Corner</span>
+        <div class="panel-info">
+          <small>Recreation</small>
+          <h3>Game Corner</h3>
+          <p>Board games and good company — a warm, relaxed space for friends and family.</p>
+          <ul><li><svg class="icon"><use href="#i-users"/></svg>Open to residents</li></ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section class="section about" id="about">
+  <div class="container about-grid">
+    <div class="about-photo reveal-wipe">
+      <div class="wipe">
+        <div class="bg"></div>
+        <q>Home, <span>made easy.</span></q>
+      </div>
+    </div>
+    <div class="about-text reveal from-right">
+      <span class="eyebrow">About City Residences</span>
+      <h2>More Than a Condo.<br>A Community to Call Home.</h2>
+      <p>City Residences is a condominium community where everyday life feels effortless. Residents enjoy relaxing, active and social spaces right inside the building — from a refreshing swimming pool to a cozy coffee lounge — all within easy reach of home.</p>
+      <ul class="checks">
+        <li><span class="tick"><svg class="icon"><use href="#i-check"/></svg></span>Swimming Pool, Function Hall and Gym &amp; Fitness Center</li>
+        <li><span class="tick"><svg class="icon"><use href="#i-check"/></svg></span>Coffee Lounge and Game Corner for downtime</li>
+        <li><span class="tick"><svg class="icon"><use href="#i-check"/></svg></span>A fully occupied, welcoming community of 184 residents</li>
+      </ul>
+      <a class="btn btn-gold" href="#amenities">See the Amenities <svg class="icon"><use href="#i-arrow"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CLOSING BANNER ============ -->
+<section class="cta">
+  <div class="container">
+    <div class="cta-box reveal">
+      <svg class="skyline" viewBox="0 0 420 220" preserveAspectRatio="xMaxYMax meet" aria-hidden="true">
+        <g fill="#0B1A2C">
+          <rect x="20" y="110" width="70" height="110"/><rect x="100" y="60" width="90" height="160"/><rect x="200" y="90" width="70" height="130"/><rect x="280" y="30" width="100" height="190"/><rect x="390" y="120" width="30" height="100"/>
+        </g>
+        <defs><pattern id="windows" width="12" height="14" patternUnits="userSpaceOnUse"><rect x="3" y="3" width="6" height="8" rx="1" fill="#F2D9A0"/></pattern></defs>
+        <g fill="url(#windows)">
+          <rect class="lit-a" x="24" y="116" width="62" height="98"/><rect class="lit-b" x="104" y="66" width="82" height="148"/><rect class="lit-a" x="204" y="96" width="62" height="118"/><rect class="lit-b" x="284" y="36" width="92" height="178"/>
+        </g>
+      </svg>
+      <div class="cta-text">
+        <span class="eyebrow">Life at City Residences</span>
+        <h2>Comfort, community and everything close to home</h2>
+        <p>Relax by the pool, celebrate in the function hall, stay active at the gym and unwind at the coffee lounge.</p>
+        <a class="btn btn-gold" href="#amenities">Explore Amenities <svg class="icon"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<!-- ============ GET THE APP ============ -->
+<section class="section getapp" id="app">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">The ResidentHub App</span>
+      <h2>Your condominium, <span class="accent">in your pocket</span></h2>
+      <p>Book the pool or function hall, check your dues, send concerns and read announcements. Use it in your browser, or install it on your Android phone.</p>
+    </div>
+
+    <div class="app-cards">
+      <article class="app-card reveal" style="--delay:.05s">
+        <span class="app-card-icon"><svg class="icon"><use href="#i-user"/></svg></span>
+        <h3>Use it in your browser</h3>
+        <p>No download needed. Sign in as a resident or as the administrator, right here on this website.</p>
+        <a class="btn btn-navy" href="app.html">Open the app <svg class="icon"><use href="#i-arrow"/></svg></a>
+      </article>
+
+
+      <article class="app-card reveal" style="--delay:.15s">
+        <span class="app-card-icon"><svg class="icon"><use href="#i-building"/></svg></span>
+        <h3>Install on Android</h3>
+        <p>Download the ResidentHub app (.apk) and open the file to install it. Your phone may ask you to allow installing from this source.</p>
+        <a class="btn btn-gold" data-app-link="androidApp" href="#" rel="noopener">Download the Android app <svg class="icon"><use href="#i-arrow"/></svg></a>
+      </article>
+
+      <article class="app-card app-card-qr reveal" style="--delay:.25s" id="qrCard" hidden>
+        <div class="qr-box" id="qrBox" aria-label="QR code that opens the app"></div>
+        <h3>Scan to open</h3>
+        <p>Point your phone camera at the code to open the app.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<footer class="footer" id="contact">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a class="logo" href="#home" data-home>
+          <img src="logo.jpg" alt="ResidentHub logo">
+          <span><b>ResidentHub</b><small>CITY RESIDENCES</small></span>
+        </a>
+        <p class="footer-about">City Residences Condominium Corporation — a fully occupied community with on-site amenities for its residents.</p>
+      </div>
+      <div>
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="#home" data-home>Home</a></li>
+          <li><a href="#amenities">Amenities</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#app">Get the App</a></li>
+          <li><a href="resident.html">Sign In</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Amenity Hours</h4>
+        <ul>
+          <li><svg class="icon"><use href="#i-waves"/></svg>Swimming Pool · 6:00 AM – 8:00 PM</li>
+          <li><svg class="icon"><use href="#i-party"/></svg>Function Hall · 8:00 AM – 10:00 PM</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Visit Us</h4>
+        <ul>
+          <li><svg class="icon"><use href="#i-pin"/></svg>City Residences Condominium Corporation, Property Office</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 City Residences Condominium Corporation. All rights reserved.</span>
+      <a href="#home" data-home>Back to top</a>
+    </div>
+  </div>
+</footer>
+
+<button class="to-top" id="toTop" aria-label="Back to top"><svg class="icon"><use href="#i-up"/></svg></button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script defer>
+  // Draws the QR code for the web app link. If the library cannot load, the card simply stays hidden.
+  window.addEventListener("load", function () {
+    if (!window.QRCode || !window.RESIDENTHUB) return;
+    new QRCode(document.getElementById("qrBox"), { text: window.RESIDENTHUB.webApp, width: 156, height: 156, colorDark: "#11263E", colorLight: "#ffffff" });
+    document.getElementById("qrCard").hidden = false;
+  });
+</script>
+
+</body>
+</html>
