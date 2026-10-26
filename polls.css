@@ -118,7 +118,7 @@
 .chip.cat{background:rgba(123,107,214,.14);color:#4B3FA0}
 label.poll-cat{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:10px;margin:12px 0 0;font-size:13px;font-weight:700;width:auto}
 .poll-cat select{min-height:38px;border-radius:12px;max-width:100%}
-.pb-cat{width:100%;max-width:360px}
+.pb-cat{width:260px;max-width:100%}
 .pb-catrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .cat-list{display:flex;flex-direction:column;gap:2px;max-height:min(380px,50vh);overflow:auto;margin-bottom:12px}
 .cat-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid var(--border2);font-size:14px}
