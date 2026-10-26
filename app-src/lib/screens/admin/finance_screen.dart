@@ -20,6 +20,9 @@ class AdminFinance extends StatefulWidget {
 
 class _AdminFinanceState extends State<AdminFinance> {
   String filter = 'Unpaid';
+  static const _pageSize = 10;
+  int page = 0;
+  String q = '';
   late final rate = TextEditingController(text: app.motorRate.toStringAsFixed(0));
   late final rateDay = TextEditingController(text: app.motorRateDay == 0 ? '' : app.motorRateDay.toStringAsFixed(0));
   late final duesRate = TextEditingController(text: app.duesRate == 0 ? '' : app.duesRate.toStringAsFixed(0));
@@ -131,7 +134,21 @@ class _AdminFinanceState extends State<AdminFinance> {
   Widget build(BuildContext context) {
     final paid = app.dues.where((d) => d.paid).toList();
     final unpaid = app.dues.where((d) => !d.paid).toList();
-    final rows = filter == 'Paid' ? paid : unpaid;
+    final s = q.trim().toLowerCase();
+    final found = [
+      for (final d in (filter == 'Paid' ? paid : unpaid))
+        if (s.isEmpty || '${d.unit} ${d.name} ${d.label}'.toLowerCase().contains(s)) d,
+    ];
+    final foundReceipts = [
+      for (final p in app.payments)
+        if (s.isEmpty || '${p.unit} ${p.payer} ${p.receiptNo}'.toLowerCase().contains(s)) p,
+    ];
+    final total = filter == 'Receipts' ? foundReceipts.length : found.length;
+    final pages = total == 0 ? 1 : (total + _pageSize - 1) ~/ _pageSize;
+    final pg = page < 0 ? 0 : (page > pages - 1 ? pages - 1 : page);
+    final from = pg * _pageSize, to = (from + _pageSize) > total ? total : from + _pageSize;
+    final rows = found.sublist(filter == 'Receipts' ? 0 : from, filter == 'Receipts' ? 0 : to);
+    final receiptRows = foundReceipts.sublist(filter == 'Receipts' ? from : 0, filter == 'Receipts' ? to : 0);
     final pendingProofs = app.proofs.where((p) => p.status == 'Pending').toList();
     final counts = {'Unpaid': unpaid.length, 'Paid': paid.length, 'Receipts': app.payments.length};
     return TabPage(
@@ -446,7 +463,10 @@ class _AdminFinanceState extends State<AdminFinance> {
               child: FilterRow(
                 options: ['Unpaid (${counts['Unpaid']})', 'Paid (${counts['Paid']})', 'Receipts (${counts['Receipts']})'],
                 selected: '$filter (${counts[filter]})',
-                onSelect: (v) => setState(() => filter = v.startsWith('Paid') ? 'Paid' : v.startsWith('Receipts') ? 'Receipts' : 'Unpaid'),
+                onSelect: (v) => setState(() {
+                  filter = v.startsWith('Paid') ? 'Paid' : v.startsWith('Receipts') ? 'Receipts' : 'Unpaid';
+                  page = 0;
+                }),
               ),
             ),
             TextButton.icon(
@@ -464,7 +484,10 @@ class _AdminFinanceState extends State<AdminFinance> {
                   if (err == null) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
-                        setState(() => filter = 'Unpaid');
+                        setState(() {
+                          filter = 'Unpaid';
+                          page = 0;
+                        });
                         msg(context, 'Charge added to ${(v['unit'] as String).trim()}.');
                       }
                     });
@@ -477,8 +500,15 @@ class _AdminFinanceState extends State<AdminFinance> {
             ),
           ],
         ),
-        if (filter == 'Receipts') ReceiptList(app.payments, showUnit: true),
-        if (filter != 'Receipts' && rows.isEmpty) const EmptyBox('Nothing here yet.', icon: Icons.payments_outlined),
+        TextField(
+          onChanged: (v) => setState(() {
+            q = v;
+            page = 0;
+          }),
+          decoration: const InputDecoration(hintText: 'Search unit or description…', prefixIcon: Icon(Icons.search_rounded)),
+        ),
+        if (filter == 'Receipts') ReceiptList(receiptRows, showUnit: true),
+        if (filter != 'Receipts' && rows.isEmpty) EmptyBox(s.isEmpty ? 'Nothing here yet.' : 'Nothing matches your search.', icon: Icons.payments_outlined),
         if (filter != 'Receipts')
           for (final d in rows)
           RCard(
@@ -506,6 +536,25 @@ class _AdminFinanceState extends State<AdminFinance> {
                       ),
               ],
             ),
+          ),
+        if (total > _pageSize)
+          Row(
+            children: [
+              IconButton(
+                onPressed: pg == 0 ? null : () => setState(() => page = pg - 1),
+                icon: const Icon(Icons.chevron_left_rounded),
+                tooltip: 'Previous page',
+              ),
+              Expanded(
+                child: Text('Showing ${from + 1}–$to of $total · page ${pg + 1} of $pages',
+                    textAlign: TextAlign.center, style: TextStyle(color: muted(context), fontSize: 12.5, fontWeight: FontWeight.w600)),
+              ),
+              IconButton(
+                onPressed: pg >= pages - 1 ? null : () => setState(() => page = pg + 1),
+                icon: const Icon(Icons.chevron_right_rounded),
+                tooltip: 'Next page',
+              ),
+            ],
           ),
       ],
     );
