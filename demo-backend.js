@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v9", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v10", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -384,10 +384,9 @@
       var at = Date.now() - Math.round(x[2] * 86400000) - ri(0, 3600000);
       R("activity", at, "__admin", { title: x[0], area: x[1], at: at });
     });
-    /* The demo starts EMPTY so the import can be tried on empty lists. Only the settings (rates, payment methods, amenities,
-       directory) and the two sign-in accounts stay: the administrator and the resident Maria Reyes with her own unit.
-       "Load sample data" in the tools panel brings the made-up data back. */
-    var sample = false; try { sample = localStorage.getItem("__rhdemo_mode") === "sample"; } catch (e) { }
+    /* The prototype opens WITH the made-up sample data. "Clear all data" in the tools panel starts empty (only the settings and the two
+       sign-in accounts stay) so the import can be tried on empty lists; "Load sample data" brings the made-up data back. */
+    var sample = false; try { sample = localStorage.getItem("__rhdemo_mode") !== "empty"; } catch (e) { }
     if (!sample) {
       users = users.filter(function (u) { return u.id === "demo-admin" || u.email === "resident@demo.test"; });
       recs = recs.filter(function (r) { return r.kind === "setting" || (r.kind === "unit" && r.id === "Unit 3B"); });
@@ -621,7 +620,7 @@
 
   /* ---------------- the DEMO panel (bottom-left) ---------------- */
   window.rhDemoReset = function () {
-    try { localStorage.removeItem(KEY); localStorage.removeItem("__rhdemo_mode"); } catch (e) { }
+    try { localStorage.removeItem(KEY); localStorage.setItem("__rhdemo_mode", "empty"); } catch (e) { }
     location.href = location.pathname;
   };
   window.rhDemoSample = function () {
@@ -643,7 +642,7 @@
     document.head.appendChild(st);
     var d = document.createElement("div"); d.id = "rhDemo";
     d.innerHTML =
-      '<div class="box"><p><b>Prototype tools.</b> Starts empty, no database; what you add or import stays in this browser only.</p>' +
+      '<div class="box"><p><b>Prototype tools.</b> Opens with made-up sample data (dummy data), no database; what you add or import stays in this browser only. Press Clear all data to start empty, or Load sample data to bring the dummy data back.</p>' +
       '<p>Sign in (password <b>Demo@1234</b>) with an email or a mobile number:<br>Admin: <b>admin@demo.test</b> or <b>0917 000 0000</b><br>Resident: <b>resident@demo.test</b> or <b>0917 000 1108</b> (Unit 3B)</p>' +
       '<div class="row"><a class="go" href="' + (admin ? "resident.html?as=resident" : "admin.html?as=admin") + '">Open as ' + (admin ? "Resident" : "Admin") + '</a><button onclick="rhDemoReset()">Clear all data</button><button onclick="rhDemoSample()">Load sample data</button><a href="index.html">Website</a></div></div>' +
       '<button class="pill" onclick="document.getElementById(\'rhDemo\').classList.toggle(\'open\')">PROTOTYPE TOOLS</button>';
