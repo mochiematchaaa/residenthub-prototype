@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../services/doc_files.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 import '../shared/document_viewer_screen.dart';
 
 /// Expenses: everything the corporation buys, encoded one purchase at a time.
@@ -116,6 +117,7 @@ class _AdminExpensesState extends State<AdminExpenses> {
             onPressed: () => _add(context),
           ),
           children: [
+            const ImportBar(['expenses']),
             // --- month picker
             RCard(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),

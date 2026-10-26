@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../services/texting.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 
 class AdminAnnouncements extends StatelessWidget {
   const AdminAnnouncements({super.key});
@@ -106,6 +107,7 @@ class AdminAnnouncements extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 100),
       children: [
+        const Padding(padding: EdgeInsets.only(bottom: 12), child: ImportBar(['announcements'])),
         if (list.isEmpty) const EmptyBox('No announcements yet.', icon: Icons.campaign_outlined),
         for (final a in list)
           Padding(
@@ -180,6 +182,7 @@ class AdminAnnouncements extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 100),
       children: [
+        const Padding(padding: EdgeInsets.only(bottom: 12), child: ImportBar(['events'])),
         if (app.events.isEmpty) const EmptyBox('No upcoming events.', icon: Icons.celebration_outlined),
         for (final e in app.events)
           Padding(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 
 class AdminFacility extends StatefulWidget {
   const AdminFacility({super.key});
@@ -64,6 +65,7 @@ class _AdminFacilityState extends State<AdminFacility> {
       title: 'Facility booking',
       subtitle: 'Add amenities, set their hours, and approve or deny reservation requests.',
       children: [
+        const ImportBar(['facilities']),
         RCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

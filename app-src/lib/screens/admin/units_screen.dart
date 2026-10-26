@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 import 'admin_screens.dart';
 
 class AdminUnits extends StatefulWidget {
@@ -33,6 +34,7 @@ class _AdminUnitsState extends State<AdminUnits> {
       title: 'Units & residents',
       subtitle: 'Maintain unit, occupancy and resident records.',
       children: [
+        const ImportBar(['units']),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(

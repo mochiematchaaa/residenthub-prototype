@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 
 /// Admin view: the current state of every unit, a feed of recent updates,
 /// and the ability to set a unit's status.
@@ -41,6 +42,7 @@ class _AdminUnitStatusState extends State<AdminUnitStatus> {
           title: 'Unit status',
           subtitle: 'The current state of every unit, kept up to date by residents. You can update any unit too.',
           children: [
+            const ImportBar(['usage']),
             PastelCard(
               color: Pastel.pink,
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),

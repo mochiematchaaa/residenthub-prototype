@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 import '../shared/maintenance_widgets.dart';
 import '../shared/notify_sheet.dart';
 
@@ -54,6 +55,7 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
               ],
             ),
             Text(_summary(), style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
+            ImportBar(tab == 'Schedule' ? const ['mtasks'] : tab == 'Equipment' ? const ['equipment'] : const ['staff']),
             FilterRow(options: _tabs, selected: tab, onSelect: (t) => setState(() => tab = t)),
             if (tab == 'Schedule') FilterRow(options: [..._builtinKinds, ...maint.customKinds], selected: kind, onSelect: (k) => setState(() => kind = k)),
             if (tab == 'Schedule' && maint.customKinds.contains(kind))

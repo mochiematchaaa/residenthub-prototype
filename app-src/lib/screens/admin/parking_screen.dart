@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 
 /// Administrator: the motor parking slots and the residents asking for one.
 class AdminParking extends StatelessWidget {
@@ -211,6 +212,7 @@ class AdminParking extends StatelessWidget {
           title: 'Motor parking',
           subtitle: 'Assign slots to residents and release them when they are done.',
           children: [
+            const ImportBar(['slots']),
             PastelCard(
               color: Pastel.peach,
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
