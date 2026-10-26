@@ -64,6 +64,7 @@ class RtDoc {
         case 'h3':
           newline();
           large += close ? -1 : 1;
+          if (close) newline();
         case 'br':
           put('\n', 0);
         case 'p':
