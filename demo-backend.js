@@ -135,7 +135,7 @@
         var dd = monthDate(off, 25), note = "Association dues - " + MONL[dd.getMonth()] + " " + dd.getFullYear();
         var idn = new Date(dd.getFullYear(), dd.getMonth(), 1, 9).getTime() + hi;
         var paid = off < 0 ? !(off === -1 && hi % 9 === 3) && !(off === -2 && hi % 23 === 5) : (hi % 5 === 0 || hi % 5 === 2 || hi % 5 === 3);
-        var due = { id: idn, unit: u.label, name: u.house, amount: amt, area: areaOf(u.label), rate: SQM_RATE, note: note, dueDate: sd(dd) };
+        var due = { id: idn, unit: u.label, name: u.house, amount: amt, area: areaOf(u.label), rate: SQM_RATE, billedOn: sd(new Date(dd.getFullYear(), dd.getMonth(), 1, 9)), note: note, dueDate: sd(dd) };
         if (paid) due.paid = true;
         R("due", idn, u.label, due);
         if (paid) {

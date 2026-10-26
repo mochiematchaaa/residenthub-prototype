@@ -324,6 +324,12 @@ function unitDues(unit) {
   vals("due").forEach(function (d) { if (d.unit !== unit) return; var a = Number(d.amount || 0); billed += a; if (d.paid) paid += a; });
   return { area: area, rate: rate, monthly: Math.round(area * rate * 100) / 100, billed: billed, paid: paid, balance: billed - paid };
 }
+// The day a charge was billed (uploaded). Older charges without it use the time in their id.
+function billedOn(id, d) {
+  if (d && d.billedOn) return d.billedOn;
+  var n = Number(id);
+  return n > 1e12 ? shortDate(new Date(n)) : "";
+}
 // True if a due is unpaid and its due date has passed.
 function isOverdue(d) {
   if (d.paid || !d.dueDate) return false;
