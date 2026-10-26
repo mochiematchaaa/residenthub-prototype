@@ -345,6 +345,13 @@ function dueCardHtml(it) {
     (it.due ? '<span class="dz-date">' + esc(it.due) + "</span>" : "") + (cd ? '<span class="dz-cd ' + cd.tone + '">' + esc(cd.text) + "</span>" : "") + '</div></div><div class="dz-end"><div class="dz-amt">' + peso(it.amount) + "</div>" + act + "</div></div>";
 }
 // PAGE: Dues and payments.
+// "Your monthly dues": how the unit's dues are worked out, and what it has been billed, has paid and still owes.
+function unitDuesHtml() {
+  var x = unitDues(myUnit());
+  if (!(x.area > 0) || !(x.rate > 0)) return "";
+  return '<div class="card"><h2 style="font-size:19px;margin-bottom:4px">Your monthly dues</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">Dues are charged per square meter of your unit.</p>' +
+    '<div class="kv" style="font-size:13.5px"><span>Floor area</span><b>' + esc(String(x.area)) + ' sqm</b><span>Rate</span><b>' + peso(x.rate) + ' per sqm</b><span>Monthly dues</span><b>' + peso(x.monthly) + '</b><span>Total billed</span><b>' + peso(x.billed) + '</b><span>Paid so far</span><b>' + peso(x.paid) + '</b><span>Balance</span><b>' + (x.balance ? peso(x.balance) : "None") + "</b></div></div>";
+}
 function viewDues() {
   var items = dueItems(), bal = balanceFor(myUnit());
   var prq = getRow("request", myUnit()), parkOpen = items.filter(function (i) { return i.park && i.st === "open"; })[0];
@@ -374,7 +381,7 @@ function viewDues() {
   var list_ = shown.length ? shown.map(dueCardHtml).join("") : '<div class="dz-empty"><b>' + (tab === "paid" ? "Nothing paid yet" : tab === "todo" ? "Nothing to pay" : "No charges yet") + "</b><span>" + (tab === "todo" ? "You are all caught up. Enjoy your day!" : tab === "paid" ? "Paid charges and their receipts show up here." : "Charges from the office show up here.") + "</span></div>";
   setTimeout(duesFx, 30);
   return '<div class="dz-wrap">' + hero + trailHtml + '<div class="two-col dz-cols" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)"><div class="dz-left">' + tabs + '<div class="dz-list">' + list_ + "</div></div>" +
-    '<div class="dz-right">' + payFormHtml() + myPaymentsHtml() + parkingLinkHtml() + "</div></div></div>";
+    '<div class="dz-right">' + unitDuesHtml() + payFormHtml() + myPaymentsHtml() + parkingLinkHtml() + "</div></div></div>";
 }
 /* count the balance up, and throw confetti the first time the page shows a clear balance */
 function duesFx() {

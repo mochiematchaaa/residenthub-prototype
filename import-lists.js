@@ -155,16 +155,18 @@
         { k: "name", label: "Household or owner", al: ["household", "owner", "resident", "resident owner", "owner name", "name", "full name", "family"] },
         { k: "type", label: "Owner or Tenant", al: ["occupancy", "owner or tenant", "ownership", "type"] },
         { k: "status", label: "Occupied or Vacant", al: ["status", "occupied", "vacancy"] },
+        { k: "area", label: "Floor area (sqm)", al: ["floor area", "floor area sqm", "area", "area sqm", "sqm", "square meters"] },
         { k: "contact", label: "Contact number", al: ["contact", "contact number", "mobile", "mobile number", "phone", "cellphone", "tel"] }
       ],
-      sample: [["Unit 12A", "Reyes Family", "Owner", "Occupied", "0917 555 0112"]],
+      sample: [["Unit 12A", "Reyes Family", "Owner", "Occupied", "45", "0917 555 0112"]],
       init: function () { var s = {}; unitNames().forEach(function (n) { s[lc(n)] = 1; }); return { have: s }; },
       check: function (v, c) {
         var label = cleanUnitLabel(v.unit); if (!v.unit || label === "Unit") return skip("No unit name");
         if (c.have[lc(label)]) return skip("Already on record");
         c.have[lc(label)] = 1;
         var type = /tenant/i.test(v.type) ? "Tenant" : "Owner", status = /vacant/i.test(v.status) ? "Vacant" : "Occupied";
-        return { rec: { unit: label, name: v.name || "—", type: type, status: status, contact: fixPhone(v.contact) || "—", usage: type === "Tenant" ? "tenant" : "owner" }, show: { unit: label } };
+        var ar = parseFloat(v.area);
+        return { rec: { unit: label, name: v.name || "—", type: type, status: status, area: ar > 0 ? ar : "", contact: fixPhone(v.contact) || "—", usage: type === "Tenant" ? "tenant" : "owner" }, show: { unit: label } };
       },
       save: function (r) { return put("unit", r.unit, r.unit, r); }
     },

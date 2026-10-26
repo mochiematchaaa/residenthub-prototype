@@ -318,6 +318,12 @@ function balanceFor(unit) {
   return vals("due").filter(function (d) { return d.unit === unit && !d.paid; })
     .reduce(function (s, d) { return s + Number(d.amount || 0); }, 0);
 }
+// What a unit pays each month (floor area x the rate per sqm), and what it has been billed and has paid so far. All of it is computed from the records.
+function unitDues(unit) {
+  var u = unitRec(unit) || {}, area = Number(u.area) || 0, rate = Number(setting("dues_rate_sqm").rate) || 0, billed = 0, paid = 0;
+  vals("due").forEach(function (d) { if (d.unit !== unit) return; var a = Number(d.amount || 0); billed += a; if (d.paid) paid += a; });
+  return { area: area, rate: rate, monthly: Math.round(area * rate * 100) / 100, billed: billed, paid: paid, balance: billed - paid };
+}
 // True if a due is unpaid and its due date has passed.
 function isOverdue(d) {
   if (d.paid || !d.dueDate) return false;

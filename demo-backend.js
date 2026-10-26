@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v7", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v8", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -72,7 +72,10 @@
       users.push({ id: id, email: email, password: PW, profile: { id: id, email: email, name: u.person, role: "resident", unit: u.label, phone: u.contact, suspended: false, must_change_password: false, contact_verified_at: verified, created_at: made, updated_at: changed, last_change: isUpd ? (k === 2 ? "Mobile number" : k === 8 ? "Email address" : "Unit") : (isNew ? "New account" : ""), history: hist } });
     });
     var byUnit = {};
-    U.forEach(function (u) { byUnit[u.label] = { unit: u.label, name: u.house, type: u.type, status: u.status, contact: u.contact, usage: u.type === "Tenant" ? "tenant" : "owner" }; });
+    /* floor area by unit type (A smaller, C larger, upper floors a little bigger); dues are charged per square meter */
+    function areaOf(label) { var L = label.slice(-1), f = parseInt(label.slice(5), 10); return ({ A: 32, B: 45, C: 60 }[L] || 40) + (f >= 9 ? 8 : 0); }
+    var SQM_RATE = 50;
+    U.forEach(function (u) { byUnit[u.label] = { unit: u.label, name: u.house, type: u.type, status: u.status, area: areaOf(u.label), contact: u.contact, usage: u.type === "Tenant" ? "tenant" : "owner" }; });
     function tenantInfo(u, from, to) { return { tname: u.person, tphone: u.contact, occupants: String(ri(1, 4)), start: dk(dayOff(from)), end: dk(dayOff(to)), emerg: pick(FIRST) + " " + u.house.split(" ")[0] + ", 0917 000 " + ri(2000, 2999), plates: "ABC " + ri(1000, 9999) }; }
     var tenants = U.filter(function (u) { return u.type === "Tenant" && u.status === "Occupied"; });
     tenants.forEach(function (u, k) {
@@ -92,6 +95,7 @@
 
     /* ---------- settings ---------- */
     R("setting", "dues_rate", "", { rate: 2500 });
+    R("setting", "dues_rate_sqm", "", { rate: SQM_RATE });
     R("setting", "motor_rate", "", { rate: 1500 });
     R("setting", "motor_rate_daily", "", { rate: 100 });
     R("setting", "paymethods", "", { list: [
@@ -126,11 +130,12 @@
     /* ---------- dues and payments: two months back (mostly paid) and this month ---------- */
     var receipt = 0, METHODS = ["Cash or check at the office", "GCash", "Bank transfer"];
     occ.forEach(function (u, hi) {
+      var amt = areaOf(u.label) * SQM_RATE;
       [-2, -1, 0].forEach(function (off) {
         var dd = monthDate(off, 25), note = "Association dues - " + MONL[dd.getMonth()] + " " + dd.getFullYear();
         var idn = new Date(dd.getFullYear(), dd.getMonth(), 1, 9).getTime() + hi;
         var paid = off < 0 ? !(off === -1 && hi % 9 === 3) && !(off === -2 && hi % 23 === 5) : (hi % 5 === 0 || hi % 5 === 2);
-        var due = { id: idn, unit: u.label, name: u.house, amount: 2500, note: note, dueDate: sd(dd) };
+        var due = { id: idn, unit: u.label, name: u.house, amount: amt, area: areaOf(u.label), rate: SQM_RATE, note: note, dueDate: sd(dd) };
         if (paid) due.paid = true;
         R("due", idn, u.label, due);
         if (paid) {
@@ -139,10 +144,10 @@
           var no = "OR-" + YEAR + "-" + String(++receipt).padStart(4, "0");
           var method = METHODS[(hi + off + 2) % 3];
           var ref = method === METHODS[0] ? "—" : "REF" + (700000 + receipt * 37);
-          R("payment", idn + 5000, u.label, { id: idn + 5000, receiptNo: no, unit: u.label, payer: u.house, forText: note, method: method, reference: ref, date: sd(pd), amount: 2500 });
-          R("proof", idn + 7000, u.label, { id: idn + 7000, unit: u.label, payer: u.house, forText: note, method: method, reference: ref, amount: 2500, date: sd(pd), status: "Confirmed", receiptNo: no, confirmedOn: sd(pd) });
+          R("payment", idn + 5000, u.label, { id: idn + 5000, receiptNo: no, unit: u.label, payer: u.house, forText: note, method: method, reference: ref, date: sd(pd), amount: amt });
+          R("proof", idn + 7000, u.label, { id: idn + 7000, unit: u.label, payer: u.house, forText: note, method: method, reference: ref, amount: amt, date: sd(pd), status: "Confirmed", receiptNo: no, confirmedOn: sd(pd) });
         } else if (off === 0 && hi % 7 === 1) {
-          R("proof", idn + 7000, u.label, { id: idn + 7000, unit: u.label, payer: u.house, forText: note, method: "GCash", reference: "GC" + (YEAR * 1000000 + 101400 + hi), amount: 2500, date: sd(dayOff(-(hi % 3))), status: "Pending" });
+          R("proof", idn + 7000, u.label, { id: idn + 7000, unit: u.label, payer: u.house, forText: note, method: "GCash", reference: "GC" + (YEAR * 1000000 + 101400 + hi), amount: amt, date: sd(dayOff(-(hi % 3))), status: "Pending" });
         }
       });
       if (hi % 6 === 0) {

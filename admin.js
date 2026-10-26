@@ -7,7 +7,7 @@ var state = {
   unitSearch: "", facIdx: 0,
   newAnnTitle: "", newAnnBody: "", newAnnType: "General",
   newPollQ: "", newPollOpts: "", pollFilter: "open",
-  finView: "day", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
+  finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
   expMonth: "", expDay: "",
   manage: { name: "", email: "", phone: "", unit: "" }, manageSearch: "", manageErr: ""
 };
@@ -203,7 +203,7 @@ function viewUnits() {
   });
   var html = rows.map(function (r) {
     var u = r.v, bal = balanceFor(r.id);
-    return '<tr><td style="font-weight:700">' + esc(r.id) + "</td><td>" + esc(u.name || "—") + '</td><td style="color:var(--muted)">' + esc(u.type || "Owner") + '</td><td><span class="chip ' + (u.status === "Vacant" ? "warn" : "good") + '">' + esc(u.status || "Occupied") + '</span></td><td style="color:var(--muted)">' + esc(u.contact || "—") + "</td><td>" + usageCellHtml(u) +
+    return '<tr><td style="font-weight:700">' + esc(r.id) + "</td><td>" + esc(u.name || "—") + '</td><td style="color:var(--muted)">' + esc(u.type || "Owner") + '</td><td><span class="chip ' + (u.status === "Vacant" ? "warn" : "good") + '">' + esc(u.status || "Occupied") + '</span></td><td style="color:var(--muted)">' + (Number(u.area) > 0 ? esc(String(u.area)) + " sqm" : "—") + '</td><td style="color:var(--muted)">' + esc(u.contact || "—") + "</td><td>" + usageCellHtml(u) +
       "</td><td>" + (bal ? peso(bal) : '<span style="color:var(--muted)">—</span>') + '</td><td><button class="btn" style="min-height:34px;padding:0 14px;font-size:12.5px" onclick="showUnit(\'' + escAttr(r.id) + '\')">View</button></td></tr>';
   });
   return '<div class="unit-search-panel"><label for="unitSearchInput">Search units &amp; residents</label>' +
@@ -212,16 +212,16 @@ function viewUnits() {
     '<div class="filters unit-actions"><span role="status" style="margin-right:auto;font-size:13px;color:var(--muted)">' + rows.length + " matching " + (rows.length === 1 ? "unit" : "units") + "</span>" +
     '<button class="btn primary" onclick="unitForm(null)">+ Add unit</button>' +
     '<button class="btn" onclick="exportUnits()">Export CSV</button></div>' +
-    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(html, ["UNIT", "RESIDENT / OWNER", "OCCUPANCY", "STATUS", "CONTACT", "USAGE", "BALANCE", ""], list("unit").length ? "No units match your search." : "No units yet. Tap “Add unit” or import a CSV.") + "</div>";
+    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(html, ["UNIT", "RESIDENT / OWNER", "OCCUPANCY", "STATUS", "AREA", "CONTACT", "USAGE", "BALANCE", ""], list("unit").length ? "No units match your search." : "No units yet. Tap “Add unit” or import a CSV.") + "</div>";
 }
 // Downloads the units as a CSV file.
 function exportUnits() {
-  exportCSV("units.csv", ["Unit", "Resident/Owner", "Occupancy", "Status", "Contact", "Usage", "Usage details"], sortedUnits().map(function (r) {
-    return [r.id, r.v.name || "", r.v.type || "", r.v.status || "", r.v.contact || "", usageLabel(r.v.usage), r.v.statusNote || ""];
+  exportCSV("units.csv", ["Unit", "Resident/Owner", "Occupancy", "Status", "Floor area (sqm)", "Contact", "Usage", "Usage details"], sortedUnits().map(function (r) {
+    return [r.id, r.v.name || "", r.v.type || "", r.v.status || "", r.v.area || "", r.v.contact || "", usageLabel(r.v.usage), r.v.statusNote || ""];
   }));
 }
 // Downloads an empty CSV template for importing units.
-function unitsTemplate() { exportCSV("units-template.csv", ["Unit", "Household", "Occupancy", "Status", "Contact"], []); }
+function unitsTemplate() { exportCSV("units-template.csv", ["Unit", "Household", "Occupancy", "Status", "Floor area (sqm)", "Contact"], []); }
 // Makes a unit name tidy: 'unit  101' -> 'Unit 101'.
 function cleanUnitLabel(s) {
   var t = String(s || "").replace(/[^A-Za-z0-9 \-]/g, "").replace(/\s+/g, " ").trim();
@@ -241,6 +241,7 @@ function unitForm(edit) {
       { name: "name", label: "Household / owner name", value: u.name && u.name !== "—" ? u.name : "" },
       { name: "type", label: "Occupancy", type: "select", options: ["Owner", "Tenant"], value: u.type || "Owner" },
       { name: "status", label: "Status", type: "select", options: ["Occupied", "Vacant"], value: u.status || "Occupied" },
+      { name: "area", label: "Floor area (sqm)", type: "number", step: "0.01", value: u.area || "", placeholder: "e.g. 45" },
       { name: "contact", label: "Contact number", value: u.contact && u.contact !== "—" ? u.contact : "" }
     ],
     onSubmit: async function (d) {
@@ -251,7 +252,9 @@ function unitForm(edit) {
         if (unitExists(label)) return { error: label + " already exists." };
       }
       var old = edit ? unitRec(edit) || {} : {};
-      await put("unit", label, label, Object.assign({}, old, { unit: label, name: d.name || "—", type: d.type, status: d.status, contact: d.contact || "—", usage: old.usage || "owner" }));
+      var area = d.area === "" || d.area == null ? "" : parseFloat(d.area);
+      if (area !== "" && !(area > 0)) return { error: "Enter the floor area in square meters, e.g. 45." };
+      await put("unit", label, label, Object.assign({}, old, { unit: label, name: d.name || "—", type: d.type, status: d.status, area: area, contact: d.contact || "—", usage: old.usage || "owner" }));
       logAct((edit ? "Unit updated: " : "Unit added: ") + label, "Units");
     }
   });
@@ -273,6 +276,7 @@ function showUnit(unit) {
     '<div class="kv"><span>Occupancy</span><b>' + esc(u.type || "Owner") + "</b><span>Status</span><b>" + esc(u.status || "Occupied") + "</b><span>Contact</span><b>" + esc(u.contact || "—") +
     "</b><span>Usage</span><b>" + esc(usageLabel(u.usage)) + (needsApproval(u) ? " (" + esc(u.usageStatus || "pending") + ")" : "") + "</b>" +
     (usageInfoRows(u).length ? usageInfoRows(u).map(function (x) { return "<span>" + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b>"; }).join("") : (u.statusNote ? "<span>Note</span><b>" + esc(u.statusNote) + "</b>" : "")) +
+    "<span>Floor area</span><b>" + (Number(u.area) > 0 ? esc(String(u.area)) + " sqm" : "Not set") + "</b><span>Monthly dues</span><b>" + (unitDues(unit).area && unitDues(unit).rate ? peso(unitDues(unit).monthly) + " (" + unitDues(unit).area + " sqm × " + peso(unitDues(unit).rate) + ")" : "Set the area and the rate") + "</b>" +
     "<span>Dues</span><b>" + (bal ? peso(bal) + " unpaid" : "Settled") + "</b><span>Account</span><b>" + (acc ? esc(acc.email) : "None yet") + "</b></div>" +
     '<div class="modal-actions"><button class="btn primary" onclick="closeModal();unitForm(\'' + escAttr(unit) + '\')">Edit</button>' +
     (acc ? "" : '<button class="btn" onclick="closeModal();set({view:\'manage\',manage:Object.assign(state.manage,{unit:\'' + escAttr(unit) + '\'})})">Create account</button>') +
@@ -305,7 +309,7 @@ function importUnits(input) {
       if (rows.length < 2) throw new Error("The file has no rows. Use the template.");
       var head = rows[0].map(function (h) { return h.trim().toLowerCase(); });
       var col = function (names) { for (var i = 0; i < head.length; i++) if (names.indexOf(head[i]) >= 0) return i; return -1; };
-      var ci = { unit: col(["unit", "unit name"]), name: col(["household", "name", "owner", "resident", "resident/owner"]), type: col(["occupancy", "type"]), status: col(["status"]), contact: col(["contact", "contact number", "phone"]) };
+      var ci = { unit: col(["unit", "unit name"]), name: col(["household", "name", "owner", "resident", "resident/owner"]), type: col(["occupancy", "type"]), status: col(["status"]), contact: col(["contact", "contact number", "phone"]), area: col(["floor area (sqm)", "floor area", "area", "sqm", "area (sqm)"]) };
       if (ci.unit < 0) throw new Error("The file needs a “Unit” column. Use the template.");
       var added = 0, skipped = 0;
       for (var i = 1; i < rows.length; i++) {
@@ -314,7 +318,8 @@ function importUnits(input) {
         var get = function (k) { return ci[k] >= 0 ? String(r[ci[k]] || "").trim() : ""; };
         var type = /tenant/i.test(get("type")) ? "Tenant" : "Owner";
         var status = /vacant/i.test(get("status")) ? "Vacant" : "Occupied";
-        await put("unit", label, label, { unit: label, name: get("name") || "—", type: type, status: status, contact: get("contact") || "—", usage: type === "Tenant" ? "tenant" : "owner" });
+        var ar = parseFloat(get("area"));
+        await put("unit", label, label, { unit: label, name: get("name") || "—", type: type, status: status, area: ar > 0 ? ar : "", contact: get("contact") || "—", usage: type === "Tenant" ? "tenant" : "owner" });
         added++;
       }
       logAct("Units imported: " + added, "Units");
