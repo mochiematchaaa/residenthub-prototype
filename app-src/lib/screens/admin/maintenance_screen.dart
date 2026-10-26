@@ -167,7 +167,7 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
               const SizedBox(height: 2),
               Text(
                 '${shortDate(n.at)} · ${n.everyone ? 'All residents' : '${n.count} resident${n.count == 1 ? '' : 's'}'}'
-                '${n.text ? ' · text message to ${n.textCount}${n.noPhone > 0 ? ' (${n.noPhone} had no mobile number)' : ''}' : ' · in the app only'}',
+                '${n.text ? ' · dashboard, app and text message to ${n.textCount}${n.noPhone > 0 ? ' (${n.noPhone} had no mobile number)' : ''}' : ' · dashboard and app only'}',
                 style: TextStyle(color: muted(context), fontSize: 12.5),
               ),
             ]),
