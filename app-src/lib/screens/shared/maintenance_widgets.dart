@@ -161,9 +161,12 @@ void showTaskSheet(BuildContext context, {MTask? task}) {
   showFormSheet(
     context,
     title: task == null ? 'Add maintenance task' : 'Edit maintenance task',
-    fields: [FieldSpec('title', 'Task', hint: 'e.g. Elevator inspection', initial: task?.title ?? '')],
+    fields: [
+      FieldSpec('title', 'Task', hint: 'e.g. Elevator inspection', initial: task?.title ?? ''),
+      FieldSpec('newKind', 'New type (optional)', hint: 'Type a new task type, e.g. Inspection. Leave empty to use the type below.'),
+    ],
     choices: [
-      ChoiceSpec('kind', 'Type', ['Routine', 'Compliance'], task?.kind ?? 'Routine'),
+      ChoiceSpec('kind', 'Type', maint.kinds.map(kindLabel).toList(), kindLabel(task?.kind ?? kindRoutine)),
       ChoiceSpec('equip', 'Equipment (optional)', ['None', ...maint.equipment.map((e) => e.name)], maint.equipById(task?.equipId)?.name ?? 'None'),
       ChoiceSpec('every', 'Repeats', maintFrequencies.map((f) => f.$1).toList(), task?.every ?? 'Monthly'),
       ChoiceSpec('due', 'Next due',
@@ -178,7 +181,7 @@ void showTaskSheet(BuildContext context, {MTask? task}) {
         app,
         existing: task,
         title: title,
-        kind: v['kind'] as String,
+        kind: maint.addKind(v['newKind'] as String) ?? kindFromLabel(v['kind'] as String),
         every: v['every'] as String,
         due: _targetFrom(v['due'] as String),
         equip: maint.equipByName(v['equip'] as String),

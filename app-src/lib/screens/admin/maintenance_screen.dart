@@ -15,7 +15,7 @@ class AdminMaintenance extends StatefulWidget {
 
 class _AdminMaintenanceState extends State<AdminMaintenance> {
   static const _tabs = ['Schedule', 'Equipment', 'Staff'];
-  static const _kinds = ['All', 'Routine', 'Permits and tests'];
+  static const _builtinKinds = ['All', 'Routine', 'Permits and tests'];
   String tab = 'Schedule';
   String kind = 'All';
 
@@ -54,7 +54,23 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
             ),
             Text(_summary(), style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
             FilterRow(options: _tabs, selected: tab, onSelect: (t) => setState(() => tab = t)),
-            if (tab == 'Schedule') FilterRow(options: _kinds, selected: kind, onSelect: (k) => setState(() => kind = k)),
+            if (tab == 'Schedule') FilterRow(options: [..._builtinKinds, ...maint.customKinds], selected: kind, onSelect: (k) => setState(() => kind = k)),
+            if (tab == 'Schedule' && maint.customKinds.contains(kind))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final ok = await confirmDialog(context, 'Delete type', 'Delete the type “$kind”? Its tasks stay and become routine maintenance.', confirm: 'Delete', destructive: true);
+                    if (ok) {
+                      final k = kind;
+                      setState(() => kind = 'All');
+                      maint.deleteKind(k, app);
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline_rounded, color: danger),
+                  label: const Text('Delete this type'),
+                ),
+              ),
             if (tab == 'Schedule') ..._schedule(context),
             if (tab == 'Equipment') ..._equipment(context),
             if (tab == 'Staff') ..._staff(context),
@@ -75,7 +91,9 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
   }
 
   List<Widget> _schedule(BuildContext context) {
-    final list = maint.sortedTasks.where((t) => kind == 'All' || (kind == 'Routine' ? t.kind == 'Routine' : t.kind == 'Compliance')).toList();
+    final list = maint.sortedTasks
+        .where((t) => kind == 'All' || (kind == 'Routine' ? t.kind == kindRoutine : (kind == 'Permits and tests' ? t.kind == kindCompliance : t.kind == kind)))
+        .toList();
     if (list.isEmpty) return const [EmptyBox('No maintenance tasks yet. Tap Task to add one.', icon: Icons.handyman_outlined)];
     return [
       for (final t in list)
@@ -87,9 +105,9 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
                 Expanded(child: Text(t.title, style: hd(16))),
                 Pill(taskState(t).$1, tone: toneFromLevel(taskState(t).$2)),
               ]),
-              if (t.kind == 'Compliance') ...[
+              if (t.kind != kindRoutine) ...[
                 const SizedBox(height: 4),
-                const Align(alignment: Alignment.centerLeft, child: Pill('Permit, certificate or test', tone: Tone.info)),
+                Align(alignment: Alignment.centerLeft, child: Pill(kindLabel(t.kind), tone: Tone.info)),
               ],
               const SizedBox(height: 3),
               Text('${maint.equipOf(t).isEmpty ? 'No equipment' : maint.equipOf(t)} · ${t.every}', style: TextStyle(color: muted(context), fontSize: 12.5)),
