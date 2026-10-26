@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v8", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v9", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -134,12 +134,12 @@
       [-2, -1, 0].forEach(function (off) {
         var dd = monthDate(off, 25), note = "Association dues - " + MONL[dd.getMonth()] + " " + dd.getFullYear();
         var idn = new Date(dd.getFullYear(), dd.getMonth(), 1, 9).getTime() + hi;
-        var paid = off < 0 ? !(off === -1 && hi % 9 === 3) && !(off === -2 && hi % 23 === 5) : (hi % 5 === 0 || hi % 5 === 2);
+        var paid = off < 0 ? !(off === -1 && hi % 9 === 3) && !(off === -2 && hi % 23 === 5) : (hi % 5 === 0 || hi % 5 === 2 || hi % 5 === 3);
         var due = { id: idn, unit: u.label, name: u.house, amount: amt, area: areaOf(u.label), rate: SQM_RATE, note: note, dueDate: sd(dd) };
         if (paid) due.paid = true;
         R("due", idn, u.label, due);
         if (paid) {
-          var pd = monthDate(off, 3 + (hi * 3 + off * 5 + 40) % 17);
+          var pd = monthDate(off, 1 + (hi * 5 + off * 7 + 11) % 27);
           if (pd > now) pd = new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - (hi % 10)), 12);
           var no = "OR-" + YEAR + "-" + String(++receipt).padStart(4, "0");
           var method = METHODS[(hi + off + 2) % 3];
@@ -179,6 +179,26 @@
         exp("Building insurance (quarterly)", "Insurance", "Whole building", "Sample Insurance", 1, 27500, m, 23);
       }
       if (m % 2 === 0) exp("CCTV maintenance", "Repairs and improvements", "Whole building", "SecureView Tech", 1, 6200, m, 22);
+    }
+    /* small day-to-day purchases for the last 45 days (the office buys something almost every day) */
+    var DAILY = [
+      ["Cleaning supplies (mops, soap)", "Janitorial and maintenance", "Whole building", "CleanPro Supplies", [1, 2], 350],
+      ["Garbage bags", "Janitorial and maintenance", "Whole building", "CleanPro Supplies", [3, 6], 95],
+      ["Light bulbs (hallway)", "Supplies and equipment", "Lobby and common areas", "Hardware Depot (sample)", [4, 10], 120],
+      ["Drinking water refill", "Supplies and equipment", "Offices and security", "Aqua Station", [3, 5], 40],
+      ["Gardening supplies", "Janitorial and maintenance", "Grounds and garden", "Green Thumb Store", [1, 3], 280],
+      ["Minor plumbing repair", "Repairs and improvements", "Whole building", "J. Santos Plumbing", [1, 1], 650],
+      ["Printing and office supplies", "Administration and reserve fund", "Offices and security", "Copy Corner", [1, 2], 220],
+      ["Paint and brushes (touch-up)", "Supplies and equipment", "Lobby and common areas", "Hardware Depot (sample)", [1, 3], 430],
+      ["Elevator button cleaning kit", "Supplies and equipment", "Elevators", "CleanPro Supplies", [1, 1], 260],
+      ["Parking cones and tape", "Supplies and equipment", "Parking", "Hardware Depot (sample)", [2, 6], 150]
+    ];
+    for (var dd0 = 0; dd0 < 45; dd0++) {
+      var n0 = (dd0 * 5 + 3) % 4;
+      for (var k0 = 0; k0 < n0; k0++) {
+        var it = DAILY[(dd0 * 3 + k0 * 5) % DAILY.length], day0 = dayOff(-dd0), id0 = tid(); rc += 7;
+        R("expense", id0, "__admin", { id: id0, item: it[0], category: it[1], area: it[2], payee: it[3], receiptNo: "R-" + rc, qty: ri(it[4][0], it[4][1]), unitPrice: it[5], date: dk(day0) });
+      }
     }
     exp("Parking lot repainting", "Repairs and improvements", "Parking", "ColorWorks Painting", 1, 12400, -2, 12);
     exp("Light bulbs for hallways", "Supplies and equipment", "Lobby and common areas", "Hardware Depot", 24, 85.5, -1, 9);
