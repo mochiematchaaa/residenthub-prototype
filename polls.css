@@ -44,3 +44,12 @@
 .rte-body:empty:before{content:attr(data-ph);color:var(--muted);pointer-events:none}
 .rte-body h3{margin:4px 0;font-size:19px}.rte-body ul,.rte-body ol{margin:4px 0 4px 22px;padding:0}
 .rte-body b,.rte-body strong{font-weight:800}
+/* who voted */
+.voters{margin-top:14px;padding-top:12px;border-top:1px solid var(--border2)}
+.voters-scroll{max-height:340px;overflow:auto;border:1px solid var(--border2);border-radius:14px}
+.voters-scroll table{min-width:0}
+.voters-scroll thead th{position:sticky;top:0;z-index:1}
+.voters-scroll td.nw{white-space:nowrap}
+.voters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;max-height:300px;overflow:auto}
+.voters-grid div{display:flex;flex-direction:column;padding:8px 12px;border-radius:12px;background:var(--beige);font-size:13.5px}
+.voters-grid span{color:var(--muted);font-size:12.5px}

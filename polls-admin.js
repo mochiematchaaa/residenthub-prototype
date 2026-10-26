@@ -125,8 +125,34 @@ function viewPolls() {
         (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes " : "Closed ") + esc(p.closes) + (p.legacy ? "" : " · " + p.questions.length + (election ? " position" : " question") + (p.questions.length === 1 ? "" : "s")) + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" +
         (hidden ? '<p class="poll-note">Ballots are secret. The results stay hidden until the election closes, so nobody can see who is ahead.</p>' : pollResultsHtml(p, null, true)) +
         (units ? '<div style="margin-top:14px">' + progressBar("Units that voted", p.ballots, units, "green") + "</div>" : "") +
-        '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn" onclick="togglePoll(' + p.id + ')">' + (p.open ? (election ? "Close election" : "Close poll") : "Reopen") + '</button><button class="btn" onclick="exportPollXlsx(' + p.id + ')"' + (hidden ? ' disabled title="Available when the election closes"' : "") + '>Export to Excel</button><button class="btn" style="margin-left:auto;color:var(--bad-fg)" onclick="deletePoll(' + p.id + ')">Delete</button></div></div>';
+        '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn" onclick="toggleVoters(' + p.id + ')">' + (state.votersOpen === p.id ? "Hide voters" : "Who voted (" + p.ballots + ")") + '</button><button class="btn" onclick="togglePoll(' + p.id + ')">' + (p.open ? (election ? "Close election" : "Close poll") : "Reopen") + '</button><button class="btn" onclick="exportPollXlsx(' + p.id + ')"' + (hidden ? ' disabled title="Available when the election closes"' : "") + '>Export to Excel</button><button class="btn" style="margin-left:auto;color:var(--bad-fg)" onclick="deletePoll(' + p.id + ')">Delete</button></div>' + (state.votersOpen === p.id ? votersPanel(p) : "") + "</div>";
     }).join("") || '<p class="empty">No polls here yet.</p>') + "</div>";
+}
+/* ---------- who voted ---------- */
+function toggleVoters(id) { set({ votersOpen: state.votersOpen === id ? null : id, votersTab: "voted" }); }
+// Units that voted (with the day, and the answers of a normal poll) and units that have not voted yet. In an election the choices stay secret.
+function votersPanel(p) {
+  var election = p.kind === "election", votes = list("vote").filter(function (x) { return Number(x.v.poll) === p.id; }), byUnit = {};
+  votes.forEach(function (x) { byUnit[x.unit] = x; });
+  var units = list("unit").slice().sort(function (a, b) { return String(a.id).localeCompare(String(b.id), undefined, { numeric: true }); });
+  var who = function (u) { var r = unitRec(u) || {}; return esc(r.name || r.house || ""); };
+  var voted = units.filter(function (u) { return byUnit[u.id]; }), not = units.filter(function (u) { return !byUnit[u.id]; });
+  var tab = state.votersTab === "not" ? "not" : "voted";
+  var answer = function (x) {
+    var a = x.v.answers || { q1: x.v.option };
+    return p.questions.map(function (q, i) {
+      var v = a[q.id]; if (v == null || v === "") return "";
+      var t = q.type === "choice" ? q.options[v] : q.type === "multi" ? [].concat(v).map(function (k) { return q.options[k]; }).filter(Boolean).join(", ") : q.type === "rating" ? v + " / 5" : String(v);
+      return p.questions.length === 1 ? esc(t) : (i + 1) + ". " + esc(t);
+    }).filter(Boolean).join("<br>");
+  };
+  var head = '<div class="voters"><div class="filters" style="padding:0 0 8px"><button class="' + (tab === "voted" ? "active" : "") + '" onclick="set({votersTab:\'voted\'})">Voted (' + voted.length + ')</button><button class="' + (tab === "not" ? "active" : "") + '" onclick="set({votersTab:\'not\'})">Not yet voted (' + not.length + ")</button></div>" +
+    (election ? '<p class="hint" style="margin:0 0 8px">This is a secret ballot: you can see who voted, not who they voted for.</p>' : "");
+  if (tab === "not") return head + (not.length ? '<div class="voters-grid">' + not.map(function (u) { return "<div><b>" + esc(u.id) + "</b><span>" + who(u.id) + "</span></div>"; }).join("") + "</div>" : '<p class="hint">Every unit has voted.</p>') + "</div>";
+  return head + (voted.length ? '<div class="voters-scroll"><table><thead><tr><th>UNIT</th><th>RESIDENT</th><th>VOTED ON</th>' + (election ? "" : "<th>ANSWERS</th>") + "</tr></thead><tbody>" + voted.map(function (u) {
+    var x = byUnit[u.id], when = x.v.at ? new Date(x.v.at) : null;
+    return '<tr><td class="nw" style="font-weight:700">' + esc(u.id) + "</td><td>" + who(u.id) + '</td><td class="nw" style="color:var(--muted)">' + (when && !isNaN(when) ? shortDate(when) : "—") + "</td>" + (election ? "" : "<td>" + (answer(x) || "—") + "</td>") + "</tr>";
+  }).join("") + "</tbody></table></div>" : '<p class="hint">Nobody has voted yet.</p>') + "</div>";
 }
 // Opens or closes voting on a poll (reopening gives it another week).
 function togglePoll(id) {
