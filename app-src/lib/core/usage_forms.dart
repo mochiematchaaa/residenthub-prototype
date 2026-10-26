@@ -16,12 +16,12 @@ class UsageField {
 
 /// The fields a resident fills for a usage (tenant, short-term, business...).
 class UsageForm {
-  final String title, agree;
+  final String title;
   final List<UsageField> fields;
 
   /// Papers to bring to the office.
   final List<String> bring;
-  const UsageForm(this.title, this.fields, this.agree, this.bring);
+  const UsageForm(this.title, this.fields, this.bring);
 }
 
 const usageForms = <String, UsageForm>{
@@ -36,7 +36,6 @@ const usageForms = <String, UsageForm>{
       UsageField('emerg', 'Emergency contact (name and number)', hint: 'e.g. Ana Cruz, 0917 555 0000'),
       UsageField('plates', 'Vehicle plate numbers (if any)', hint: 'e.g. ABC 1234'),
     ],
-    "I will give the office a copy of the lease and the tenant's valid ID.",
     ['Copy of the signed lease contract', 'Valid ID of every adult tenant', 'Emergency contact of the tenant'],
   ),
   'shortterm': UsageForm(
@@ -46,14 +45,12 @@ const usageForms = <String, UsageForm>{
           required: true,
           type: UsageFieldType.select,
           options: ['Airbnb', 'Booking.com', 'Agoda', 'Facebook or direct bookings', 'Other']),
-      UsageField('contact', 'Person in charge on site', required: true, hint: 'Who the guardhouse can call'),
+      UsageField('contact', 'Person in charge on site', required: true, hint: 'Who the office can call'),
       UsageField('phone', 'Their mobile number', required: true, type: UsageFieldType.phone, hint: '0917 123 4567'),
-      UsageField('maxGuests', 'Most guests at one time', required: true, type: UsageFieldType.number, hint: 'e.g. 4'),
       UsageField('start', 'Renting out since', type: UsageFieldType.date),
       UsageField('listing', 'Listing name or link (optional)', hint: 'e.g. Cozy studio near the park'),
     ],
-    'I will list every guest at the guardhouse before they arrive and make sure they follow the house rules.',
-    ['Valid ID of the person in charge', 'Business or tourism permit, if the city requires one', 'A copy of the rules you give to guests'],
+    ['Valid ID of the person in charge', 'Business or tourism permit, if the city requires one'],
   ),
   'business': UsageForm(
     'Business details',
@@ -65,7 +62,6 @@ const usageForms = <String, UsageForm>{
       UsageField('visitors', 'Visitors or deliveries per day', type: UsageFieldType.number, hint: 'e.g. 5'),
       UsageField('phone', 'Contact number', required: true, type: UsageFieldType.phone, hint: '0917 123 4567'),
     ],
-    'I will keep noise, visitors and deliveries within the building rules.',
     ['Copy of the business permit', 'Valid ID of the owner', 'Any permit needed for signs or deliveries'],
   ),
   'renovation': UsageForm(
@@ -77,7 +73,6 @@ const usageForms = <String, UsageForm>{
       UsageField('start', 'Work starts', required: true, type: UsageFieldType.date),
       UsageField('end', 'Expected finish', required: true, type: UsageFieldType.date),
     ],
-    'I will follow the allowed working hours and keep the hallways clean.',
     ['Work permit request, signed by the owner', 'Valid ID of the contractor and workers', 'List of materials and equipment brought in'],
   ),
 };
@@ -108,7 +103,7 @@ String usageSummary(String type, Map<String, String> i) {
   String g(String k) => i[k] ?? '';
   final parts = switch (type) {
     'tenant' => [g('tname'), g('tphone'), g('occupants').isEmpty ? '' : '${g('occupants')} staying', g('start').isEmpty ? '' : 'from ${usageDate(g('start'))}'],
-    'shortterm' => [g('platform'), g('contact').isEmpty ? '' : 'on site: ${g('contact')}', g('phone'), g('maxGuests').isEmpty ? '' : 'up to ${g('maxGuests')} guests'],
+    'shortterm' => [g('platform'), g('contact').isEmpty ? '' : 'on site: ${g('contact')}', g('phone')],
     'business' => [g('bname'), g('btype'), g('permit').isEmpty ? '' : 'permit ${g('permit')}'],
     'renovation' => [g('work'), g('contractor'), (g('start').isEmpty || g('end').isEmpty) ? '' : '${usageDate(g('start'))} to ${usageDate(g('end'))}'],
     _ => <String>[],
@@ -123,7 +118,6 @@ List<List<String>> usageInfoRows(String type, Map<String, String> i) {
   return [
     for (final x in f.fields)
       if ((i[x.key] ?? '').isNotEmpty) [x.label, x.type == UsageFieldType.date ? usageDate(i[x.key]!) : i[x.key]!],
-    if (i['agree'] == 'true') ['Agreed', f.agree],
   ];
 }
 
@@ -144,6 +138,5 @@ String? validateUsage(String type, Map<String, String> i) {
   }
   final s = i['start'] ?? '', e = i['end'] ?? '';
   if (s.isNotEmpty && e.isNotEmpty && e.compareTo(s) < 0) return 'The end date must be after the start date.';
-  if (i['agree'] != 'true') return 'Please tick the box at the end to confirm.';
   return null;
 }

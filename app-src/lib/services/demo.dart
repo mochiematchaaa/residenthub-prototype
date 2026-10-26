@@ -214,7 +214,6 @@ List<CRow> _demoRows() {
         'end': _dk(_off(to)),
         'emerg': '${_pick(_firstNames)} ${u.house.split(' ').first}, 0917 000 ${_ri(2000, 2999)}',
         'plates': 'ABC ${_ri(1000, 9999)}',
-        'agree': true,
       };
   final tenants = units.where((u) => u.type == 'Tenant' && u.occupied).toList();
   for (var k = 0; k < tenants.length; k++) {
@@ -251,10 +250,8 @@ List<CRow> _demoRows() {
         'platform': _pick(const ['Airbnb', 'Booking.com', 'Agoda']),
         'contact': u.person,
         'phone': u.contact,
-        'maxGuests': '${_ri(2, 5)}',
         'start': _dk(_off(-_ri(30, 200))),
         'listing': 'Cozy unit with city view',
-        'agree': true,
       };
     } else if (kind == 'business') {
       b['usageInfo'] = <String, dynamic>{
@@ -264,7 +261,6 @@ List<CRow> _demoRows() {
         'hours': 'Mon to Fri, 9 AM to 5 PM',
         'visitors': '${_ri(1, 6)}',
         'phone': u.contact,
-        'agree': true,
       };
     } else {
       b['usageInfo'] = <String, dynamic>{
@@ -273,7 +269,6 @@ List<CRow> _demoRows() {
         'phone': '0917 000 ${_ri(3000, 3999)}',
         'start': _dk(_off(_ri(3, 12))),
         'end': _dk(_off(_ri(20, 45))),
-        'agree': true,
       };
     }
   }

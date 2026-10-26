@@ -59,21 +59,18 @@ var USAGE_FORMS = {
       { k: "emerg", label: "Emergency contact (name and number)", ph: "e.g. Ana Cruz, 0917 555 0000" },
       { k: "plates", label: "Vehicle plate numbers (if any)", ph: "e.g. ABC 1234" }
     ],
-    agree: "I will give the office a copy of the lease and the tenant's valid ID.",
     bring: ["Copy of the signed lease contract", "Valid ID of every adult tenant", "Emergency contact of the tenant"]
   },
   shortterm: {
     title: "Short-term rental details",
     fields: [
       { k: "platform", label: "Where it is listed", req: 1, type: "select", options: ["Airbnb", "Booking.com", "Agoda", "Facebook or direct bookings", "Other"] },
-      { k: "contact", label: "Person in charge on site", req: 1, ph: "Who the guardhouse can call" },
+      { k: "contact", label: "Person in charge on site", req: 1, ph: "Who the office can call" },
       { k: "phone", label: "Their mobile number", req: 1, type: "tel", ph: "0917 123 4567" },
-      { k: "maxGuests", label: "Most guests at one time", req: 1, type: "number", ph: "e.g. 4" },
       { k: "start", label: "Renting out since", type: "date" },
       { k: "listing", label: "Listing name or link (optional)", ph: "e.g. Cozy studio near the park" }
     ],
-    agree: "I will list every guest at the guardhouse before they arrive and make sure they follow the house rules.",
-    bring: ["Valid ID of the person in charge", "Business or tourism permit, if the city requires one", "A copy of the rules you give to guests"]
+    bring: ["Valid ID of the person in charge", "Business or tourism permit, if the city requires one"]
   },
   business: {
     title: "Business details",
@@ -85,7 +82,6 @@ var USAGE_FORMS = {
       { k: "visitors", label: "Visitors or deliveries per day", type: "number", ph: "e.g. 5" },
       { k: "phone", label: "Contact number", req: 1, type: "tel", ph: "0917 123 4567" }
     ],
-    agree: "I will keep noise, visitors and deliveries within the building rules.",
     bring: ["Copy of the business permit", "Valid ID of the owner", "Any permit needed for signs or deliveries"]
   },
   renovation: {
@@ -97,7 +93,6 @@ var USAGE_FORMS = {
       { k: "start", label: "Work starts", req: 1, type: "date" },
       { k: "end", label: "Expected finish", req: 1, type: "date" }
     ],
-    agree: "I will follow the allowed working hours and keep the hallways clean.",
     bring: ["Work permit request, signed by the owner", "Valid ID of the contractor and workers", "List of materials and equipment brought in"]
   }
 };
@@ -108,7 +103,7 @@ function usageSummary(type, i) {
   i = i || {};
   var parts = {
     tenant: [i.tname, i.tphone, i.occupants && i.occupants + " staying", i.start && "from " + usageDate(i.start)],
-    shortterm: [i.platform, i.contact && "on site: " + i.contact, i.phone, i.maxGuests && "up to " + i.maxGuests + " guests"],
+    shortterm: [i.platform, i.contact && "on site: " + i.contact, i.phone],
     business: [i.bname, i.btype, i.permit && "permit " + i.permit],
     renovation: [i.work, i.contractor, i.start && i.end && usageDate(i.start) + " to " + usageDate(i.end)]
   }[type] || [];
@@ -119,7 +114,6 @@ function usageInfoRows(u) {
   var f = USAGE_FORMS[u && u.usage], i = (u && u.usageInfo) || {};
   if (!f) return [];
   var rows = f.fields.filter(function (x) { return i[x.k] !== undefined && i[x.k] !== ""; }).map(function (x) { return [x.label, x.type === "date" ? usageDate(i[x.k]) : String(i[x.k])]; });
-  if (i.agree) rows.push(["Agreed", f.agree]);
   return rows;
 }
 var EXP_CATS = ["Security services", "Common-area utilities", "Janitorial and maintenance", "Repairs and improvements",
