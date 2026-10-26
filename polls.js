@@ -187,10 +187,16 @@ function castVote(id) {
   else save();
 }
 
+// The categories you can choose: the built-in ones, the ones the office added, and any a poll already uses.
+function pollCategories() {
+  var out = POLL_CATEGORIES.slice();
+  (setting("poll_categories").list || []).forEach(function (c) { if (out.indexOf(c) < 0) out.push(c); });
+  list("poll").forEach(function (r) { var c = r.v.category; if (c && out.indexOf(c) < 0) out.push(c); });
+  return out;
+}
 // The category filter above the poll list (shared by both pages).
 function pollCatFilterHtml(all) {
-  var cur = state.pollCat || "all", used = POLL_CATEGORIES.filter(function (c) { return all.some(function (p) { return p.category === c; }); });
-  all.forEach(function (p) { if (used.indexOf(p.category) < 0) used.push(p.category); });
+  var cur = state.pollCat || "all", used = pollCategories().filter(function (c) { return all.some(function (p) { return p.category === c; }); });
   if (used.length < 2) return "";
   return '<label class="poll-cat"><span>Category</span><select onchange="set({pollCat:this.value})"><option value="all">All categories (' + all.length + ")</option>" + used.map(function (c) {
     return '<option value="' + escAttr(c) + '"' + (cur === c ? " selected" : "") + ">" + esc(c) + " (" + all.filter(function (p) { return p.category === c; }).length + ")</option>";
