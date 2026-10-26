@@ -314,6 +314,10 @@ class _ResDuesState extends State<ResDues> {
                       if (cd != null) Pill(cd.text, tone: cd.tone),
                     ],
                   ),
+                  if (d.billed.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('Billed ${d.billed}', style: TextStyle(color: muted(context), fontSize: 12)),
+                  ],
                 ],
               ),
             ),
@@ -356,6 +360,25 @@ class _ResDuesState extends State<ResDues> {
       children: [
         _hero(context, all),
         _trail(context, all),
+        if (app.myUnitRec != null && app.myUnitRec!.area > 0 && app.duesRate > 0)
+          RCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const IconBadge(Icons.square_foot_rounded, accent: true),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Your monthly dues', style: hd(17))),
+                ]),
+                const SizedBox(height: 10),
+                Text('${peso(app.unitDues(app.myUnitRec!).monthly)} a month',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const SizedBox(height: 2),
+                Text('Floor area ${app.myUnitRec!.area} sqm × ${peso(app.duesRate)} per sqm. Billed so far ${peso(app.unitDues(app.myUnitRec!).billed)}, paid ${peso(app.unitDues(app.myUnitRec!).paid)}.',
+                    style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
+              ],
+            ),
+          ),
         if (app.myParkingReq != null && app.myParkingReq!.slot.isNotEmpty && app.myParkingReq!.amount > 0 && app.slotOf(app.myUnit) == null)
           Builder(builder: (context) {
             final r = app.myParkingReq!;

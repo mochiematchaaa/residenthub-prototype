@@ -146,6 +146,15 @@ const _firstNames = [
   'Lyn', 'Gerald', 'Trixie', 'Albert', 'Sheila', 'Dante',
 ];
 
+/// Floor area in sqm: A smaller, C larger, upper floors a little bigger (same as the website).
+int _areaOf(String label) {
+  final l = label.substring(label.length - 1);
+  final f = int.tryParse(label.substring(5, label.length - 1)) ?? 1;
+  return (l == 'A' ? 32 : (l == 'B' ? 45 : (l == 'C' ? 60 : 40))) + (f >= 9 ? 8 : 0);
+}
+
+const _sqmRate = 50;
+
 class _DemoUnit {
   final int i;
   final String label, house, type, status, contact, person, key;
@@ -217,6 +226,7 @@ List<CRow> _demoRows() {
       'type': u.type,
       'status': u.status,
       'contact': u.contact,
+      'area': _areaOf(u.label),
       'usage': u.type == 'Tenant' ? 'tenant' : 'owner',
     };
   }
@@ -290,7 +300,7 @@ List<CRow> _demoRows() {
   }
 
   // ---- settings
-  r('setting', 'dues_rate', '', {'rate': 2500});
+  r('setting', 'dues_rate_sqm', '', {'rate': _sqmRate});
   r('setting', 'motor_rate', '', {'rate': 1500});
   r('setting', 'motor_rate_daily', '', {'rate': 100});
   r('setting', 'paymethods', '', {
@@ -334,11 +344,15 @@ List<CRow> _demoRows() {
       final note = 'Association dues - ${_monLong[dd.month - 1]} ${dd.year}';
       final idn = DateTime(dd.year, dd.month, 1, 9).millisecondsSinceEpoch + hi;
       final bool paid = off < 0 ? !(off == -1 && hi % 9 == 3) && !(off == -2 && hi % 23 == 5) : (hi % 5 == 0 || hi % 5 == 2);
+      final amt = _areaOf(u.label) * _sqmRate;
       r('due', idn, u.label, {
         'id': idn,
         'unit': u.label,
         'name': u.house,
-        'amount': 2500,
+        'amount': amt,
+        'area': _areaOf(u.label),
+        'rate': _sqmRate,
+        'billedOn': _sd(DateTime(dd.year, dd.month, 1, 9)),
         'note': note,
         'dueDate': _sd(dd),
         if (paid) 'paid': true,
@@ -361,7 +375,7 @@ List<CRow> _demoRows() {
           'method': method,
           'reference': ref,
           'date': _sd(pd),
-          'amount': 2500,
+          'amount': amt,
         });
         r('proof', idn + 7000, u.label, {
           'id': idn + 7000,
@@ -370,7 +384,7 @@ List<CRow> _demoRows() {
           'forText': note,
           'method': method,
           'reference': ref,
-          'amount': 2500,
+          'amount': amt,
           'date': _sd(pd),
           'status': 'Confirmed',
           'receiptNo': no,
@@ -384,7 +398,7 @@ List<CRow> _demoRows() {
           'forText': note,
           'method': 'GCash',
           'reference': 'GC${year * 1000000 + 101400 + hi}',
-          'amount': 2500,
+          'amount': amt,
           'date': _sd(_off(-(hi % 3))),
           'status': 'Pending',
         });
@@ -397,6 +411,7 @@ List<CRow> _demoRows() {
         'unit': u.label,
         'name': u.house,
         'amount': 300,
+        'billedOn': _sd(_off(-(hi % 4))),
         'note': 'Parking sticker fee',
         'dueDate': _sd(_off(5 + hi % 6)),
       });
@@ -408,6 +423,7 @@ List<CRow> _demoRows() {
     'unit': 'Unit 3B',
     'name': byUnit['Unit 3B']!['name'],
     'amount': 800,
+    'billedOn': _sd(_off(-1)),
     'note': 'Special assessment - elevator repair',
     'dueDate': _sd(_off(9)),
   });

@@ -85,6 +85,7 @@ Map<String, dynamic> _unitJson(Unit u) => {
       'type': u.type,
       'status': u.status,
       'contact': u.contact,
+      if (u.area > 0) 'area': u.area,
       'usage': u.usage,
       'statusNote': u.statusNote,
       'statusDate': u.statusDate,
@@ -102,6 +103,7 @@ Unit? _unitFrom(Map<String, dynamic> j) {
       statusDate: _s(j, 'statusDate'),
       usageStatus: _s(j, 'usageStatus'),
       usageRemark: _s(j, 'usageRemark'),
+      area: _num(j, 'area'),
       usageInfo: {
         if (j['usageInfo'] is Map)
           for (final e in (j['usageInfo'] as Map).entries)
@@ -142,13 +144,20 @@ Map<String, dynamic> _dueJson(Due d) => {
       'amount': d.amount,
       'note': d.note,
       'dueDate': d.dueDate,
+      if (d.billedOn.isNotEmpty) 'billedOn': d.billedOn,
+      if (d.area > 0) 'area': d.area,
+      if (d.rate > 0) 'rate': d.rate,
       'paid': d.paid,
     };
 
 Due? _dueFrom(Map<String, dynamic> j) {
   if (j['id'] is! num) return null;
   return Due(_i(j, 'id'), _s(j, 'unit'), _s(j, 'name'), _num(j, 'amount'), _s(j, 'note', 'Charge'),
-      dueDate: _s(j, 'dueDate'), paid: _b(j, 'paid'));
+      dueDate: _s(j, 'dueDate'),
+      paid: _b(j, 'paid'),
+      billedOn: _s(j, 'billedOn'),
+      area: _num(j, 'area'),
+      rate: _num(j, 'rate'));
 }
 
 Map<String, dynamic> _grievanceJson(Grievance g) =>
@@ -400,7 +409,7 @@ List<CRow> exportRows(AppState a) {
   }
   add('setting', 'motor_rate', '', {'rate': a.motorRate});
   add('setting', 'motor_rate_daily', '', {'rate': a.motorRateDay});
-  add('setting', 'dues_rate', '', {'rate': a.duesRate});
+  add('setting', 'dues_rate_sqm', '', {'rate': a.duesRate});
   add('setting', 'paymethods', '', {
     'list': [
       for (final m in a.payMethods) {'name': m.name, 'details': m.details, 'enabled': m.enabled}
@@ -537,7 +546,7 @@ void importRows(AppState a, Iterable<CRow> all) {
   final st = {for (final r in of('setting')) r.id: r.value};
   a.motorRate = _num(st['motor_rate'] ?? const {}, 'rate');
   a.motorRateDay = _num(st['motor_rate_daily'] ?? const {}, 'rate');
-  a.duesRate = _num(st['dues_rate'] ?? const {}, 'rate');
+  a.duesRate = _num(st['dues_rate_sqm'] ?? const {}, 'rate');
   final pm = st['paymethods']?['list'];
   for (final m in a.payMethods) {
     m.enabled = m.name == AppState.officePay;

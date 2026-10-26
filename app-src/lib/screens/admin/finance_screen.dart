@@ -10,6 +10,7 @@ import '../shared/import_sheet.dart';
 import '../shared/document_viewer_screen.dart';
 import '../shared/payment_widgets.dart';
 import 'admin_screens.dart';
+import 'finance_cards.dart';
 
 class AdminFinance extends StatefulWidget {
   const AdminFinance({super.key});
@@ -115,12 +116,23 @@ class _AdminFinanceState extends State<AdminFinance> {
     );
   }
 
+  void _editCharge(Due d) {
+    showFormSheet(
+      context,
+      title: 'Change charge',
+      subtitle: '${d.unit} · ${d.note}${d.area > 0 && d.rate > 0 ? '\nWorked out as ${d.area} sqm × ${peso(d.rate)} = ${peso(d.area * d.rate)}. Changing the amount affects this unit only.' : ''}',
+      fields: [FieldSpec('amount', 'Amount (₱)', type: const TextInputType.numberWithOptions(decimal: true), initial: d.amt.toString())],
+      submit: 'Save',
+      onSubmit: (v) => app.editCharge(d, v['amount'] as String),
+    );
+  }
+
   void _billDues() {
     final now = DateTime.now();
     showFormSheet(
       context,
       title: 'Bill monthly dues',
-      subtitle: 'Adds one charge of ${peso(app.duesRate)} to every unit that has not been billed for this month yet.',
+      subtitle: 'Adds one charge to every unit that has not been billed for this month yet. Each charge is worked out automatically: the unit\'s floor area × ${peso(app.duesRate)} per sqm.',
       fields: [
         FieldSpec('period', 'Month', hint: 'e.g. October 2026', initial: app.monthLabel(now)),
         FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 15, 2026'),
@@ -132,7 +144,14 @@ class _AdminFinanceState extends State<AdminFinance> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               setState(() => filter = 'Unpaid');
-              msg(context, app.lastBilledCount == 0 ? 'Every unit was already billed for that month.' : 'Billed ${app.lastBilledCount} unit${app.lastBilledCount == 1 ? '' : 's'}.');
+              final noArea = app.lastNoAreaCount;
+              msg(
+                context,
+                (app.lastBilledCount == 0
+                        ? 'Nobody new to bill for that month.'
+                        : 'Billed ${app.lastBilledCount} unit${app.lastBilledCount == 1 ? '' : 's'}. Each resident is notified under Notifications and Dues.') +
+                    (noArea == 0 ? '' : ' $noArea unit${noArea == 1 ? ' has' : 's have'} no floor area yet; add it under Units.'),
+              );
             }
           });
         }
@@ -204,6 +223,8 @@ class _AdminFinanceState extends State<AdminFinance> {
             ],
           ),
         ),
+        const DailyCollectionsCard(),
+        const DayByDayCard(),
         RCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,6 +304,7 @@ class _AdminFinanceState extends State<AdminFinance> {
             ],
           ),
         ),
+        const DailyExpensesCard(),
         RCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +315,7 @@ class _AdminFinanceState extends State<AdminFinance> {
                 Expanded(child: Text('Monthly association dues', style: hd(17))),
               ]),
               const SizedBox(height: 8),
-              Text('Set what each unit pays every month, then bill all units for a month in one tap. Each unit sees its own charge under Dues.',
+              Text('Set the monthly dues per square meter. Each unit pays its floor area × that rate. Bill all units for a month in one tap; each resident is notified and sees the charge under Dues.',
                   style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
               const SizedBox(height: 12),
               Row(
@@ -302,14 +324,14 @@ class _AdminFinanceState extends State<AdminFinance> {
                     child: TextField(
                       controller: duesRate,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: 'Dues per unit per month (₱)'),
+                      decoration: const InputDecoration(labelText: 'Monthly dues per sqm (₱)'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: () {
                       final err = app.setDuesRate(duesRate.text);
-                      msg(context, err ?? 'Monthly dues set to ${peso(app.duesRate)} per unit.');
+                      msg(context, err ?? 'Monthly dues set to ${peso(app.duesRate)} per sqm.');
                     },
                     child: const Text('Save'),
                   ),
@@ -327,6 +349,7 @@ class _AdminFinanceState extends State<AdminFinance> {
             ],
           ),
         ),
+        const UnitDuesCard(),
         if (pendingProofs.isNotEmpty)
           RCard(
             child: Column(
@@ -509,10 +532,11 @@ class _AdminFinanceState extends State<AdminFinance> {
                   FieldSpec('unit', 'Unit', hint: 'e.g. Unit 12A'),
                   FieldSpec('amount', 'Amount (₱)', type: TextInputType.number),
                   FieldSpec('note', 'Description', hint: 'e.g. Facility damage fee'),
+                  FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 30, 2026'),
                 ],
                 submit: 'Add charge',
                 onSubmit: (v) {
-                  final err = app.addCharge(v['unit'] as String, v['amount'] as String, v['note'] as String);
+                  final err = app.addCharge(v['unit'] as String, v['amount'] as String, v['note'] as String, dueRaw: v['due'] as String);
                   if (err == null) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
@@ -554,6 +578,11 @@ class _AdminFinanceState extends State<AdminFinance> {
                       Text('${d.unit} · ${d.name}', style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
                       Text(d.label, style: TextStyle(color: muted(context), fontSize: 12.5)),
+                      if (d.billed.isNotEmpty || d.dueDate.isNotEmpty)
+                        Text(
+                          [if (d.billed.isNotEmpty) 'Billed ${d.billed}', if (d.dueDate.isNotEmpty) 'Due ${d.dueDate}'].join(' · '),
+                          style: TextStyle(color: muted(context), fontSize: 12),
+                        ),
                       if (d.paid && through[d.id] != null) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -563,16 +592,19 @@ class _AdminFinanceState extends State<AdminFinance> {
                       ],
                       const SizedBox(height: 4),
                       Text(peso(d.amt), style: hd(17)),
+                      const SizedBox(height: 4),
+                      d.paid ? const Pill('Paid', tone: Tone.good) : (d.overdue ? const Pill('Overdue', tone: Tone.bad) : const Pill('Open', tone: Tone.info)),
                     ],
                   ),
                 ),
-                d.paid
-                    ? const Pill('Paid')
-                    : OutlinedButton(
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
-                        onPressed: () => _recordPayment(d),
-                        child: const Text('Record payment'),
-                      ),
+                if (!d.paid) ...[
+                  IconButton(onPressed: () => _editCharge(d), icon: const Icon(Icons.edit_outlined), tooltip: 'Change the amount'),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                    onPressed: () => _recordPayment(d),
+                    child: const Text('Record payment'),
+                  ),
+                ],
               ],
             ),
           ),
