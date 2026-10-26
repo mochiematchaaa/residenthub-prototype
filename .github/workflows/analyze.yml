@@ -17,5 +17,12 @@ jobs:
       - working-directory: app-src
         run: |
           flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.txt
-          grep -E "^\s*error" analyze.txt && exit 1 || true
+          flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
+          cat analyze.txt
+          errs=$(grep -E "^\s*error" analyze.txt || true)
+          if [ -n "$errs" ]; then
+            body=$(printf '%s' "$errs" | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Dart errors::${body}"
+            exit 1
+          fi
+          echo "No errors"
