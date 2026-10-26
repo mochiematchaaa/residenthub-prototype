@@ -103,18 +103,22 @@ class _AdminUnitsState extends State<AdminUnits> {
         if (edit == null) const FieldSpec('unit', 'Unit name', hint: 'e.g. Unit 12A'),
         FieldSpec('name', 'Household / owner name', hint: 'e.g. Reyes Household', initial: edit?.name == '—' ? '' : (edit?.name ?? '')),
         FieldSpec('contact', 'Contact number', type: TextInputType.phone, hint: 'e.g. 0917 555 0000', initial: edit?.contact == '—' ? '' : (edit?.contact ?? '')),
+        FieldSpec('area', 'Floor area (sqm)', type: const TextInputType.numberWithOptions(decimal: true), hint: 'e.g. 45 (monthly dues = area × rate per sqm)',
+            initial: edit == null || edit.area <= 0 ? '' : edit.area.toString()),
       ],
       choices: [ChoiceSpec('type', 'Occupancy', const ['Owner', 'Tenant'], edit?.type == 'Tenant' ? 'Tenant' : 'Owner')],
       submit: edit == null ? 'Add unit' : 'Save',
       onSubmit: (v) {
         if (edit == null) {
-          return app.addUnit(v['unit'] as String, v['name'] as String, v['type'] as String, v['contact'] as String);
+          return app.addUnit(v['unit'] as String, v['name'] as String, v['type'] as String, v['contact'] as String, area: _areaOf(v));
         }
-        app.updateUnit(edit, v['name'] as String, v['type'] as String, v['contact'] as String);
+        app.updateUnit(edit, v['name'] as String, v['type'] as String, v['contact'] as String, area: _areaOf(v));
         return null;
       },
     );
   }
+
+  num _areaOf(Map<String, dynamic> v) => double.tryParse((v['area'] as String).trim().replaceAll(',', '')) ?? 0;
 
   void _unitSheet(BuildContext context, Unit u) {
     showModalBottomSheet<void>(
@@ -132,6 +136,8 @@ class _AdminUnitsState extends State<AdminUnits> {
             _kv(context, 'Occupancy', u.type),
             _kv(context, 'Status', u.status),
             _kv(context, 'Contact', u.contact),
+            _kv(context, 'Floor area', u.area > 0 ? '${u.area} sqm' : 'Not set'),
+            _kv(context, 'Monthly dues', u.area > 0 && app.duesRate > 0 ? '${peso(app.unitDues(u).monthly)} (${u.area} sqm × ${peso(app.duesRate)})' : 'Set the floor area and the rate'),
             _kv(context, 'Open charges', app.unpaidCountFor(u.unit) == 0 ? 'None' : '${app.unpaidCountFor(u.unit)} · ${peso(app.balanceFor(u.unit))}'),
             _kv(context, 'Unit state', usageLabel(u.usage)),
             if (usageInfoRows(u.usage, u.usageInfo).isNotEmpty)

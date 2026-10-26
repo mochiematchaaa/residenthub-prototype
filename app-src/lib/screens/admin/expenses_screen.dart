@@ -8,6 +8,40 @@ import '../../widgets/widgets.dart';
 import '../shared/import_sheet.dart';
 import '../shared/document_viewer_screen.dart';
 
+/// The "Add purchase" form. [day] is the date it starts with (today when null).
+void showAddPurchase(BuildContext context, {DateTime? day}) {
+  showFormSheet(
+    context,
+    title: 'Add purchase',
+    subtitle: 'Record what the corporation bought. It goes into the monthly report.',
+    choices: [
+      ChoiceSpec('cat', 'Category', expenseCategories, expenseCategories[2]),
+      ChoiceSpec('area', 'For which facility or area', expenseAreas, expenseAreas.first),
+    ],
+    fields: [
+      const FieldSpec('item', 'What was bought', hint: 'e.g. LED bulbs, pool chlorine, elevator repair'),
+      const FieldSpec('qty', 'Quantity', type: TextInputType.number, initial: '1'),
+      const FieldSpec('price', 'Price of one (₱)', type: TextInputType.number),
+      const FieldSpec('payee', 'Store or supplier', hint: 'Who was paid'),
+      const FieldSpec('receipt', 'Official receipt no. (optional)'),
+      FieldSpec('date', 'Date bought', initial: shortDate(day ?? DateTime.now()), hint: 'Oct 10, 2026'),
+      const FieldSpec('note', 'Notes (optional)', lines: 2),
+    ],
+    submit: 'Save purchase',
+    onSubmit: (v) => app.addExpense(
+      category: v['cat'] as String,
+      area: v['area'] as String,
+      item: v['item'] as String,
+      payee: v['payee'] as String,
+      qtyRaw: v['qty'] as String,
+      unitPriceRaw: v['price'] as String,
+      receiptNo: v['receipt'] as String,
+      note: v['note'] as String,
+      dateRaw: v['date'] as String,
+    ),
+  );
+}
+
 /// Expenses: everything the corporation buys, encoded one purchase at a time.
 /// The monthly report for the client is generated from these records.
 class AdminExpenses extends StatefulWidget {
@@ -28,7 +62,7 @@ class _AdminExpensesState extends State<AdminExpenses> {
   void _shift(int by) => setState(() => _month = DateTime(_month.year, _month.month + by, 1));
 
   void _budget(BuildContext context) {
-    showFormSheet(
+  showFormSheet(
       context,
       title: 'Annual budget',
       subtitle: 'The approved yearly amount for each category, in pesos. Leave a line empty if it has no budget. The monthly report compares your spending with it.',
@@ -52,38 +86,7 @@ class _AdminExpensesState extends State<AdminExpenses> {
     );
   }
 
-  void _add(BuildContext context) {
-    showFormSheet(
-      context,
-      title: 'Add purchase',
-      subtitle: 'Record what the corporation bought. It goes into the monthly report.',
-      choices: [
-        ChoiceSpec('cat', 'Category', expenseCategories, expenseCategories[2]),
-        ChoiceSpec('area', 'For which facility or area', expenseAreas, expenseAreas.first),
-      ],
-      fields: [
-        const FieldSpec('item', 'What was bought', hint: 'e.g. LED bulbs, pool chlorine, elevator repair'),
-        const FieldSpec('qty', 'Quantity', type: TextInputType.number, initial: '1'),
-        const FieldSpec('price', 'Price of one (₱)', type: TextInputType.number),
-        const FieldSpec('payee', 'Store or supplier', hint: 'Who was paid'),
-        const FieldSpec('receipt', 'Official receipt no. (optional)'),
-        FieldSpec('date', 'Date bought', initial: shortDate(DateTime.now()), hint: 'Oct 10, 2026'),
-        const FieldSpec('note', 'Notes (optional)', lines: 2),
-      ],
-      submit: 'Save purchase',
-      onSubmit: (v) => app.addExpense(
-        category: v['cat'] as String,
-        area: v['area'] as String,
-        item: v['item'] as String,
-        payee: v['payee'] as String,
-        qtyRaw: v['qty'] as String,
-        unitPriceRaw: v['price'] as String,
-        receiptNo: v['receipt'] as String,
-        note: v['note'] as String,
-        dateRaw: v['date'] as String,
-      ),
-    );
-  }
+  void _add(BuildContext context) => showAddPurchase(context);
 
   @override
   Widget build(BuildContext context) {

@@ -65,8 +65,11 @@ class Unit {
 
   /// The details the resident gave for this way of using the unit (see usage_forms.dart).
   Map<String, String> usageInfo;
+
+  /// Floor area in square meters. Monthly dues are the area times the rate per sqm (0 = not set yet).
+  num area;
   Unit(this.unit, this.name, this.type, this.status, this.contact, this.usage,
-      {this.statusNote = '', this.statusDate = '', this.usageStatus = '', this.usageRemark = '', Map<String, String>? usageInfo})
+      {this.statusNote = '', this.statusDate = '', this.usageStatus = '', this.usageRemark = '', this.area = 0, Map<String, String>? usageInfo})
       : usageInfo = usageInfo ?? {};
 
   /// Short-term rentals and home businesses need the administrator's approval.
@@ -104,13 +107,26 @@ class Booking {
 class Due {
   final int id;
   final String unit, name, note;
-  final num amount;
+  num amount;
 
   /// Due date written like "Oct 15, 2026" (empty = due upon receipt).
   String dueDate;
   bool paid;
-  Due(this.id, this.unit, this.name, this.amount, this.note, {this.dueDate = '', this.paid = false});
+
+  /// The day the office billed (uploaded) this charge, like "Oct 1, 2026".
+  String billedOn;
+
+  /// For monthly dues: the unit's floor area and the rate per sqm used (0 for other charges).
+  num area, rate;
+  Due(this.id, this.unit, this.name, this.amount, this.note,
+      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0});
   num get amt => amount;
+
+  /// The day it was billed. Older charges without it use the time stored in their id.
+  String get billed {
+    if (billedOn.isNotEmpty) return billedOn;
+    return id > 1000000000000 ? shortDate(DateTime.fromMillisecondsSinceEpoch(id)) : '';
+  }
   bool get isCharge => true;
   String get label => note;
 
@@ -120,6 +136,13 @@ class Due {
     final d = parseShortDate(dueDate);
     return d != null && DateTime.now().isAfter(d.add(const Duration(days: 1)));
   }
+}
+
+/// A unit's monthly dues (floor area x rate per sqm) with the totals billed and paid so far.
+class UnitDues {
+  final num area, rate, monthly, billed, paid;
+  const UnitDues(this.area, this.rate, this.monthly, this.billed, this.paid);
+  num get balance => billed - paid;
 }
 
 /// One month in the dues list: month, amount, due date and status.
@@ -493,14 +516,14 @@ class AppState extends ChangeNotifier {
   int newStatusUpdates = 0; // resident updates the admin has not opened yet
 
   /// Admin: adds a unit. The unit name is what ties accounts, charges and bookings together.
-  String? addUnit(String unitRaw, String household, String type, String contact) {
+  String? addUnit(String unitRaw, String household, String type, String contact, {num area = 0}) {
     var label = unitRaw.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (label.isEmpty) return 'Enter the unit name, e.g. Unit 12A.';
     if (!label.toLowerCase().startsWith('unit ')) label = 'Unit $label';
     label = 'Unit ${label.substring(5).trim().toUpperCase()}';
     if (units.any((u) => u.unit.toLowerCase() == label.toLowerCase())) return '$label already exists.';
     units.add(Unit(label, household.trim().isEmpty ? '—' : household.trim(), type,
-        'Occupied', contact.trim().isEmpty ? '—' : contact.trim(), 'owner'));
+        'Occupied', contact.trim().isEmpty ? '—' : contact.trim(), 'owner', area: area));
     units.sort((a, b) => naturalCompare(a.unit, b.unit));
     logActivity('Unit added: $label', 'Units');
     _n();
@@ -508,7 +531,8 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: edits the household details of a unit.
-  void updateUnit(Unit u, String household, String type, String contact) {
+  void updateUnit(Unit u, String household, String type, String contact, {num? area}) {
+    if (area != null) u.area = area;
     u.name = household.trim().isEmpty ? '—' : household.trim();
     u.type = type;
     u.contact = contact.trim().isEmpty ? '—' : contact.trim();
@@ -650,8 +674,43 @@ class AppState extends ChangeNotifier {
   /// Daily parking rate (per day). 0 means the daily option is not offered.
   num motorRateDay = 0;
 
-  /// What one unit pays each month in association dues (set by the administrator).
+  /// Monthly association dues per square meter of floor area (set by the administrator).
   num duesRate = 0;
+
+  /// What a unit pays each month, and what it has been billed and has paid so far (computed from the records).
+  UnitDues unitDues(Unit u) {
+    var billed = 0.0, paid = 0.0;
+    for (final d in dues) {
+      if (d.unit != u.unit) continue;
+      billed += d.amt;
+      if (d.paid) paid += d.amt;
+    }
+    return UnitDues(u.area, duesRate, (u.area * duesRate * 100).round() / 100, billed, paid);
+  }
+
+  /// Payments recorded on one day.
+  List<PaymentRecord> paymentsOn(DateTime day) =>
+      [for (final p in payments) if (dayKey(p.when) == dayKey(day)) p];
+
+  /// Unpaid charges that fall due on one day.
+  List<Due> dueOn(DateTime day) => [
+        for (final d in dues)
+          if (!d.paid && d.dueDate.isNotEmpty && parseShortDate(d.dueDate) != null && dayKey(parseShortDate(d.dueDate)!) == dayKey(day)) d,
+      ];
+
+  /// Purchases recorded on one day.
+  List<Expense> expensesOn(DateTime day) => [for (final e in expenses) if (dayKey(e.date) == dayKey(day)) e];
+
+  /// Money collected on every day of a month (index 0 = the 1st).
+  List<double> collectedPerDay(int year, int month) {
+    final n = DateTime(year, month + 1, 0).day;
+    final out = List<double>.filled(n, 0);
+    for (final p in payments) {
+      final w = p.when;
+      if (w.year == year && w.month == month) out[w.day - 1] += p.amount.toDouble();
+    }
+    return out;
+  }
   final List<ParkingReq> parking = [];
   final List<ParkingSlot> slots = [];
 
@@ -980,11 +1039,29 @@ class AppState extends ChangeNotifier {
         out.add(['Your ${b.place} request (${b.when}) is waiting for approval.', 'info']);
       }
     }
+    final openMine = myDues.where((d) => !d.paid).toList();
+    if (openMine.isNotEmpty) {
+      final owed = openMine.fold<num>(0, (s, d) => s + d.amt);
+      final latest = openMine.first;
+      out.add([
+        'You have ${openMine.length} unpaid charge${openMine.length > 1 ? 's' : ''} (${peso(owed)}). Latest: ${latest.note}, billed ${latest.billed.isEmpty ? 'recently' : latest.billed}.',
+        'info'
+      ]);
+      for (final d in openMine.where((d) {
+        final b = parseShortDate(d.billed);
+        return b != null && DateTime.now().difference(b).inDays < 14;
+      }).take(3)) {
+        out.add([
+          'New charge from the office: ${d.note} (${peso(d.amt)}), billed ${d.billed}${d.dueDate.isEmpty ? '' : ', due ${d.dueDate}'}.',
+          'info'
+        ]);
+      }
+    }
     for (final r in myDueRows) {
       if (r.status == 'Overdue') {
         out.add(['${r.month} is overdue.', 'bad']);
       } else if (r.status == 'Open') {
-        out.add(['Open charge: ${r.month}.', 'info']);
+        // the summary above already lists open charges
       }
     }
     for (final p in myProofs) {
@@ -1183,7 +1260,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: adds a charge (e.g. a facility damage fee) to a unit.
-  String? addCharge(String unitRaw, String amountRaw, String note) {
+  String? addCharge(String unitRaw, String amountRaw, String note, {String dueRaw = ''}) {
     String norm(String t) => t.toLowerCase().replaceAll('unit', '').replaceAll(RegExp(r'[^a-z0-9]'), '');
     final key = norm(unitRaw);
     final match = key.isEmpty ? <Unit>[] : units.where((u) => norm(u.unit) == key).toList();
@@ -1191,7 +1268,13 @@ class AppState extends ChangeNotifier {
     final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter a valid amount.';
     if (note.trim().isEmpty) return 'Add a short description, e.g. Facility damage fee.';
-    dues.add(Due(nextId(), match.first.unit, match.first.name, a, note.trim()));
+    var due = '';
+    if (dueRaw.trim().isNotEmpty) {
+      final d = parseShortDate(dueRaw);
+      if (d == null) return 'Enter the due date like "Oct 15, 2026".';
+      due = shortDate(d);
+    }
+    dues.add(Due(nextId(), match.first.unit, match.first.name, a, note.trim(), dueDate: due, billedOn: shortDate(DateTime.now())));
     logActivity('Charge added, ${match.first.unit}: ${note.trim()}', 'Finance');
     _n();
     return null;
@@ -1200,17 +1283,30 @@ class AppState extends ChangeNotifier {
   /// Admin: sets what each unit pays every month.
   String? setDuesRate(String raw) {
     final n = double.tryParse(raw.trim().replaceAll(',', ''));
-    if (n == null || n <= 0) return 'Enter the monthly dues amount.';
+    if (n == null || n <= 0) return 'Enter the monthly dues per square meter.';
     duesRate = n;
     _n();
     return null;
   }
 
   int lastBilledCount = 0;
+  int lastNoAreaCount = 0;
+
+  /// Admin: changes the amount of a charge that is not paid yet (affects that unit only).
+  String? editCharge(Due d, String amountRaw) {
+    if (d.paid) return 'A paid charge cannot be changed.';
+    final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
+    if (a == null || a <= 0) return 'Enter a valid amount.';
+    final old = d.amount;
+    d.amount = a;
+    logActivity('Charge edited, ${d.unit}: ${peso(old)} to ${peso(a)}', 'Finance');
+    _n();
+    return null;
+  }
 
   /// Admin: bills the monthly association dues to every unit that has not been billed for [period] yet.
   String? billMonthlyDues(String period, String dueRaw) {
-    if (duesRate <= 0) return 'Set the monthly dues amount first.';
+    if (duesRate <= 0) return 'Set the monthly dues per square meter first.';
     if (units.isEmpty) return 'Add the units first.';
     final p = period.trim();
     if (p.isEmpty) return 'Enter the month, e.g. October 2026.';
@@ -1221,13 +1317,19 @@ class AppState extends ChangeNotifier {
       due = shortDate(d);
     }
     final note = 'Association dues - $p';
-    var n = 0;
+    var n = 0, noArea = 0;
     for (final u in units) {
       if (dues.any((d) => d.unit == u.unit && d.note == note)) continue;
-      dues.add(Due(nextId(), u.unit, u.name, duesRate, note, dueDate: due));
+      if (u.area <= 0) {
+        noArea++;
+        continue;
+      }
+      dues.add(Due(nextId(), u.unit, u.name, (u.area * duesRate * 100).round() / 100, note,
+          dueDate: due, billedOn: shortDate(DateTime.now()), area: u.area, rate: duesRate));
       n++;
     }
     lastBilledCount = n;
+    lastNoAreaCount = noArea;
     if (n > 0) logActivity('Dues billed for $p: $n unit${n == 1 ? '' : 's'}', 'Finance');
     _n();
     return null;
