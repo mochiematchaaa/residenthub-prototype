@@ -20,6 +20,8 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
           cat analyze.txt
           echo "::notice title=Analyzer summary::$(tail -n 3 analyze.txt | tr '\n' ' ' | sed 's/%/%25/g')"
+          rest=$(grep -E "^\s*(warning|info)" analyze.txt | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' || true)
+          echo "::notice title=Warnings and hints::${rest}"
           errs=$(grep -E "^\s*error" analyze.txt || true)
           if [ -n "$errs" ]; then
             body=$(printf '%s' "$errs" | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
