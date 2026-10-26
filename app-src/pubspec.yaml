@@ -1,0 +1,25 @@
+name: residenthub_dashboard
+description: ResidentHub - condominium management and facility booking app for City Residences Condominium Corporation.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_picker: ^10.3.10   # import files / save exports (Android + web)
+  archive: ^3.4.0       # reads and writes the .docx / .xlsx zip containers
+  url_launcher: ^6.3.0  # opens the messaging app to text announcements
+  supabase_flutter: ^2.5.0  # live updates shared with the website (payments, motor parking)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

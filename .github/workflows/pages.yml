@@ -1,0 +1,52 @@
+name: Publish the prototype
+
+# Builds the app prototype (PROTOTYPE=true: sample data, no database) from app-src/
+# and publishes it together with the website prototype as one GitHub Pages site:
+#   /      the website (public site, resident portal, administrator dashboard)
+#   /app/  the mobile app (web build)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Build the app prototype
+        working-directory: app-src
+        run: |
+          flutter pub get
+          flutter build web --release --base-href "/${{ github.event.repository.name }}/app/" --dart-define=PROTOTYPE=true
+      - name: Put the site together
+        run: |
+          mkdir site
+          cp -r *.html *.css *.js *.jpg .nojekyll site/
+          cp -r app-src/build/web site/app
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

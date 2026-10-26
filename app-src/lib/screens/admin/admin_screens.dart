@@ -1,0 +1,23 @@
+// Barrel file: every administrator screen in one import.
+export '../shared/calendar_screen.dart';
+export 'access_screen.dart';
+export 'admin_actions.dart';
+export 'admin_shell.dart';
+export 'activity_screen.dart';
+export 'announcements_screen.dart';
+export 'directory_admin_screen.dart';
+export 'documents_screen.dart';
+export 'expenses_screen.dart';
+export 'finance_docs_screen.dart';
+export 'facility_screen.dart';
+export 'finance_screen.dart';
+export 'grievances_screen.dart';
+export 'home_screen.dart';
+export 'maintenance_screen.dart';
+export 'more_screen.dart';
+export 'parking_screen.dart';
+export 'polls_screen.dart';
+export 'reports_screen.dart';
+export 'settings_screen.dart';
+export 'unit_status_screen.dart';
+export 'units_screen.dart';
