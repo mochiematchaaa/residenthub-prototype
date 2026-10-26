@@ -485,3 +485,87 @@ Future<bool> exportDocx(String title, List<DocBlock> blocks) =>
 
 Future<bool> exportXlsx(String title, List<DocBlock> blocks) =>
     saveBytes('${safeFileName(title)}.xlsx', buildXlsx(title, blocks));
+
+// =============================================================== Excel with several sheets
+
+/// One sheet of a workbook: its name and rows. The first row holds the headings and is shown in bold.
+class XSheet {
+  final String name;
+  final List<List<String>> rows;
+  const XSheet(this.name, this.rows);
+}
+
+Uint8List buildXlsxSheets(List<XSheet> sheets) {
+  final used = <String>{};
+  final names = <String>[];
+  for (final s in sheets) {
+    var n = s.name.replaceAll(RegExp(r'[\\/?*\[\]:]'), ' ').trim();
+    if (n.length > 31) n = n.substring(0, 31);
+    if (n.isEmpty) n = 'Sheet';
+    var base = n, k = 2;
+    while (!used.add(n.toLowerCase())) {
+      final suffix = ' ${k++}';
+      n = '${base.length + suffix.length > 31 ? base.substring(0, 31 - suffix.length) : base}$suffix';
+    }
+    names.add(n);
+  }
+  final files = <String, String>{};
+  final overrides = StringBuffer();
+  final wbSheets = StringBuffer();
+  final wbRels = StringBuffer();
+  for (var i = 0; i < sheets.length; i++) {
+    final rows = sheets[i].rows;
+    final maxCols = rows.fold<int>(1, (m, r) => math.max(m, r.length));
+    final widths = List<int>.filled(maxCols, 12);
+    for (final r in rows) {
+      for (var c = 0; c < r.length; c++) {
+        widths[c] = math.max(widths[c], math.min(60, r[c].length + 2));
+      }
+    }
+    final sb = StringBuffer('$_xmlHead<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>');
+    for (var c = 0; c < maxCols; c++) {
+      sb.write('<col min="${c + 1}" max="${c + 1}" width="${widths[c]}" customWidth="1"/>');
+    }
+    sb.write('</cols><sheetData>');
+    for (var r = 0; r < rows.length; r++) {
+      if (rows[r].isEmpty) continue;
+      sb.write('<row r="${r + 1}">');
+      for (var c = 0; c < rows[r].length; c++) {
+        final v = rows[r][c];
+        if (v.isEmpty) continue;
+        final ref = '${_col(c)}${r + 1}';
+        final bold = r == 0;
+        final s = bold ? ' s="1"' : '';
+        final n = bold ? null : _asNumber(v);
+        if (n != null) {
+          sb.write('<c r="$ref"$s><v>$n</v></c>');
+        } else {
+          sb.write('<c r="$ref"$s t="inlineStr"><is><t xml:space="preserve">${_x(v)}</t></is></c>');
+        }
+      }
+      sb.write('</row>');
+    }
+    sb.write('</sheetData></worksheet>');
+    files['xl/worksheets/sheet${i + 1}.xml'] = sb.toString();
+    overrides.write('<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>');
+    wbSheets.write('<sheet name="${_x(names[i])}" sheetId="${i + 1}" r:id="rId${i + 1}"/>');
+    wbRels.write('<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>');
+  }
+  wbRels.write('<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>');
+  return _zip({
+    '[Content_Types].xml':
+        '$_xmlHead<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>$overrides<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
+    '_rels/.rels':
+        '$_xmlHead<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/workbook.xml':
+        '$_xmlHead<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>$wbSheets</sheets></workbook>',
+    'xl/_rels/workbook.xml.rels':
+        '$_xmlHead<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">$wbRels</Relationships>',
+    'xl/styles.xml':
+        '$_xmlHead<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>',
+    ...files,
+  });
+}
+
+Future<bool> exportXlsxSheets(String title, List<XSheet> sheets) =>
+    saveBytes('${safeFileName(title)}.xlsx', buildXlsxSheets(sheets));

@@ -2,23 +2,123 @@
 /// polls, motor parking slots and the resident directory.
 /// Pure data. It does not import the app state, so app_state.dart can use it.
 
-/// One choice in a poll.
+/// One choice in a poll (used for the results of the first question).
 class PollOption {
   final String text;
   int votes;
   PollOption(this.text, this.votes);
 }
 
-/// A poll residents vote on (one vote per unit).
+/// The kinds of question a poll can have, as saved in the shared data (same as the website).
+const pollTypes = <List<String>>[
+  ['choice', 'Multiple choice'],
+  ['multi', 'Checkboxes'],
+  ['text', 'Short answer'],
+  ['para', 'Paragraph'],
+  ['rating', 'Rating (1 to 5)'],
+];
+
+String pollTypeLabel(String t) => pollTypes.firstWhere((e) => e[0] == t, orElse: () => pollTypes.first)[1];
+
+/// The built-in poll categories. The administrator can add, rename and remove categories (General stays).
+const pollBuiltInCategories = [
+  'General',
+  'Facilities & amenities',
+  'Maintenance & repairs',
+  'Finance & budget',
+  'Safety & security',
+  'Events & community',
+  'Rules & policies',
+  'Governance & elections',
+];
+
+/// A written answer to a "short answer" or "paragraph" question.
+class PollAnswer {
+  final String unit, text;
+  const PollAnswer(this.unit, this.text);
+}
+
+/// One question of a poll (or one position of an election).
+class PollQuestion {
+  String id, type, html, text;
+  bool required;
+
+  /// Checkboxes: the most choices allowed (0 = no limit). Election: the number of seats.
+  int max;
+  List<String> options;
+
+  // Results, counted from the ballots (see AppState.recountPolls).
+  List<int> counts = [];
+  int n = 0; // answers received
+  int ratingSum = 0;
+  List<int> stars = [0, 0, 0, 0, 0];
+  List<PollAnswer> written = [];
+
+  PollQuestion(this.id, this.type, this.html, this.text, this.required, this.max, this.options);
+
+  bool get isChoice => type == 'choice' || type == 'multi';
+  bool get isWritten => type == 'text' || type == 'para';
+}
+
+/// One unit's ballot (a unit votes once, and cannot change it).
+class PollBallot {
+  final int poll;
+  final String unit, at;
+
+  /// Question id -> option index (choice), list of option indexes (multi), 1..5 (rating) or text.
+  final Map<String, dynamic> answers;
+  PollBallot(this.poll, this.unit, this.at, this.answers);
+}
+
+/// A poll or an election residents vote on (one ballot per unit).
 class Poll {
   final int id;
-  String question;
-  bool open;
-  String closes;
-  final List<PollOption> options;
-  Poll(this.id, this.question, this.open, this.closes, this.options);
+  String kind; // poll | election
+  String category;
+  String question; // the title as plain text
+  String titleHtml, descHtml;
+  String closes; // "Oct 30, 2026"
+  String closeKey; // "2026-10-30"; after that day the poll closes by itself
+  String showResults; // vote (right after voting) | closed (only when it closes)
+  final List<PollQuestion> questions;
+  bool _open;
 
-  int get total => options.fold<int>(0, (s, o) => s + o.votes);
+  /// Number of ballots cast.
+  int ballots = 0;
+
+  /// True for older single-question polls (a plain question and options).
+  final bool legacy;
+  Poll(this.id, this.question, bool open, this.closes, this.questions,
+      {this.kind = 'poll',
+      this.category = 'General',
+      this.titleHtml = '',
+      this.descHtml = '',
+      this.closeKey = '',
+      this.showResults = 'vote',
+      this.legacy = false})
+      : _open = open;
+
+  bool get isElection => kind == 'election';
+
+  /// Open, unless the closing day has passed.
+  bool get open => _open && !(closeKey.isNotEmpty && closeKey.compareTo(isoDay(DateTime.now())) < 0);
+  set open(bool v) => _open = v;
+
+  /// The saved open/closed switch (before the closing day is looked at).
+  bool get openFlag => _open;
+
+  /// Votes for the options of the first question.
+  List<PollOption> get options {
+    if (questions.isEmpty) return const [];
+    final q = questions.first;
+    return [for (var i = 0; i < q.options.length; i++) PollOption(q.options[i], i < q.counts.length ? q.counts[i] : 0)];
+  }
+
+  /// Answers to the first question.
+  int get total => questions.isEmpty ? 0 : questions.first.n;
+
+  /// An election keeps its results hidden until it closes.
+  bool get resultsHidden => open && showResults == 'closed';
 }
 
 /// One motor parking slot. [unit] is empty when the slot is free.

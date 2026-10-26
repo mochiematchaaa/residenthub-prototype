@@ -55,7 +55,7 @@ class AdminReports extends StatelessWidget {
       const DocBlock.h2('Poll turnout'),
       DocBlock.table([
         const ['Poll', 'Status', 'Votes'],
-        for (final p in app.polls) [p.question, p.open ? 'Open' : 'Closed', '${p.total}'],
+        for (final p in app.polls) [p.question, p.open ? 'Open' : 'Closed', '${p.ballots}'],
       ]),
     ];
   }
@@ -211,7 +211,7 @@ class AdminReports extends StatelessWidget {
                 children: [
                   Text('Poll turnout', style: hd(17)),
                   const SizedBox(height: 6),
-                  _rows(context, [for (final p in app.polls) [p.question, '${p.total}']]),
+                  _rows(context, [for (final p in app.polls) [p.question, '${p.ballots}']]),
                 ],
               ),
             ),

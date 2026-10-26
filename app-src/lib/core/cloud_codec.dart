@@ -196,17 +196,75 @@ EventItem? _eventFrom(Map<String, dynamic> j) {
 
 Map<String, dynamic> _pollJson(Poll p) => {
       'id': p.id,
+      'kind': p.kind,
+      'category': p.category,
       'question': p.question,
-      'open': p.open,
+      'titleHtml': p.titleHtml,
+      'descHtml': p.descHtml,
+      'open': p.openFlag,
       'closes': p.closes,
-      'options': [for (final o in p.options) o.text],
+      'closeKey': p.closeKey,
+      'showResults': p.showResults,
+      'options': p.questions.isEmpty ? <String>[] : p.questions.first.options,
+      if (!p.legacy)
+        'questions': [
+          for (final q in p.questions)
+            {'id': q.id, 'type': q.type, 'html': q.html, 'text': q.text, 'required': q.required, 'max': q.max, 'options': q.options},
+        ],
     };
 
 Poll? _pollFrom(Map<String, dynamic> j) {
   if (j['id'] is! num) return null;
-  final opts = j['options'];
-  return Poll(_i(j, 'id'), _s(j, 'question'), _b(j, 'open'), _s(j, 'closes'),
-      [if (opts is List) for (final o in opts) PollOption(o.toString(), 0)]);
+  final kind = _s(j, 'kind', 'poll') == 'election' ? 'election' : 'poll';
+  final qs = <PollQuestion>[];
+  final raw = j['questions'];
+  if (raw is List && raw.isNotEmpty) {
+    for (var i = 0; i < raw.length; i++) {
+      final q = raw[i];
+      if (q is! Map) continue;
+      final html = _s(q, 'html');
+      final text = _s(q, 'text').isNotEmpty ? _s(q, 'text') : RtDoc.fromHtml(html).plain;
+      qs.add(PollQuestion(_s(q, 'id', 'q${i + 1}'), _s(q, 'type', 'choice'), html, text, _b(q, 'required'), _i(q, 'max'),
+          [if (q['options'] is List) for (final o in q['options'] as List) o.toString()]));
+    }
+  }
+  final legacy = qs.isEmpty;
+  if (legacy) {
+    final opts = j['options'];
+    qs.add(PollQuestion('q1', 'choice', '', _s(j, 'question'), true, 0, [if (opts is List) for (final o in opts) o.toString()]));
+  }
+  final title = _s(j, 'question').isNotEmpty ? _s(j, 'question') : qs.first.text;
+  return Poll(_i(j, 'id'), title, _b(j, 'open'), _s(j, 'closes', '—'), qs,
+      kind: kind,
+      category: _s(j, 'category', kind == 'election' ? 'Governance & elections' : 'General'),
+      titleHtml: _s(j, 'titleHtml'),
+      descHtml: _s(j, 'descHtml'),
+      closeKey: _s(j, 'closeKey'),
+      showResults: _s(j, 'showResults', kind == 'election' ? 'closed' : 'vote'),
+      legacy: legacy);
+}
+
+PollBallot? _ballotFrom(String id, Map<String, dynamic> j) {
+  final i = id.indexOf('|');
+  if (i < 0) return null;
+  final poll = int.tryParse(id.substring(i + 1)) ?? _i(j, 'poll');
+  final answers = <String, dynamic>{};
+  final raw = j['answers'];
+  if (raw is Map) {
+    for (final e in raw.entries) {
+      final v = e.value;
+      if (v is List) {
+        answers['${e.key}'] = [for (final x in v) if (x is num) x.toInt()];
+      } else if (v is num) {
+        answers['${e.key}'] = v.toInt();
+      } else if (v != null) {
+        answers['${e.key}'] = v.toString();
+      }
+    }
+  } else if (j['option'] is num) {
+    answers['q1'] = (j['option'] as num).toInt();
+  }
+  return PollBallot(poll, id.substring(0, i), _s(j, 'at'), answers);
 }
 
 Map<String, dynamic> _docJson(DocItem d) => {
@@ -374,9 +432,9 @@ List<CRow> exportRows(AppState a) {
     final i = k.indexOf('|');
     add('rsvp', k, k.substring(0, i), {'event': int.tryParse(k.substring(i + 1)) ?? 0});
   }
-  for (final e in a._votes.entries) {
+  for (final e in a._ballots.entries) {
     final i = e.key.indexOf('|');
-    add('vote', e.key, e.key.substring(0, i), {'poll': int.tryParse(e.key.substring(i + 1)) ?? 0, 'option': e.value});
+    add('vote', e.key, e.key.substring(0, i), {'poll': e.value.poll, 'answers': e.value.answers, 'at': e.value.at});
   }
   for (final x in a.activityLog) {
     add('activity', '${x.at.millisecondsSinceEpoch}', '__admin', _activityJson(x));
@@ -410,6 +468,7 @@ List<CRow> exportRows(AppState a) {
   add('setting', 'motor_rate', '', {'rate': a.motorRate});
   add('setting', 'motor_rate_daily', '', {'rate': a.motorRateDay});
   add('setting', 'dues_rate_sqm', '', {'rate': a.duesRate});
+  add('setting', 'poll_categories', '', {'list': a.pollCats});
   add('setting', 'paymethods', '', {
     'list': [
       for (final m in a.payMethods) {'name': m.name, 'details': m.details, 'enabled': m.enabled}
@@ -472,9 +531,12 @@ void importRows(AppState a, Iterable<CRow> all) {
   final admin = a.role == Role.admin;
 
   // who voted / who is going (counts are worked out from these)
-  a._votes
+  a._ballots
     ..clear()
-    ..addEntries([for (final r in of('vote')) MapEntry(r.id, _i(r.value, 'option'))]);
+    ..addEntries([
+      for (final r in of('vote'))
+        if (_ballotFrom(r.id, r.value) != null) MapEntry(r.id, _ballotFrom(r.id, r.value)!)
+    ]);
   a._rsvps
     ..clear()
     ..addAll([for (final r in of('rsvp')) r.id]);
@@ -508,18 +570,7 @@ void importRows(AppState a, Iterable<CRow> all) {
       enc: _eventJson, dec: _eventFrom, id: (x) => '${x.id}', cmp: (x, y) => newestFirst(x.id, y.id));
   _mergeList<Poll>(a.polls, of('poll'),
       enc: _pollJson, dec: _pollFrom, id: (p) => '${p.id}', cmp: (x, y) => newestFirst(x.id, y.id));
-  for (final p in a.polls) {
-    for (final o in p.options) {
-      o.votes = 0;
-    }
-  }
-  for (final e in a._votes.entries) {
-    final i = e.key.indexOf('|');
-    final pid = int.tryParse(e.key.substring(i + 1));
-    for (final p in a.polls.where((p) => p.id == pid)) {
-      if (e.value >= 0 && e.value < p.options.length) p.options[e.value].votes++;
-    }
-  }
+  a.recountPolls();
 
   final others = a.docs.where((d) => !d.isLive).toList();
   _mergeList<DocItem>(others, of('doc'),
@@ -544,6 +595,12 @@ void importRows(AppState a, Iterable<CRow> all) {
 
   // settings
   final st = {for (final r in of('setting')) r.id: r.value};
+  final pc = st['poll_categories']?['list'];
+  if (pc is List && pc.isNotEmpty) {
+    a.pollCats
+      ..clear()
+      ..addAll([for (final c in pc) c.toString()]);
+  }
   a.motorRate = _num(st['motor_rate'] ?? const {}, 'rate');
   a.motorRateDay = _num(st['motor_rate_daily'] ?? const {}, 'rate');
   a.duesRate = _num(st['dues_rate_sqm'] ?? const {}, 'rate');

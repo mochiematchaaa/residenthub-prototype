@@ -1,12 +1,14 @@
-// ADMIN page: Polls.
+// ADMIN page: Polls and elections.
 
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
 import '../shared/poll_widgets.dart';
+import 'poll_builder_screen.dart';
+import 'poll_categories.dart';
 
-/// Administrator: publish polls, see the results, close or delete them.
+/// Administrator: publish polls and elections, see the results and who voted, export to Excel, close or delete them.
 class AdminPolls extends StatefulWidget {
   const AdminPolls({super.key});
 
@@ -15,21 +17,8 @@ class AdminPolls extends StatefulWidget {
 }
 
 class _AdminPollsState extends State<AdminPolls> {
-  String _filter = 'all';
-
-  void _newPoll(BuildContext context) {
-    showFormSheet(
-      context,
-      title: 'New poll',
-      subtitle: 'Residents vote once per unit. The poll stays open for 7 days.',
-      fields: const [
-        FieldSpec('q', 'Question', hint: 'e.g. Repaint the lobby this year?', lines: 2),
-        FieldSpec('opts', 'Options', hint: 'One option per line (at least two)', lines: 4),
-      ],
-      submit: 'Publish poll',
-      onSubmit: (v) => app.addPoll(v['q'] as String, v['opts'] as String),
-    );
-  }
+  String _filter = 'open';
+  String _cat = 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -39,20 +28,17 @@ class _AdminPollsState extends State<AdminPolls> {
         final open = app.polls.where((p) => p.open).length;
         final closed = app.polls.length - open;
         final labels = <String, String>{
-          'all': 'All (${app.polls.length})',
           'open': 'Open ($open)',
           'closed': 'Closed ($closed)',
+          'all': 'All (${app.polls.length})',
         };
-        final shown = app.polls.where((p) => _filter == 'all' || (_filter == 'open') == p.open).toList();
-        final votes = app.polls.fold<int>(0, (s, p) => s + p.total);
+        final shown = app.polls
+            .where((p) => (_filter == 'all' || (_filter == 'open') == p.open) && (_cat == 'all' || p.category == _cat))
+            .toList();
+        final ballots = app.polls.fold<int>(0, (s, p) => s + p.ballots);
         return SubPage(
-          title: 'Polls & voting',
-          subtitle: 'Ask residents what they think and see the results as votes come in.',
-          fab: FloatingActionButton.extended(
-            onPressed: () => _newPoll(context),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('New poll'),
-          ),
+          title: 'Polls & elections',
+          subtitle: 'Ask residents what they think, run elections and see the results as votes come in.',
           children: [
             PastelCard(
               color: Pastel.sky,
@@ -60,16 +46,26 @@ class _AdminPollsState extends State<AdminPolls> {
               child: StatsRow([
                 ['Open', '$open'],
                 ['Closed', '$closed'],
-                ['Votes', '$votes'],
+                ['Ballots', '$ballots'],
               ]),
+            ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton.icon(onPressed: () => go(context, const PollBuilder(kind: 'poll')), icon: const Icon(Icons.add_rounded), label: const Text('New poll')),
+                FilledButton.tonalIcon(onPressed: () => go(context, const PollBuilder(kind: 'election')), icon: const Icon(Icons.how_to_vote_outlined), label: const Text('New election')),
+                OutlinedButton.icon(onPressed: () => showCategoryManager(context), icon: const Icon(Icons.label_outline_rounded), label: const Text('Manage categories')),
+              ],
             ),
             FilterRow(
               options: labels.values.toList(),
               selected: labels[_filter]!,
               onSelect: (v) => setState(() => _filter = labels.entries.firstWhere((e) => e.value == v).key),
             ),
+            PollCategoryFilter(polls: app.polls, value: _cat, onChanged: (v) => setState(() => _cat = v)),
             if (shown.isEmpty) const EmptyBox('No polls here yet. Tap New poll to publish one.', icon: Icons.how_to_vote_outlined),
-            for (final p in shown) PollCard(p, admin: true, key: ValueKey(p.id)),
+            PollGrid(shown, (p) => PollCard(p, admin: true, key: ValueKey(p.id))),
           ],
         );
       },

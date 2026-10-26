@@ -11,6 +11,7 @@ import 'doc_model.dart';
 import 'doc_seed.dart';
 import 'expenses.dart';
 import 'payments.dart';
+import 'rich_text.dart';
 import 'usage_forms.dart';
 
 part 'cloud_codec.dart';
@@ -494,7 +495,10 @@ class AppState extends ChangeNotifier {
     announcements.clear();
     events.clear();
     polls.clear();
-    _votes.clear();
+    _ballots.clear();
+    pollCats
+      ..clear()
+      ..addAll(pollBuiltInCategories);
     _rsvps.clear();
     activityLog.clear();
     trusted.clear();
@@ -1577,53 +1581,246 @@ class AppState extends ChangeNotifier {
     _n();
   }
 
-  // ---- polls (admin publishes, residents vote once per unit) ----
+  // ---- polls and elections (admin publishes, residents vote once per unit) ----
   final List<Poll> polls = [];
-  final Map<String, int> _votes = {}; // '<unit>|<pollId>' -> option index
+  final Map<String, PollBallot> _ballots = {}; // '<unit>|<pollId>' -> that unit's ballot
 
-  /// The option my unit voted for in a poll, or null.
-  int? myVote(int pollId) => _votes['$myUnit|$pollId'];
+  /// The categories the administrator manages (General is always there).
+  final List<String> pollCats = [...pollBuiltInCategories];
+
+  /// The categories to choose from: the managed list plus any a poll already uses.
+  List<String> get pollCategoryChoices {
+    final out = [...pollCats];
+    if (!out.contains('General')) out.insert(0, 'General');
+    for (final p in polls) {
+      if (p.category.isNotEmpty && !out.contains(p.category)) out.add(p.category);
+    }
+    return out;
+  }
+
+  /// My unit's ballot in a poll, or null.
+  PollBallot? myBallot(int pollId) => _ballots['$myUnit|$pollId'];
+
   /// How many open polls my unit has not voted in.
-  int get pollsToVote => polls.where((p) => p.open && myVote(p.id) == null).length;
+  int get pollsToVote => polls.where((p) => p.open && myBallot(p.id) == null).length;
+
   /// How many polls are open.
   int get openPolls => polls.where((p) => p.open).length;
 
-  /// Saves my unit's vote (returns an error text if not allowed).
-  String? castVote(Poll p, int option) {
+  /// The ballots cast in a poll (newest first).
+  List<PollBallot> ballotsOf(Poll p) =>
+      [for (final b in _ballots.values) if (b.poll == p.id) b]..sort((a, b) => b.at.compareTo(a.at));
+
+  /// Counts every ballot into the results of every poll.
+  void recountPolls() {
+    for (final p in polls) {
+      p.ballots = 0;
+      for (final q in p.questions) {
+        q.counts = List<int>.filled(q.options.length, 0);
+        q.n = 0;
+        q.ratingSum = 0;
+        q.stars = [0, 0, 0, 0, 0];
+        q.written = [];
+      }
+    }
+    final byId = {for (final p in polls) p.id: p};
+    for (final b in _ballots.values) {
+      final p = byId[b.poll];
+      if (p == null) continue;
+      p.ballots++;
+      for (final q in p.questions) {
+        final v = b.answers[q.id];
+        if (v == null || v == '') continue;
+        if (q.type == 'choice') {
+          final i = v is num ? v.toInt() : -1;
+          if (i >= 0 && i < q.counts.length) {
+            q.counts[i]++;
+            q.n++;
+          }
+        } else if (q.type == 'multi') {
+          var any = false;
+          for (final x in (v is List ? v : [v])) {
+            final i = x is num ? x.toInt() : -1;
+            if (i >= 0 && i < q.counts.length) {
+              q.counts[i]++;
+              any = true;
+            }
+          }
+          if (any) q.n++;
+        } else if (q.type == 'rating') {
+          final r = v is num ? v.toInt() : 0;
+          if (r >= 1 && r <= 5) {
+            q.stars[r - 1]++;
+            q.ratingSum += r;
+            q.n++;
+          }
+        } else {
+          q.written.add(PollAnswer(b.unit, v.toString()));
+          q.n++;
+        }
+      }
+    }
+  }
+
+  /// For one choice question of an election: 'Elected', 'Tie' or '' for each candidate (only once it has closed).
+  List<String> electedStatus(Poll p, PollQuestion q) {
+    final seats = p.isElection ? (q.max < 1 ? 1 : q.max) : 0;
+    final sorted = [...q.counts]..sort((a, b) => b.compareTo(a));
+    final cut = seats > 0 && seats <= sorted.length ? sorted[seats - 1] : 0;
+    final above = seats > 0 ? sorted.where((v) => v > cut).length : 0;
+    final atCut = seats > 0 ? sorted.where((v) => v == cut).length : 0;
+    return [
+      for (final v in q.counts)
+        if (seats == 0 || p.open || v <= 0)
+          ''
+        else if (v > cut)
+          'Elected'
+        else if (v == cut)
+          (atCut > seats - above ? 'Tie' : 'Elected')
+        else
+          '',
+    ];
+  }
+
+  /// Saves my unit's ballot (returns an error text if it is not allowed or not complete).
+  String? castVote(Poll p, Map<String, dynamic> answers) {
     if (!p.open) return 'This poll is closed.';
-    if (myVote(p.id) != null) return 'Your unit has already voted in this poll.';
-    if (option < 0 || option >= p.options.length) return 'Pick an option first.';
-    p.options[option].votes++;
-    _votes['$myUnit|${p.id}'] = option;
-    logActivity('Poll vote from $myUnit: ${p.question}', 'Polls');
+    if (myBallot(p.id) != null) return 'Your unit has already voted in this poll.';
+    final clean = <String, dynamic>{};
+    for (var i = 0; i < p.questions.length; i++) {
+      final q = p.questions[i];
+      final v = answers[q.id];
+      final empty = v == null || v == '' || (v is List && v.isEmpty);
+      if (empty) {
+        if (q.required) return 'Please answer question ${i + 1}.';
+        continue;
+      }
+      if (q.type == 'multi' && q.max > 0 && v is List && v.length > q.max) {
+        return 'Choose at most ${q.max} for ${p.isElection ? '"${q.text}"' : 'question ${i + 1}'}.';
+      }
+      clean[q.id] = v;
+    }
+    if (clean.isEmpty) return p.isElection ? 'Choose at least one candidate, or leave this election.' : 'Answer at least one question first.';
+    _ballots['$myUnit|${p.id}'] = PollBallot(p.id, myUnit, DateTime.now().toIso8601String(), clean);
+    recountPolls();
+    logActivity('${p.isElection ? 'Ballot' : 'Poll vote'} from $myUnit: ${p.question}', 'Polls');
     _n();
     return null;
   }
 
-  /// Creates a poll (returns an error text if invalid).
-  String? addPoll(String question, String optionsRaw) {
-    final opts = optionsRaw.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    if (question.trim().isEmpty || opts.length < 2) return 'Add a question and at least two options (one per line).';
-    final closes = shortDate(DateTime.now().add(const Duration(days: 7)));
-    polls.insert(0, Poll(nextId(), question.trim(), true, closes, [for (final o in opts) PollOption(o, 0)]));
-    logActivity('Poll published: ${question.trim()}', 'Polls');
+  /// Creates a poll or election (returns an error text if something is missing).
+  String? publishPoll({
+    required String kind,
+    required String category,
+    required String titleHtml,
+    required String descHtml,
+    required String closeKey,
+    required String showResults,
+    required List<PollQuestion> questions,
+  }) {
+    final el = kind == 'election';
+    final title = RtDoc.fromHtml(titleHtml).plain;
+    if (title.isEmpty) return 'Give it a title first.';
+    if (questions.isEmpty) return el ? 'Add at least one position.' : 'Add at least one question.';
+    final qs = <PollQuestion>[];
+    for (var i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final text = RtDoc.fromHtml(q.html).plain;
+      if (text.isEmpty) return '${el ? 'Position' : 'Question'} ${i + 1} needs a name.';
+      final opts = [for (final o in q.options) if (o.trim().isNotEmpty) o.trim()];
+      final type = el ? (q.max > 1 ? 'multi' : 'choice') : q.type;
+      final choice = type == 'choice' || type == 'multi';
+      if (choice && opts.length < (el ? 1 : 2)) {
+        return el ? 'Add at least one candidate for "$text".' : 'Add at least two options for "$text".';
+      }
+      qs.add(PollQuestion('q${i + 1}', type, q.html, text, q.required, el ? (q.max < 1 ? 1 : q.max) : (type == 'multi' ? q.max : 0), choice ? opts : []));
+    }
+    final end = DateTime.tryParse(closeKey);
+    if (end == null || closeKey.compareTo(isoDay(DateTime.now())) < 0) return 'Pick a closing date that is today or later.';
+    polls.insert(
+        0,
+        Poll(nextId(), title, true, shortDate(end), qs,
+            kind: kind, category: category.isEmpty ? 'General' : category, titleHtml: titleHtml, descHtml: descHtml, closeKey: closeKey, showResults: showResults));
+    recountPolls();
+    logActivity('${el ? 'Election opened' : 'Poll published'}: $title', 'Polls');
     _n();
     return null;
   }
 
-  /// Opens or closes a poll.
+  /// Opens or closes a poll (reopening gives it another week).
   void togglePoll(Poll p) {
-    p.open = !p.open;
-    logActivity('Poll ${p.open ? 'reopened' : 'closed'}: ${p.question}', 'Polls');
+    final next = !p.open;
+    p.open = next;
+    if (next) {
+      final end = DateTime.now().add(const Duration(days: 7));
+      p.closeKey = isoDay(end);
+      p.closes = shortDate(end);
+    } else if (p.closeKey.isNotEmpty && p.closeKey.compareTo(isoDay(DateTime.now())) >= 0) {
+      p.closes = shortDate(DateTime.now());
+    }
+    logActivity('${p.isElection ? 'Election' : 'Poll'} ${next ? 'reopened' : 'closed'}: ${p.question}', 'Polls');
     _n();
   }
 
-  /// Deletes a poll.
+  /// Deletes a poll and its ballots.
   void deletePoll(Poll p) {
     polls.remove(p);
-    _votes.removeWhere((k, _) => k.endsWith('|${p.id}'));
+    _ballots.removeWhere((k, b) => b.poll == p.id);
     logActivity('Poll deleted: ${p.question}', 'Polls');
     _n();
+  }
+
+  // ---- poll categories ----
+  String? _catName(String raw, {String? except}) {
+    final name = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) return null;
+    return name;
+  }
+
+  /// Adds a category (returns an error text, or null when it was added).
+  String? addPollCategory(String raw) {
+    final name = _catName(raw);
+    if (name == null) return 'Type a category name.';
+    if (name.length > 40) return 'Keep the name under 40 characters.';
+    if (pollCategoryChoices.any((c) => c.toLowerCase() == name.toLowerCase())) return 'That category already exists.';
+    pollCats.add(name);
+    logActivity('Poll category added: $name', 'Polls');
+    _n();
+    return null;
+  }
+
+  /// Renames a category everywhere it is used.
+  String? renamePollCategory(String old, String raw) {
+    if (old == 'General') return 'General is the default category and cannot be renamed.';
+    final name = _catName(raw);
+    if (name == null) return 'Type a category name.';
+    if (name.length > 40) return 'Keep the name under 40 characters.';
+    if (name == old) return null;
+    if (pollCategoryChoices.any((c) => c != old && c.toLowerCase() == name.toLowerCase())) return 'That category already exists.';
+    final i = pollCats.indexOf(old);
+    if (i >= 0) {
+      pollCats[i] = name;
+    } else {
+      pollCats.add(name);
+    }
+    for (final p in polls.where((p) => p.category == old)) {
+      p.category = name;
+    }
+    logActivity('Poll category renamed: $old to $name', 'Polls');
+    _n();
+    return null;
+  }
+
+  /// Removes a category; its polls move to General.
+  String? removePollCategory(String name) {
+    if (name == 'General') return 'General is the default category and cannot be removed.';
+    pollCats.remove(name);
+    for (final p in polls.where((p) => p.category == name)) {
+      p.category = 'General';
+    }
+    logActivity('Poll category removed: $name', 'Polls');
+    _n();
+    return null;
   }
 
   // ---- events (residents say they are going) ----
