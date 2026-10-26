@@ -187,10 +187,15 @@ function castVote(id) {
   else save();
 }
 
-// The categories you can choose: the built-in ones, the ones the office added, and any a poll already uses.
+// The categories the office manages (General is always there). Starts with the built-in set.
+function catList() {
+  var l = (setting("poll_categories").list || POLL_CATEGORIES).slice();
+  if (l.indexOf("General") < 0) l.unshift("General");
+  return l;
+}
+// The categories you can choose: the managed list, plus any a poll already uses.
 function pollCategories() {
-  var out = POLL_CATEGORIES.slice();
-  (setting("poll_categories").list || []).forEach(function (c) { if (out.indexOf(c) < 0) out.push(c); });
+  var out = catList();
   list("poll").forEach(function (r) { var c = r.v.category; if (c && out.indexOf(c) < 0) out.push(c); });
   return out;
 }

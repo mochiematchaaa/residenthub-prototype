@@ -164,17 +164,22 @@ function viewPolls() {
     }).join("") || '<p class="empty">No polls here yet.</p>') + "</div>";
 }
 /* ---------- categories ---------- */
-// Adds a category to the list (the office's own, besides the built-in ones).
-async function addCategoryName(name) {
+var catEdit = -1, catAsk = -1;
+function catClean(name, except) {
   name = String(name || "").trim().replace(/\s+/g, " ");
   if (!name) return { error: "Type a category name." };
   if (name.length > 40) return { error: "Keep the name under 40 characters." };
-  var all = pollCategories();
-  if (all.some(function (c) { return c.toLowerCase() === name.toLowerCase(); })) return { error: "That category already exists." };
-  var custom = (setting("poll_categories").list || []).concat([name]);
-  await put("setting", "poll_categories", "", { list: custom });
-  logAct("Poll category added: " + name, "Polls");
+  var l = catList();
+  if (l.some(function (c, k) { return k !== except && c.toLowerCase() === name.toLowerCase(); })) return { error: "That category already exists." };
   return { name: name };
+}
+function catSave(l) { return put("setting", "poll_categories", "", { list: l }); }
+// Adds a category to the list.
+async function addCategoryName(name) {
+  var r = catClean(name, -1); if (r.error) return r;
+  await catSave(catList().concat([r.name]));
+  logAct("Poll category added: " + r.name, "Polls");
+  return r;
 }
 // "+ New category" next to the category list of the builder: adds it and picks it.
 function newPollCategory() {
@@ -185,35 +190,58 @@ function newPollCategory() {
       if (state.pollDraft) state.pollDraft.category = r.name;
     } });
 }
-// The list of categories, with a form to add one and a way to remove the ones the office added.
+// The list of categories: add, rename or remove them.
 function manageCategories() {
-  var custom = setting("poll_categories").list || [], all = pollsAll();
+  var l = catList(), all = pollsAll();
   var row = function (c, i) {
-    var n = all.filter(function (p) { return p.category === c; }).length, mine = i >= 0;
-    return '<div class="cat-row"><span class="cat-name">' + esc(c) + '</span><span class="cat-n">' + n + " poll" + (n === 1 ? "" : "s") + "</span>" + (mine ? '<button class="opt-x" title="Remove" aria-label="Remove ' + escAttr(c) + '" onclick="removePollCategory(' + i + ')">&times;</button>' : '<span class="cat-lock">built in</span>') + "</div>";
+    var n = all.filter(function (p) { return p.category === c; }).length, plural = n + " poll" + (n === 1 ? "" : "s");
+    if (c === "General") return '<div class="cat-row"><span class="cat-name">General</span><span class="cat-n">' + plural + '</span><span class="cat-lock">default</span></div>';
+    if (catEdit === i) return '<form class="cat-row cat-edit" onsubmit="event.preventDefault();renamePollCategory(' + i + ')"><input id="catRename" maxlength="40" value="' + escAttr(c) + '" autocomplete="off"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" onclick="catEdit=-1;manageCategories()">Cancel</button></form>';
+    if (catAsk === i) return '<div class="cat-row cat-ask"><span class="cat-name">' + (n ? "Move " + plural + " to General and remove “" + esc(c) + "”?" : "Remove “" + esc(c) + "”?") + '</span><button class="btn danger" onclick="removePollCategory(' + i + ')">Remove</button><button class="btn" onclick="catAsk=-1;manageCategories()">Keep</button></div>';
+    return '<div class="cat-row"><span class="cat-name">' + esc(c) + '</span><span class="cat-n">' + plural + '</span><button class="btn cat-btn" onclick="catEdit=' + i + ';catAsk=-1;manageCategories()">Edit</button><button class="btn cat-btn danger" onclick="catAsk=' + i + ';catEdit=-1;manageCategories()">Delete</button></div>';
   };
-  openModal('<h2>Poll categories</h2><p style="margin:0 0 10px;font-size:13.5px;color:var(--muted)">Residents can filter the polls by category. Add your own, for example Pets or Elevators.</p>' +
-    '<div class="cat-list">' + custom.map(function (c, i) { return row(c, i); }).join("") + POLL_CATEGORIES.map(function (c) { return row(c, -1); }).join("") + "</div>" +
+  openModal('<h2>Poll categories</h2><p style="margin:0 0 10px;font-size:13.5px;color:var(--muted)">Add, rename or remove categories. Residents can filter the polls by category.</p>' +
+    '<div class="cat-list">' + l.map(row).join("") + "</div>" +
     '<form class="cat-add" onsubmit="event.preventDefault();addPollCategoryFromBox()"><input id="catNew" maxlength="40" placeholder="New category name" autocomplete="off"><button class="btn primary" type="submit">Add</button></form><div class="formerr" id="catErr" hidden></div>' +
-    '<div class="modal-actions"><button class="btn" onclick="closeModal()">Done</button></div>');
-  var el = document.getElementById("catNew"); if (el) el.focus();
+    '<div class="modal-actions"><button class="btn" onclick="catEdit=-1;catAsk=-1;closeModal()">Done</button></div>');
+  var el = document.getElementById(catEdit >= 0 ? "catRename" : "catNew"); if (el) { el.focus(); if (catEdit >= 0) el.select(); }
 }
+function catError(msg) { var err = document.getElementById("catErr"); if (err) { err.textContent = msg; err.hidden = false; } else toast(msg); }
 async function addPollCategoryFromBox() {
-  var box = document.getElementById("catNew"), err = document.getElementById("catErr");
   try {
-    var r = await addCategoryName(box.value);
-    if (r.error) { err.textContent = r.error; err.hidden = false; return; }
+    var r = await addCategoryName(document.getElementById("catNew").value);
+    if (r.error) return catError(r.error);
     await rhRefresh(true); manageCategories(); toast("Category added: " + r.name);
   } catch (e) { toast(errText(e)); }
 }
-function removePollCategory(i) {
-  var custom = (setting("poll_categories").list || []).slice(), name = custom[i]; if (name == null) return;
-  custom.splice(i, 1);
-  act(async function () {
-    await put("setting", "poll_categories", "", { list: custom });
+// Renames a category everywhere it is used.
+async function renamePollCategory(i) {
+  var l = catList(), old = l[i], r = catClean(document.getElementById("catRename").value, i);
+  if (r.error) return catError(r.error);
+  if (r.name === old) { catEdit = -1; return manageCategories(); }
+  try {
+    l[i] = r.name;
+    await catSave(l);
+    var rows = list("poll").filter(function (x) { return x.v.category === old; });
+    for (var k = 0; k < rows.length; k++) await put("poll", rows[k].id, "", Object.assign({}, rows[k].v, { category: r.name }));
+    if (state.pollCat === old) state.pollCat = r.name;
+    if (state.pollDraft && state.pollDraft.category === old) state.pollDraft.category = r.name;
+    logAct("Poll category renamed: " + old + " to " + r.name, "Polls");
+    catEdit = -1; await rhRefresh(true); manageCategories(); toast("Renamed to " + r.name + ".");
+  } catch (e) { toast(errText(e)); }
+}
+// Removes a category; its polls move to General.
+async function removePollCategory(i) {
+  var l = catList(), name = l[i]; if (name == null || name === "General") return;
+  try {
+    var rows = list("poll").filter(function (x) { return x.v.category === name; });
+    for (var k = 0; k < rows.length; k++) await put("poll", rows[k].id, "", Object.assign({}, rows[k].v, { category: "General" }));
+    l.splice(i, 1); await catSave(l);
+    if (state.pollCat === name) state.pollCat = "all";
+    if (state.pollDraft && state.pollDraft.category === name) state.pollDraft.category = "General";
     logAct("Poll category removed: " + name, "Polls");
-    toast("Removed " + name + ". Polls that used it keep their label.");
-  }).then(function () { manageCategories(); });
+    catAsk = -1; await rhRefresh(true); manageCategories(); toast("Removed " + name + (rows.length ? ". Its polls moved to General." : "."));
+  } catch (e) { toast(errText(e)); }
 }
 
 /* ---------- who voted ---------- */
