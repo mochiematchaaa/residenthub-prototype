@@ -107,7 +107,7 @@ class Due {
   final num amount;
 
   /// Due date written like "Oct 15, 2026" (empty = due upon receipt).
-  final String dueDate;
+  String dueDate;
   bool paid;
   Due(this.id, this.unit, this.name, this.amount, this.note, {this.dueDate = '', this.paid = false});
   num get amt => amount;

@@ -6,6 +6,7 @@ import '../../core/core.dart';
 import '../../core/doc_seed.dart';
 import '../../services/doc_files.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 import '../shared/document_viewer_screen.dart';
 import '../shared/payment_widgets.dart';
 import 'admin_screens.dart';
@@ -137,6 +138,7 @@ class _AdminFinanceState extends State<AdminFinance> {
       title: 'Finance',
       subtitle: 'Dues, charges, payment status and payment history.',
       children: [
+        const ImportBar(['charges', 'payments']),
         PastelCard(
           color: Pastel.lavender,
           child: Column(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../services/session.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 import '../shared/notify_sheet.dart';
 
 class AdminAccess extends StatefulWidget {
@@ -58,6 +59,7 @@ class _AdminAccessState extends State<AdminAccess> {
             ),
           ),
           children: [
+            const ImportBar(['accounts']),
             TextField(
               onChanged: (v) => setState(() => q = v),
               decoration: const InputDecoration(hintText: 'Search name, email or unit…', prefixIcon: Icon(Icons.search_rounded)),

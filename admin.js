@@ -211,8 +211,6 @@ function viewUnits() {
     '<p>Search any record information. Combine words, such as “Reyes owner” or “vacant overdue”.</p></div>' +
     '<div class="filters unit-actions"><span role="status" style="margin-right:auto;font-size:13px;color:var(--muted)">' + rows.length + " matching " + (rows.length === 1 ? "unit" : "units") + "</span>" +
     '<button class="btn primary" onclick="unitForm(null)">+ Add unit</button>' +
-    '<label class="btn file-import-btn">Import CSV<input type="file" accept=".csv,text/csv" onchange="importUnits(this)" hidden></label>' +
-    '<button class="btn" onclick="unitsTemplate()">Template</button>' +
     '<button class="btn" onclick="exportUnits()">Export CSV</button></div>' +
     '<div class="card" style="padding:0;overflow:hidden">' + tableRows(html, ["UNIT", "RESIDENT / OWNER", "OCCUPANCY", "STATUS", "CONTACT", "USAGE", "BALANCE", ""], list("unit").length ? "No units match your search." : "No units yet. Tap “Add unit” or import a CSV.") + "</div>";
 }

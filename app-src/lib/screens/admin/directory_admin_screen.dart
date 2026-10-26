@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/import_sheet.dart';
 
 /// Administrator: the contact numbers and house rules every resident sees under Directory.
 class AdminDirectory extends StatelessWidget {
@@ -71,6 +72,7 @@ class AdminDirectory extends StatelessWidget {
         title: 'Directory and house rules',
         subtitle: 'What residents see under Directory: who to call, and the rules of the building.',
         children: [
+          const ImportBar(['directory']),
           Row(children: [
             Expanded(child: Text('Contacts', style: hd(18))),
             TextButton.icon(onPressed: () => _contactForm(context), icon: const Icon(Icons.add_rounded), label: const Text('Add')),

@@ -367,8 +367,26 @@
   /* ---------------- the in-memory "Supabase" ---------------- */
   function today() { return dk(new Date()); }
   function fresh() { var d = buildSeed(); try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { } return d; }
+  /* What you add (imported files, units, notices...) is kept in this browser and is not wiped when the sample data changes.
+     If an older copy of the data is found, it is carried over and the new fields are filled in. "Reset sample data" starts again. */
+  var OLD_KEYS = ["__rhdemo_v5", "__rhdemo_v4", "__rhdemo_v3", "__rhdemo_v2", "__rhdemo_v1"];
+  function migrate(old) {
+    var s = buildSeed(), byId = {};
+    s.users.forEach(function (u) { byId[u.id] = u.profile; });
+    (old.users || []).forEach(function (u) {
+      var sp = byId[u.id]; if (!sp || !u.profile) return;
+      ["created_at", "updated_at", "last_change", "history"].forEach(function (k) { if (u.profile[k] === undefined && sp[k] !== undefined) u.profile[k] = sp[k]; });
+    });
+    return old;
+  }
   function load() {
-    try { var x = JSON.parse(localStorage.getItem(KEY)); if (x && x.seedDay === today()) return x; } catch (e) { }
+    try { var x = JSON.parse(localStorage.getItem(KEY)); if (x && x.users && x.records) return x; } catch (e) { }
+    for (var i = 0; i < OLD_KEYS.length; i++) {
+      try {
+        var o = JSON.parse(localStorage.getItem(OLD_KEYS[i]));
+        if (o && o.users && o.records) { o = migrate(o); try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { } return o; }
+      } catch (e) { }
+    }
     return fresh();
   }
   var db = load();
