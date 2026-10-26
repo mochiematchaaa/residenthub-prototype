@@ -577,7 +577,7 @@ function viewRentals() {
   var approved = flagged.filter(function (r) { return r.v.usageStatus === "approved"; }).length;
   var rejected = flagged.filter(function (r) { return r.v.usageStatus === "rejected"; }).length;
   return '<div class="grid cols-3">' + statCard("Awaiting review", String(pending)) + statCard("Approved", String(approved)) + statCard("Rejected", String(rejected)) + "</div>" +
-    '<div class="card" style="margin-top:16px;font-size:13px;color:var(--muted)">Residents declare this themselves under their portal\'s <b>Unit Rental</b> page. Short-term rentals (e.g. Airbnb) and home-based businesses need your review here before they are marked Approved — owner-occupied units and long-term tenant leases do not need approval.</div>' +
+    '<div class="card" style="margin-top:16px;font-size:13px;color:var(--muted)">Residents declare this themselves under their portal\'s <b>Unit Status</b> page. Short-term rentals (e.g. Airbnb) and home-based businesses need your review here before they are marked Approved — owner-occupied units and long-term tenant leases do not need approval.</div>' +
     (waiting.length === 0 ? '<div class="card" style="margin-top:16px;color:var(--muted)">Nothing is waiting for your review right now.' + (flagged.length ? '' : ' No unit has declared a short-term rental or business yet.') + '</div>' : '<div class="rental-grid">' + rentalCards(waiting) + "</div>") +
     (decided.length ? '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">Already decided: ' + approved + " approved, " + rejected + ' rejected</summary><div class="rental-grid" style="margin-top:14px">' + rentalCards(decided) + "</div></details>" : "") +
     '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;padding:14px 18px"><h2 style="font-size:19px;flex-grow:1">All units by usage</h2><button class="btn" onclick="exportUnits()">Export .csv</button></div>' +
@@ -819,7 +819,7 @@ function viewProfile() {
    Search and notifications
    ========================================================================== */
 function searchIndex() {
-  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Grievances", "req"], ["Unit rentals", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
+  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Grievances", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
   return [].concat(
     sortedUnits().map(function (r) { return { t: esc(r.id + " · " + (r.v.name || "—")), s: esc((r.v.type || "") + " · " + (r.v.contact || "")), tag: "Unit", v: "units" }; }),
     list("announcement").map(function (r) { return { t: esc(r.v.title), s: esc(r.v.body || ""), tag: "Announcement", v: "ann" }; }),
@@ -837,7 +837,7 @@ function bellItems() {
   if (c.proofs) l.push({ t: c.proofs + " payment" + (c.proofs > 1 ? "s" : "") + " to verify", s: "Finance", v: "fin" });
   if (c.unpaid) l.push({ t: c.unpaid + " unpaid charge" + (c.unpaid > 1 ? "s" : ""), s: "Finance", v: "fin" });
   if (c.grievances) l.push({ t: c.grievances + " open grievance" + (c.grievances > 1 ? "s" : ""), s: "Grievances", v: "req" });
-  if (c.rentals) l.push({ t: c.rentals + " unit rental to review", s: "Rentals", v: "rentals" });
+  if (c.rentals) l.push({ t: c.rentals + " unit status to review", s: "Unit status", v: "rentals" });
   if (c.parking) l.push({ t: c.parking + " parking request" + (c.parking > 1 ? "s" : ""), s: "Parking", v: "parking" });
   return l;
 }

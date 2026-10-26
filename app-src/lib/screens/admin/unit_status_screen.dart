@@ -38,7 +38,7 @@ class _AdminUnitStatusState extends State<AdminUnitStatus> {
         final feed = app.statusUpdates.take(6).toList();
         final review = app.units.where((u) => u.needsApproval && u.usageStatus == 'pending').toList();
         return SubPage(
-          title: 'Rentals',
+          title: 'Unit status',
           subtitle: 'The current state of every unit, kept up to date by residents. You can update any unit too.',
           children: [
             PastelCard(
