@@ -7,7 +7,7 @@ ResidentHub app (prototype) - run it in Android Studio
 5. On the sign-in screen tap "Continue as Administrator" or "Continue as Resident".
    Administrator: admin@demo.test  |  Resident: resident@demo.test  |  Password: Demo@1234
 
-The prototype has no database. All the data is sample data kept in memory and resets when the app restarts.
+The prototype has no database. It starts with made-up sample data (units, dues, polls, bookings...) kept in memory and resets when the app restarts.
 This prototype copy always uses sample data. (To force it off for a test: --dart-define=PROTOTYPE=false.)
 
 New in this version

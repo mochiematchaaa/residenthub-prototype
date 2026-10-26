@@ -14,7 +14,7 @@ const bool kDemo = bool.fromEnvironment('DEMO') || kPrototype;
 
 /// The demo and the prototype start EMPTY, so the import can be tried on empty lists.
 /// Build with `--dart-define=SAMPLE=true` to get the made-up sample data back.
-const bool kSampleData = bool.fromEnvironment('SAMPLE');
+const bool kSampleData = bool.fromEnvironment('SAMPLE', defaultValue: true);
 
 const String kDemoPassword = 'Demo@1234';
 const String kDemoAdminEmail = 'admin@demo.test';
