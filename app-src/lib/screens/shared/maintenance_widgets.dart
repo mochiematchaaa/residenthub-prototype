@@ -156,6 +156,24 @@ void showAssignSheet(BuildContext context, Grievance g) {
   );
 }
 
+const String _newKindChoice = '+ Add new type';
+
+/// Popup to rename a task type you created.
+void showRenameKindSheet(BuildContext context, String kind, {required void Function(String newName) onRenamed}) {
+  showFormSheet(
+    context,
+    title: 'Rename type',
+    subtitle: 'Every task of this type is renamed too.',
+    fields: [FieldSpec('name', 'Type name', initial: kind)],
+    submit: 'Save name',
+    onSubmit: (v) {
+      final r = maint.renameKind(kind, v['name'] as String, app);
+      if (r.$1 == null) onRenamed(r.$2);
+      return r.$1;
+    },
+  );
+}
+
 /// Popup to add or edit a maintenance task.
 void showTaskSheet(BuildContext context, {MTask? task}) {
   showFormSheet(
@@ -163,10 +181,11 @@ void showTaskSheet(BuildContext context, {MTask? task}) {
     title: task == null ? 'Add maintenance task' : 'Edit maintenance task',
     fields: [
       FieldSpec('title', 'Task', hint: 'e.g. Elevator inspection', initial: task?.title ?? ''),
-      FieldSpec('newKind', 'New type (optional)', hint: 'Type a new task type, e.g. Inspection. Leave empty to use the type below.'),
+      FieldSpec('newKind', 'Name of the new type', hint: 'e.g. Inspection', onlyWhenKey: 'kind', onlyWhenValue: _newKindChoice, belowChoice: true),
     ],
     choices: [
-      ChoiceSpec('kind', 'Type', maint.kinds.map(kindLabel).toList(), kindLabel(task?.kind ?? kindRoutine)),
+      ChoiceSpec('kind', 'Type', [...maint.kinds.map(kindLabel), _newKindChoice], kindLabel(task?.kind ?? kindRoutine)),
+      // (the name box for a new type is the field with belowChoice, listed in `fields` above)
       ChoiceSpec('equip', 'Equipment (optional)', ['None', ...maint.equipment.map((e) => e.name)], maint.equipById(task?.equipId)?.name ?? 'None'),
       ChoiceSpec('every', 'Repeats', maintFrequencies.map((f) => f.$1).toList(), task?.every ?? 'Monthly'),
       ChoiceSpec('due', 'Next due',
@@ -177,11 +196,17 @@ void showTaskSheet(BuildContext context, {MTask? task}) {
     onSubmit: (v) {
       final title = (v['title'] as String).trim();
       if (title.isEmpty) return 'Enter the task.';
+      final picked = v['kind'] as String;
+      String? kindName;
+      if (picked == _newKindChoice) {
+        kindName = maint.addKind(v['newKind'] as String);
+        if (kindName == null) return 'Type the name of the new type, or pick a type from the list.';
+      }
       maint.saveTask(
         app,
         existing: task,
         title: title,
-        kind: maint.addKind(v['newKind'] as String) ?? kindFromLabel(v['kind'] as String),
+        kind: kindName ?? kindFromLabel(picked),
         every: v['every'] as String,
         due: _targetFrom(v['due'] as String),
         equip: maint.equipByName(v['equip'] as String),

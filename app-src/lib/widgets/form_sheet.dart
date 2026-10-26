@@ -15,9 +15,11 @@ class FieldSpec {
   final TextInputType? type;
   final bool obscure;
   final String? onlyWhenKey, onlyWhenValue;
+  /// Show this field right under the choice named [onlyWhenKey] instead of at the top of the form.
+  final bool belowChoice;
   final String initial;
   const FieldSpec(this.key, this.label,
-      {this.hint, this.lines = 1, this.type, this.obscure = false, this.onlyWhenKey, this.onlyWhenValue, this.initial = ''});
+      {this.hint, this.lines = 1, this.type, this.obscure = false, this.onlyWhenKey, this.onlyWhenValue, this.belowChoice = false, this.initial = ''});
 }
 
 /// Describes a choice (dropdown/chips) in a FormSheet.
@@ -105,6 +107,18 @@ class _FormSheetState extends State<_FormSheet> {
     }
   }
 
+  Widget _fieldBox(FieldSpec f) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextField(
+          controller: ctrls[f.key],
+          minLines: f.lines,
+          maxLines: f.lines,
+          obscureText: f.obscure,
+          keyboardType: f.type,
+          decoration: InputDecoration(labelText: f.label, hintText: f.hint),
+        ),
+      );
+
   Future<void> _pickTime(TimeSpec t) async {
     final cur = toMinutes('${vals[t.key]}') ?? 480;
     final r = await showTimePicker(context: context, initialTime: TimeOfDay(hour: cur ~/ 60, minute: cur % 60));
@@ -160,18 +174,7 @@ class _FormSheetState extends State<_FormSheet> {
             ],
             const SizedBox(height: 16),
             for (final f in widget.fields)
-              if (f.onlyWhenKey == null || vals[f.onlyWhenKey] == f.onlyWhenValue)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
-                    controller: ctrls[f.key],
-                    minLines: f.lines,
-                    maxLines: f.lines,
-                    obscureText: f.obscure,
-                    keyboardType: f.type,
-                    decoration: InputDecoration(labelText: f.label, hintText: f.hint),
-                  ),
-                ),
+              if (!f.belowChoice && (f.onlyWhenKey == null || vals[f.onlyWhenKey] == f.onlyWhenValue)) _fieldBox(f),
             if (widget.times.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -217,6 +220,8 @@ class _FormSheetState extends State<_FormSheet> {
                 ],
               ),
               const SizedBox(height: 10),
+              for (final f in widget.fields)
+                if (f.belowChoice && f.onlyWhenKey == c.key && vals[f.onlyWhenKey] == f.onlyWhenValue) _fieldBox(f),
             ],
             for (final t in widget.toggles)
               SwitchListTile(
