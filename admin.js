@@ -7,7 +7,7 @@ var state = {
   unitSearch: "", facIdx: 0,
   newAnnTitle: "", newAnnBody: "", newAnnType: "General",
   newPollQ: "", newPollOpts: "", pollFilter: "open",
-  finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
+  finView: "day", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
   expMonth: "", expDay: "",
   manage: { name: "", email: "", phone: "", unit: "" }, manageSearch: "", manageErr: ""
 };
