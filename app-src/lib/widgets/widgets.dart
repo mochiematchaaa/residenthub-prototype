@@ -10,6 +10,7 @@ export 'motion.dart';
 export 'page_scaffolds.dart';
 export 'pastel.dart';
 export 'quick_search.dart';
+export 'rich_editor.dart';
 export 'ring_gauge.dart';
 export 'unit_status.dart';
 export 'password_rules.dart';

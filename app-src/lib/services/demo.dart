@@ -512,20 +512,152 @@ List<CRow> _demoRows() {
     r('rsvp', key, unit, {'event': int.parse(key.split('|').last)});
   }
   const polls = <List<Object>>[
-    ['Should the lobby be repainted this year?', true, 6, ['Yes, with a new color', 'Yes, same color', 'No, not needed']],
-    ['Best day for the quarterly general assembly?', false, -12, ['Saturday morning', 'Saturday evening', 'Sunday afternoon']],
-    ['Add more CCTV cameras in the parking area?', true, 10, ['Yes', 'No', 'Not sure']],
-    ['How big should the Christmas party budget be?', true, 14, ['₱20,000', '₱35,000', '₱50,000']],
+    ['Should the lobby be repainted this year?', true, 6, ['Yes, with a new color', 'Yes, same color', 'No, not needed'], 'Maintenance & repairs'],
+    ['Best day for the quarterly general assembly?', false, -12, ['Saturday morning', 'Saturday evening', 'Sunday afternoon'], 'Events & community'],
+    ['Add more CCTV cameras in the parking area?', true, 10, ['Yes', 'No', 'Not sure'], 'Safety & security'],
+    ['How big should the Christmas party budget be?', true, 14, ['₱20,000', '₱35,000', '₱50,000'], 'Finance & budget'],
   ];
   for (final p in polls) {
     final id = tid();
     final opts = (p[3] as List).cast<String>();
-    r('poll', id, '', {'id': id, 'question': p[0], 'open': p[1], 'closes': _sd(_off(p[2] as int)), 'options': opts});
+    r('poll', id, '', {'id': id, 'question': p[0], 'open': p[1], 'closes': _sd(_off(p[2] as int)), 'options': opts, 'category': p[4]});
     for (final u in withAcc) {
       if (u.label == 'Unit 3B' && !(p[0] as String).startsWith('Best day')) continue;
       if (_rnd() < 0.65) r('vote', '${u.label}|$id', u.label, {'poll': id, 'option': (_rnd() * opts.length).floor()});
     }
   }
+
+  // ---- elections and a survey (formatted text, several questions)
+  int pollRec(String kind, String titleHtml, String descHtml, String title, int closesIn, String showResults, bool open,
+      List<Map<String, dynamic>> qs, String category) {
+    final id = tid();
+    final d = _off(closesIn);
+    r('poll', id, '', {
+      'id': id,
+      'kind': kind,
+      'question': title,
+      'titleHtml': titleHtml,
+      'descHtml': descHtml,
+      'open': open,
+      'closes': _sd(d),
+      'closeKey': _dk(d),
+      'showResults': showResults,
+      'category': category,
+      'options': qs.first['options'],
+      'questions': qs,
+    });
+    return id;
+  }
+
+  void cast(int id, List<Map<String, dynamic>> qs, double share, Object? Function(Map<String, dynamic> q) fn) {
+    for (final u in withAcc) {
+      if (u.label == 'Unit 3B' && share < 1) continue;
+      if (_rnd() > share) continue;
+      final a = <String, dynamic>{};
+      for (final q in qs) {
+        final v = fn(q);
+        if (v != null) a[q['id'] as String] = v;
+      }
+      r('vote', '${u.label}|$id', u.label, {
+        'poll': id,
+        'answers': a,
+        'at': _off(-1).subtract(Duration(milliseconds: (_rnd() * 6 * 86400000).floor())).toUtc().toIso8601String(),
+      });
+    }
+  }
+
+  List<int> pickN(int n, int k) {
+    final all = [for (var i = 0; i < n; i++) i];
+    final out = <int>[];
+    while (out.length < k && all.isNotEmpty) {
+      out.add(all.removeAt((_rnd() * all.length).floor()));
+    }
+    return out;
+  }
+
+  Map<String, dynamic> pos(int i, String name, List<String> cands, int seats) => {
+        'id': 'q$i',
+        'type': seats > 1 ? 'multi' : 'choice',
+        'html': name,
+        'text': name.replaceAll(RegExp(r'<[^>]+>'), ''),
+        'required': false,
+        'max': seats,
+        'options': cands,
+      };
+
+  final elQs = [
+    pos(1, '<b>President</b>', ['Carla Aquino — Unit 5A', 'Ramon Dela Cruz — Unit 1B', 'Liza Villanueva — Unit 4B'], 1),
+    pos(2, '<b>Vice President</b>', ['Marco Chua — Unit 6B', 'Anna Reyes — Unit 3B'], 1),
+    pos(3, '<b>Secretary</b>', ['Joy Torres — Unit 2C', 'Ben Santos — Unit 1A'], 1),
+    pos(4, '<b>Treasurer</b>', ['Grace Evangelista — Unit 12B', 'Paolo Mendoza — Unit 8C'], 1),
+    pos(5, '<b>Board Directors</b> <i>(vote for up to 3)</i>',
+        ['Carla Aquino — Unit 5A', 'Ben Santos — Unit 1A', 'Marco Chua — Unit 6B', 'Joy Torres — Unit 2C', 'Liza Villanueva — Unit 4B'], 3),
+  ];
+  final elId = pollRec(
+      'election',
+      '<b>2026 Board of Directors election</b>',
+      'Choose the people who will manage the building for <b>2026–2027</b>.<ul><li>Each unit has <b>one secret ballot</b>.</li><li>You may leave a position blank to abstain.</li><li>The results are shown when voting closes.</li></ul>',
+      '2026 Board of Directors election',
+      12,
+      'closed',
+      true,
+      elQs,
+      'Governance & elections');
+  cast(elId, elQs, 0.7, (q) {
+    final n = (q['options'] as List).length;
+    return q['type'] == 'multi' ? pickN(n, 1 + (_rnd() * 3).floor()) : (_rnd() < 0.08 ? null : (_rnd() * n).floor());
+  });
+  final oldQs = [
+    pos(1, '<b>Chairperson</b>', ['Elena Castillo — Unit 7A', 'Roberto Lim — Unit 9B'], 1),
+    pos(2, '<b>Committee members</b> <i>(vote for up to 2)</i>', ['Nina Flores — Unit 3A', 'Victor Gomez — Unit 10A', 'Teresa Ramos — Unit 11C'], 2),
+  ];
+  final oldId = pollRec('election', '<b>2025 Homeowners’ committee election</b>', 'Closed election. Thank you to everyone who voted.',
+      '2025 Homeowners’ committee election', -40, 'closed', false, oldQs, 'Governance & elections');
+  cast(oldId, oldQs, 0.75, (q) {
+    final n = (q['options'] as List).length;
+    return q['type'] == 'multi' ? pickN(n, 2) : (_rnd() * n).floor();
+  });
+  final svQs = <Map<String, dynamic>>[
+    {'id': 'q1', 'type': 'choice', 'html': '<b>How often</b> do you use the pool?', 'text': 'How often do you use the pool?', 'required': true, 'max': 0,
+      'options': ['Every week', 'A few times a month', 'Rarely', 'Never']},
+    {'id': 'q2', 'type': 'multi', 'html': 'Which facilities should be <u>improved first</u>? <i>(choose up to 3)</i>', 'text': 'Which facilities should be improved first?',
+      'required': true, 'max': 3, 'options': ['Pool', 'Gym', 'Function Hall', 'Parking', 'Lobby', 'Coffee lounge']},
+    {'id': 'q3', 'type': 'rating', 'html': 'How satisfied are you with the <b>cleanliness</b> of the common areas?',
+      'text': 'How satisfied are you with the cleanliness of the common areas?', 'required': true, 'max': 0, 'options': <String>[]},
+    {'id': 'q4', 'type': 'para', 'html': 'Anything else you would like the board to know?', 'text': 'Anything else you would like the board to know?',
+      'required': false, 'max': 0, 'options': <String>[]},
+  ];
+  const notes = [
+    'More lighting near the parking area, please.',
+    'The gym needs two more treadmills.',
+    'Please repaint the lobby soon.',
+    'Thank you for the quick repairs in March!',
+    'Add more bike racks.',
+    'Quiet hours should be enforced on weekends.',
+  ];
+  final svId = pollRec(
+      'poll',
+      '<b>Building facilities survey</b>',
+      'Help us decide what to improve first. It takes <i>two minutes</i>. Your answers are shared with the board.',
+      'Building facilities survey',
+      9,
+      'vote',
+      true,
+      svQs,
+      'Facilities & amenities');
+  cast(svId, svQs, 0.6, (q) {
+    switch (q['id']) {
+      case 'q1':
+        return (_rnd() * 4).floor();
+      case 'q2':
+        return pickN(6, 1 + (_rnd() * 3).floor());
+      case 'q3':
+        return 2 + (_rnd() * 4).floor();
+      default:
+        return _rnd() < 0.4 ? notes[(_rnd() * notes.length).floor()] : null;
+    }
+  });
+  r('setting', 'poll_categories', '', {'list': pollBuiltInCategories});
 
   // ---- bookings
   int toMin(String t) {
