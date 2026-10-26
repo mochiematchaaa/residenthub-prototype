@@ -170,7 +170,14 @@ List<Account> _demoAccounts() {
           updatedAt: newOnes.contains(k)
               ? now.subtract(Duration(days: k == 5 ? 1 : 3))
               : (changed.containsKey(k) ? now.subtract(Duration(days: k + 1)) : null),
-          lastChange: newOnes.contains(k) ? 'New account' : (changed[k] ?? '')),
+          lastChange: newOnes.contains(k) ? 'New account' : (changed[k] ?? ''),
+          history: [
+            if (changed.containsKey(k))
+              AccountChange(now.subtract(Duration(days: k + 1)), changed[k]!,
+                  from: k == 2 ? '0917 555 0102' : (k == 8 ? '${occ[k].key.split('.').first}@oldmail.test' : 'Unit ${1 + (k % 9)}A'),
+                  to: k == 2 ? occ[k].contact : (k == 8 ? '${occ[k].key}@demo.test' : occ[k].label)),
+            AccountChange(newOnes.contains(k) ? now.subtract(Duration(days: k == 5 ? 1 : 3)) : now.subtract(Duration(days: 20 + k)), 'Account created'),
+          ]),
   ];
 }
 

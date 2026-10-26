@@ -679,9 +679,21 @@
         var cell = '<td style="font-weight:700">' + esc(a.name) + '</td><td style="color:var(--muted)">' + esc(a.email) + "</td>";
         h = h.replace(cell, function () { return '<td style="font-weight:700">' + esc(a.name) + " " + chip + '</td><td style="color:var(--muted)">' + esc(a.email) + "</td>"; });
       });
+      // Update history: a dropdown listing every change to a resident's contact info, newest first, with a filter by resident.
+      var ev = [];
+      (DB.accounts || []).forEach(function (a) { if (a.role === "admin") return; (a.history || []).forEach(function (x) { ev.push({ who: a.name, unit: a.unit || "", at: Date.parse(x.at) || 0, field: x.field, from: x.from, to: x.to }); }); });
+      ev.sort(function (x, y) { return y.at - x.at; });
+      var names = Array.from(new Set(ev.map(function (e) { return e.who; }))).sort();
+      window.maintHistFilter = function (v) { var rows = document.querySelectorAll("#mtHist tbody tr"), n = 0; rows.forEach(function (r) { var ok = !v || r.getAttribute("data-who") === v; r.style.display = ok ? "" : "none"; if (ok) n++; }); var e = document.getElementById("mtHistN"); if (e) e.textContent = n + " change" + (n === 1 ? "" : "s"); };
+      var hist = '<details class="card" style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:700">Update history <span class="chip info" id="mtHistN" style="margin-left:6px">' + ev.length + " change" + (ev.length === 1 ? "" : "s") + "</span></summary>" +
+        '<div style="margin:12px 0"><select onchange="maintHistFilter(this.value)" aria-label="Show history for"><option value="">All residents</option>' + names.map(function (n) { return '<option value="' + escAttr(n) + '">' + esc(n) + "</option>"; }).join("") + "</select></div>" +
+        (ev.length ? '<div style="overflow:auto"><table id="mtHist"><thead><tr><th>When</th><th>Resident</th><th>What changed</th><th>From</th><th>To</th></tr></thead><tbody>' +
+          ev.map(function (e) {
+            return '<tr data-who="' + escAttr(e.who) + '"><td style="white-space:nowrap">' + esc(new Date(e.at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })) + "</td><td><b>" + esc(e.who) + "</b>" + (e.unit ? '<br><span style="color:var(--muted)">' + esc(e.unit) + "</span>" : "") + "</td><td>" + esc(e.field) + "</td><td>" + (e.from ? esc(e.from) : "—") + "</td><td>" + (e.to ? esc(e.to) : "—") + "</td></tr>";
+          }).join("") + "</tbody></table></div>" : '<div class="hint">No changes yet.</div>') + "</details>";
       return '<div class="card" style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center"><b>Resident contact info, last 7 days</b>' +
         '<span class="chip good">' + nNew + " new</span><span class=\"chip info\">" + nUpd + " updated</span>" + (noPhone ? '<span class="chip warn">' + noPhone + " without a mobile number</span>" : "") +
-        '<span class="hint" style="margin:0;flex:1 1 260px">Notify residents uses this list: the name, unit and mobile number come from each account.</span></div>' + h;
+        '<span class="hint" style="margin:0;flex:1 1 260px">Notify residents uses this list: the name, unit and mobile number come from each account.</span></div>' + hist + h;
     };
   }
 })();
