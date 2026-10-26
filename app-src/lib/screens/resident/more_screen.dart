@@ -64,7 +64,7 @@ class ResMore extends StatelessWidget {
             ),
           NavTile(
             icon: statusOf(rec?.usage ?? 'owner').icon,
-            title: 'Unit Rental',
+            title: 'Unit status',
             subtitle: rec == null ? 'Declare how your unit is used' : 'Now: ${usageLabel(rec.usage)}',
             onTap: () => go(context, const ResUnitStatus()),
           ),

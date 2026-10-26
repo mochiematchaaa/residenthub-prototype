@@ -112,7 +112,7 @@ class _ResUnitStatusState extends State<ResUnitStatus> {
         final history = app.myStatusUpdates;
         final opt = statusOf(sel);
         return SubPage(
-          title: 'Unit Rental',
+          title: 'Unit status',
           subtitle: 'Tell the office how your unit is used, and what they need to know.',
           children: [
             // --- current status

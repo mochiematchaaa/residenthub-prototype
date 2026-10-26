@@ -51,7 +51,7 @@ class AdminMore extends StatelessWidget {
           ),
           NavTile(
             icon: Icons.home_work_outlined,
-            title: 'Rentals',
+            title: 'Unit status',
             subtitle: app.rentalsToReview > 0
                 ? '${app.rentalsToReview} declaration(s) to review'
                 : app.newStatusUpdates == 0 ? 'State of every unit' : '${app.newStatusUpdates} new update(s) from residents',

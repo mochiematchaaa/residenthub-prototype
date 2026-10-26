@@ -536,7 +536,7 @@
     g.h[7] = 10;
     tile(8, 0, "EXPENSES THIS YEAR", expYear, list("expense").length + " expense records in total", C.amber, MON);
     tile(8, 3, "OPEN GRIEVANCES", c.grievances, list("grievance").length + " reports in total", C.amber);
-    tile(8, 6, "WAITING FOR APPROVAL", waiting, c.bookings + " bookings, " + c.parking + " parking, " + c.rentals + " rentals", C.brand);
+    tile(8, 6, "WAITING FOR APPROVAL", waiting, c.bookings + " bookings, " + c.parking + " parking, " + c.rentals + " unit status", C.brand);
     var od = list("mtask").filter(function (r) { var n = days(r.v.due); return n != null && n < 0; }).length, needs = list("equipment").filter(function (r) { return r.v.status !== "Working"; }).length;
     if (hasMaint) tile(8, 9, "OVERDUE MAINTENANCE", od, needs + " equipment need attention", od ? C.red : C.green);
     else tile(8, 9, "ANNOUNCEMENTS", list("announcement").length, "Notices posted to residents", C.blue);
@@ -559,7 +559,7 @@
     g.span(r, 0, NC - 1, "Key figures", secS, false); g.h[r] = 26; r++;
     g.span(r, 0, 3, "Figure", hd); g.span(r, 4, 5, "Value", sty({ b: 1, color: "FFFFFF", fill: C.brand, v: "center", h: "right" })); g.h[r] = 24; r++;
     var kf = [["Units", list("unit").length], ["Resident accounts", residentCount()], ["Unpaid charges", unpaid.length], ["Unpaid amount", unpaidAmt, "money"], ["Collected this month", monthEarnings(), "money"], ["Expenses this year", expYear, "money"],
-              ["Booking requests waiting", c.bookings], ["Open grievances", c.grievances], ["Parking requests waiting", c.parking], ["Rentals to review", c.rentals]];
+              ["Booking requests waiting", c.bookings], ["Open grievances", c.grievances], ["Parking requests waiting", c.parking], ["Unit status to review", c.rentals]];
     if (hasMaint) kf.push(["Overdue maintenance tasks", od], ["Equipment needing attention", needs]);
     kf.forEach(function (k, i) {
       var base = { v: "center", fill: i % 2 ? C.band : undefined, bb: ["thin", C.line] };

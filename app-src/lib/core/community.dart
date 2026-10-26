@@ -87,7 +87,7 @@ const directoryFaq = [
   ['When are monthly dues due?', 'Dues are due on the 15th of every month. Your balance and history are under Dues.'],
   [
     'I rent out my unit. What do I need to do?',
-    'Open Unit Rental and tell us how your unit is used. Long-term leases are saved right away. Short-term rentals and home businesses need the administrator\'s approval.'
+    'Open Unit status and tell us how your unit is used. Long-term leases are saved right away. Short-term rentals and home businesses need the administrator\'s approval.'
   ],
   [
     'How do I request motor parking?',
