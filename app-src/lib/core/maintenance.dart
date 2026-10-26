@@ -457,7 +457,7 @@ class MaintenanceState extends ChangeNotifier {
       e.lastService = now;
     }
     _recordCost(app, 'Repair: ${g.title}', 'Repairs and improvements', cost, e, staffById(a.staffId)?.name ?? '', now);
-    app.logActivity('Grievance resolved: ${g.title}${cost > 0 ? ' (${peso(cost)})' : ''}', 'Requests');
+    app.logActivity('Complaint resolved: ${g.title}${cost > 0 ? ' (${peso(cost)})' : ''}', 'Requests');
     app.changed();
     notifyListeners();
   }
@@ -506,9 +506,9 @@ class MaintenanceState extends ChangeNotifier {
     final extra = <int, (String, bool, String, int?)>{
       1: ('', false, 'LiftCare Services', -60), 2: ('', false, 'LiftCare Services', 20), 3: ('', false, 'AquaFlow Trading', 300),
       4: ('', false, 'PowerPro Gensets', 200), 5: ('', false, 'SafeGuard Fire Systems', 400), 6: ('', false, 'SafeGuard Fire Systems', null),
-      7: ('Swimming Pool', true, 'AquaFlow Trading', 150), 8: ('Gym', false, 'FitGear Supply', -30), 9: ('', false, 'CoolAir Services', 90),
-      10: ('', false, 'SecureTech', 10), 11: ('Gym', false, 'AquaFlow Trading', -200), 12: ('', false, 'SecureTech', 260),
-      13: ('Game Room', true, 'FitGear Supply', null),
+      7: ('Swimming Pool', true, 'AquaFlow Trading', 150), 8: ('', false, 'FitGear Supply', -30), 9: ('', false, 'CoolAir Services', 90),
+      10: ('', false, 'SecureTech', 10), 11: ('', false, 'AquaFlow Trading', -200), 12: ('', false, 'SecureTech', 260),
+      13: ('', false, 'FitGear Supply', null),
     };
     for (final x in e) {
       final f = extra[x.id];

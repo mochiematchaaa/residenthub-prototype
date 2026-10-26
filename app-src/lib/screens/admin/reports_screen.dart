@@ -45,7 +45,7 @@ class AdminReports extends StatelessWidget {
       DocBlock.table([const ['Status', 'Charges', 'Amount'], ..._ageing()]),
       const DocBlock.h2('How units are used'),
       DocBlock.table([const ['Status', 'Units'], ..._usage()]),
-      const DocBlock.h2('Grievances'),
+      const DocBlock.h2('Complaints'),
       DocBlock.table([
         const ['Stage', 'Count'],
         for (var s = 0; s < 3; s++) [const ['Open', 'In progress', 'Resolved'][s], '${app.grievances.where((g) => g.stage == s).length}'],
@@ -187,7 +187,7 @@ class AdminReports extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Grievances', style: hd(17)),
+                  Text('Complaints', style: hd(17)),
                   const SizedBox(height: 6),
                   _rows(context, [
                     for (var s = 0; s < 3; s++) [const ['Open', 'In progress', 'Resolved'][s], '${app.grievances.where((g) => g.stage == s).length}'],

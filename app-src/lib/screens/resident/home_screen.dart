@@ -153,7 +153,7 @@ class ResHome extends StatelessWidget {
                   onTap: () => go(context, const ResDocuments()),
                 ),
                 FeatureTile(
-                  title: 'Grievances',
+                  title: 'Complaints',
                   metric: '$openGr',
                   subtitle: openGr == 0 ? 'open concerns. All clear' : 'open concern(s) being handled',
                   icon: Icons.edit_note_rounded,
@@ -335,7 +335,7 @@ class ResHome extends StatelessWidget {
         SearchItem('Dues & payment', 'Balance, payments and receipts', Icons.account_balance_wallet_rounded, () => app.setResTab(3)),
         SearchItem('Motor parking', 'Your slot, request and free slots', Icons.two_wheeler_rounded, () => app.setResTab(2)),
         SearchItem('My reservations', 'Booking requests and status', Icons.event_note_rounded, () => go(context, const ResReservations())),
-        SearchItem('Grievances', 'Report or track a concern', Icons.edit_note_rounded, () => go(context, const ResGrievances())),
+        SearchItem('Complaints', 'Report or track a concern', Icons.edit_note_rounded, () => go(context, const ResGrievances())),
         SearchItem('Polls & voting', 'Vote on community decisions', Icons.how_to_vote_outlined, () => go(context, const ResPolls())),
         SearchItem('Events', 'Upcoming events, RSVP', Icons.celebration_outlined, () => go(context, const ResEvents())),
         SearchItem('Directory & house rules', 'Contacts, rules, FAQ', Icons.contacts_outlined, () => go(context, const ResDirectory())),

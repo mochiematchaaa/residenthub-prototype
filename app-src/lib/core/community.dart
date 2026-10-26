@@ -91,10 +91,10 @@ const directoryFaq = [
   ],
   [
     'How do I request motor parking?',
-    'Open Parking, tap a free slot on the map and pay the monthly rental. When the office confirms your payment, the slot is yours.'
+    'Open Parking, tap a free slot on the map and pay the monthly rental. When the office verifies your payment, the slot is yours.'
   ],
   [
     'How do I report a problem in the building?',
-    'Use Grievances to describe the concern. You can follow its status from Open to In progress to Resolved.'
+    'Use Complaints to describe the concern. You can follow its status from Open to In progress to Resolved.'
   ],
 ];

@@ -896,11 +896,13 @@ class AppState extends ChangeNotifier {
     return rec;
   }
 
-  /// Rejects a payment proof.
-  void rejectProof(PaymentProof p) {
+  /// Rejects a payment proof. The reason is kept with the submission and shown to the resident.
+  void rejectProof(PaymentProof p, String reason) {
     if (p.status != 'Pending') return;
     p.status = 'Rejected';
-    logActivity('Payment reference not confirmed, ${p.unit}', 'Finance');
+    p.reason = reason.trim();
+    p.rejectedOn = shortDate(DateTime.now());
+    logActivity('Payment rejected, ${p.unit}: ${p.reason}', 'Finance');
     _n();
   }
 
@@ -987,9 +989,9 @@ class AppState extends ChangeNotifier {
     }
     for (final p in myProofs) {
       if (p.status == 'Confirmed') {
-        out.add(['Your payment (ref. ${p.reference}) was confirmed. The receipt is under Dues & payment.', 'good']);
+        out.add(['Your payment (ref. ${p.reference}) was verified. The receipt is under Dues & payment.', 'good']);
       } else if (p.status == 'Rejected') {
-        out.add(['Your payment (ref. ${p.reference}) could not be confirmed. Please check the reference number.', 'bad']);
+        out.add(['Your payment (ref. ${p.reference}) was rejected${p.reason.isEmpty ? ' (please check the reference number)' : ': ${p.reason.replaceAll(RegExp(r'[.\s]+$'), '')}'}. You can send the correct details.', 'bad']);
       }
     }
     final rec = myUnitRec;
@@ -1074,7 +1076,7 @@ class AppState extends ChangeNotifier {
   void addGrievance(String title, String body) {
     grievances.insert(0,
         Grievance(nextId(), title, body.isEmpty ? 'No further details.' : body, myUnit, 0));
-    logActivity('Grievance opened: $title', 'Requests');
+    logActivity('Complaint opened: $title', 'Requests');
     _n();
   }
 
@@ -1549,7 +1551,7 @@ class AppState extends ChangeNotifier {
   void advanceGrievance(int id) {
     final g = grievances.firstWhere((g) => g.id == id);
     if (g.stage < 2) g.stage++;
-    logActivity('Grievance ${g.stage == 2 ? 'resolved' : 'in progress'}: ${g.title}', 'Requests');
+    logActivity('Complaint ${g.stage == 2 ? 'resolved' : 'in progress'}: ${g.title}', 'Requests');
     _n();
   }
 

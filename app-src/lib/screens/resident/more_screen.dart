@@ -51,7 +51,7 @@ class ResMore extends StatelessWidget {
                 : (app.parkingRequested ? 'Request sent, waiting for the office' : 'Request a parking slot'),
             onTap: () => app.setResTab(2),
           ),
-          NavTile(icon: Icons.edit_note_rounded, title: 'Grievances', subtitle: openGr == 0 ? 'Nothing open' : '$openGr open', onTap: () => go(context, const ResGrievances())),
+          NavTile(icon: Icons.edit_note_rounded, title: 'Complaints', subtitle: openGr == 0 ? 'Nothing open' : '$openGr open', onTap: () => go(context, const ResGrievances())),
           if (kDemo)
             ListenableBuilder(
               listenable: maint,

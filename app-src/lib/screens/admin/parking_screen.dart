@@ -134,7 +134,7 @@ class AdminParking extends StatelessWidget {
     );
   }
 
-  /// One request. A reserved slot is approved when its payment is confirmed.
+  /// One request. A reserved slot is approved when its payment is verified.
   Widget _request(BuildContext context, ParkingReq p) {
     final proof = p.slot.isNotEmpty ? app.parkingProofFor(p.unit, p.slot) : null;
     final paid = proof?.status == 'Confirmed';
@@ -163,9 +163,9 @@ class AdminParking extends StatelessWidget {
           style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
           onPressed: () {
             app.confirmProof(proof!);
-            msg(context, 'Payment confirmed. ${p.slot} is now assigned to ${p.unit}.');
+            msg(context, 'Payment verified. ${p.slot} is now assigned to ${p.unit}.');
           },
-          child: const Text('Confirm payment'),
+          child: const Text('Verify payment'),
         ),
       ];
     } else {

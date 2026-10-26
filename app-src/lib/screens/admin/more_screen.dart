@@ -44,7 +44,7 @@ class AdminMore extends StatelessWidget {
           NavTile(icon: Icons.campaign_outlined, title: 'Announcements & events', subtitle: '${app.announcements.length} announcements · ${app.events.length} events', onTap: () => go(context, const AdminAnnouncements())),
           NavTile(
             icon: Icons.build_circle_outlined,
-            title: 'Grievances',
+            title: 'Complaints',
             subtitle: '${app.openGrievances} open',
             onTap: () => go(context, const AdminGrievances()),
             trailing: app.openGrievances > 0 ? Pill('${app.openGrievances}', tone: Tone.warn) : null,

@@ -18,7 +18,7 @@ void sendParkingPayment(BuildContext context) {
     context,
     title: 'Pay for ${r.slot}',
     subtitle: 'Pay ${peso(r.amount)} using one of the options under Dues, then enter the reference number from your receipt. '
-        'The office confirms it and the slot becomes yours.',
+        'The office verifies it and the slot becomes yours.',
     choices: [ChoiceSpec('method', 'Paid through', methods, methods.first)],
     fields: const [FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank / office receipt')],
     submit: 'Send payment details',
@@ -26,7 +26,7 @@ void sendParkingPayment(BuildContext context) {
       final err = app.submitParkingProof(v['method'] as String, v['ref'] as String);
       if (err == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) msg(context, 'Sent. The office will confirm your payment and assign the slot.');
+          if (context.mounted) msg(context, 'Sent. The office will verify your payment and assign the slot.');
         });
       }
       return err;
@@ -155,8 +155,8 @@ class ResParking extends StatelessWidget {
                     st == 1
                         ? 'Pay the rental, then send the payment details. The slot is held for you until the office decides.'
                         : st == 2
-                            ? 'Payment details sent (ref. ${proof!.reference}). The office will confirm and assign the slot.'
-                            : 'Payment confirmed. The office will assign the slot.',
+                            ? 'Payment details sent (ref. ${proof!.reference}). The office will verify and assign the slot.'
+                            : 'Payment verified. The office will assign the slot.',
                     style: const TextStyle(color: inkSoft, height: 1.4),
                   ),
                   const SizedBox(height: 12),
@@ -276,7 +276,7 @@ class ResParking extends StatelessWidget {
                 for (final line in [
                   'Tap a free slot on the map. The slot is held for you.',
                   'You choose a monthly or daily rental, and it shows up as a charge. Pay it, then send the payment details.',
-                  'When the office confirms your payment, the slot is yours. Your receipt appears under Dues.',
+                  'When the office verifies your payment, the slot is yours. Your receipt appears under Dues.',
                 ])
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
