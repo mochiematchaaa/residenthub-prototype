@@ -36,6 +36,21 @@ function viewFin() {
   var finPages = Math.max(1, Math.ceil(shownDues.length / FIN_PAGE)), finPage = Math.min(Math.max(0, state.finPage || 0), finPages - 1);
   var rows = shownDues.slice(finPage * FIN_PAGE, (finPage + 1) * FIN_PAGE);
   var year = new Date().getFullYear();
+  // collection summary: every day of a month (people pay every day) or every month of the year
+  var nowD = new Date(), todayKey = dayKey(nowD), selKey = state.finMonth == null ? thisMonthKey() : state.finMonth;
+  var selYear = Math.floor(selKey / 12), selMon = selKey % 12, dayCount = new Date(selYear, selMon + 1, 0).getDate();
+  var perDay = [], todayTotal = 0, selTotal = 0;
+  for (var di = 1; di <= dayCount; di++) perDay.push({ label: String(di), value: 0, tone: "yellow", title: "" });
+  vals("payment").forEach(function (p) {
+    var pd = parseShort(p.date); if (!pd) return;
+    var amt = Number(p.amount || 0);
+    if (dayKey(pd) === todayKey) todayTotal += amt;
+    if (pd.getFullYear() === selYear && pd.getMonth() === selMon) { perDay[pd.getDate() - 1].value += amt; selTotal += amt; }
+  });
+  perDay.forEach(function (x, i) {
+    x.tone = (selKey === thisMonthKey() && i + 1 === nowD.getDate()) ? "pink" : "yellow";
+    x.title = LONG_MONTHS[selMon] + " " + (i + 1) + ": " + peso(x.value);
+  });
   var perMonth = MONTHS.map(function (m, i) {
     var total = vals("payment").filter(function (p) { return monthOf(p.date) === year * 12 + i; }).reduce(function (s, p) { return s + Number(p.amount || 0); }, 0);
     return { label: m, value: Math.round(total), tone: i === new Date().getMonth() ? "pink" : "yellow" };
@@ -63,7 +78,13 @@ function viewFin() {
         '</div></div><div style="display:flex;gap:8px"><button class="btn" onclick="rejectProof(\'' + escAttr(r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(r.id) + '\')">Verify</button></div></div>';
     }).join("") : '<p class="hint" style="margin:6px 0 0">Nothing waiting. New submissions from residents appear here right away.</p>') + "</div>" +
     '<div class="fin-grid"><div class="fin-main">' +
-    '<div class="card"><h2>Collection summary</h2><p class="hint">Money collected each month of ' + year + ", in pesos.</p>" + barChart(perMonth, "₱") + "</div>" +
+    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Collection summary</h2><p class="hint" style="margin:4px 0 0">' +
+      (state.finView === "month" ? "Money collected each month of " + year + ", in pesos." : "Money collected each day of " + LONG_MONTHS[selMon] + " " + selYear + ", in pesos.") + '</p></div>' +
+      '<div class="filters" style="padding:0"><button class="' + (state.finView !== "month" ? "active" : "") + '" onclick="set({finView:\'day\'})">Daily</button><button class="' + (state.finView === "month" ? "active" : "") + '" onclick="set({finView:\'month\'})">Monthly</button></div></div>' +
+      (state.finView === "month" ? "" :
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px"><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(-1)" aria-label="Previous month">&#8249;</button><b style="min-width:130px;text-align:center">' + LONG_MONTHS[selMon] + " " + selYear + '</b><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(1)" aria-label="Next month"' + (selKey >= thisMonthKey() ? " disabled" : "") + '>&#8250;</button>' +
+        '<span style="font-size:13px;color:var(--muted)">Collected today: <b style="color:var(--ink,inherit)">' + peso(todayTotal) + "</b> &middot; This month: <b>" + peso(selTotal) + "</b></span></div>") +
+      (state.finView === "month" ? barChart(perMonth, "₱") : dailyChart(perDay)) + "</div>" +
     '<div class="card" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
     '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "paid" ? "active" : "") + '" onclick="set({finFilter:\'paid\',finPage:0})">Paid (' + paidDues.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
     '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' +
@@ -103,6 +124,20 @@ function viewFin() {
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border2)"><span style="font-size:13px"><b>' + esc(p.receiptNo) + "</b> · " + esc(p.unit) + " · " + peso(Number(p.amount)) + '<br><span style="color:var(--muted);font-size:12px">' + esc(p.method || "") + " · " + esc(p.date || "") + '</span></span><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'payment\',\'' + escAttr(r.id) + '\')">Receipt</button></div>';
     }).join("") || '<p class="hint" style="margin:0">No payments recorded yet.</p>') +
     '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div></aside></div>';
+}
+// Bars for every day of a month (small labels, only days with money show an amount).
+function dailyChart(days) {
+  var max = Math.max.apply(null, days.map(function (d) { return d.value; })) || 1;
+  function short(v) { return v >= 1000 ? (Math.round(v / 100) / 10) + "k" : String(Math.round(v)); }
+  return '<div class="vbars" style="gap:3px;height:190px;overflow:hidden">' + days.map(function (d) {
+    return '<div class="vbar" title="' + escAttr(d.title) + '" style="gap:6px"><div class="vb-track"><span class="vb-val" style="font-size:9.5px;min-height:12px">' + (d.value ? short(d.value) : "") + '</span><i class="' + d.tone + '" style="height:' + Math.max(3, d.value / max * 78) + '%;max-width:22px;border-radius:6px 6px 3px 3px"></i></div><span class="vb-lab" style="font-size:9.5px">' + d.label + "</span></div>";
+  }).join("") + "</div>";
+}
+// Goes to the previous or next month of the daily summary.
+function finMonthShift(n) {
+  var k = (state.finMonth == null ? thisMonthKey() : state.finMonth) + n;
+  if (k > thisMonthKey()) return;
+  set({ finMonth: k });
 }
 // "Collect" on a charge: opens the payment desk for that unit with that charge ticked.
 function chooseDue(id) {
