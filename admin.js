@@ -4,7 +4,7 @@
 var state = {
   authed: false, view: "home", darkMode: false,
   bellOpen: false, bellSeen: false,
-  unitSearch: "", facIdx: 0,
+  unitSearch: "", unitPage: 0, facIdx: 0,
   newAnnTitle: "", newAnnBody: "", newAnnType: "General",
   newPollQ: "", newPollOpts: "", pollFilter: "open",
   finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
@@ -196,23 +196,27 @@ function matchesSearch(content, query) {
   return norm(query).trim().split(/\s+/).filter(Boolean).every(function (w) { return text.indexOf(w) >= 0; });
 }
 // PAGE: Units (list, add, import, export).
+var UNIT_PAGE = 10;
+// Goes to another page of the units list.
+function goUnitPage(n) { state.unitPage = Math.max(0, n); render(); }
 function viewUnits() {
   var rows = sortedUnits().filter(function (r) {
     var u = r.v, bal = balanceFor(r.id);
     return matchesSearch([r.id, u.name, u.type, u.status, u.contact, usageLabel(u.usage), bal > 0 ? "overdue unpaid dues" : "settled paid dues"].join(" "), state.unitSearch);
   });
-  var html = rows.map(function (r) {
+  var unitPages = Math.max(1, Math.ceil(rows.length / UNIT_PAGE)), unitPage = Math.min(Math.max(0, state.unitPage || 0), unitPages - 1);
+  var html = rows.slice(unitPage * UNIT_PAGE, (unitPage + 1) * UNIT_PAGE).map(function (r) {
     var u = r.v, bal = balanceFor(r.id);
     return '<tr><td style="font-weight:700">' + esc(r.id) + "</td><td>" + esc(u.name || "—") + '</td><td style="color:var(--muted)">' + esc(u.type || "Owner") + '</td><td><span class="chip ' + (u.status === "Vacant" ? "warn" : "good") + '">' + esc(u.status || "Occupied") + '</span></td><td style="color:var(--muted)">' + (Number(u.area) > 0 ? esc(String(u.area)) + " sqm" : "—") + '</td><td style="color:var(--muted)">' + esc(u.contact || "—") + "</td><td>" + usageCellHtml(u) +
       "</td><td>" + (bal ? peso(bal) : '<span style="color:var(--muted)">—</span>') + '</td><td><button class="btn" style="min-height:34px;padding:0 14px;font-size:12.5px" onclick="showUnit(\'' + escAttr(r.id) + '\')">View</button></td></tr>';
   });
   return '<div class="unit-search-panel"><label for="unitSearchInput">Search units &amp; residents</label>' +
-    '<input type="search" id="unitSearchInput" value="' + escAttr(state.unitSearch) + '" oninput="set({unitSearch:this.value})" placeholder="Search unit, resident, contact, status, usage or dues..." autocomplete="off">' +
+    '<input type="search" id="unitSearchInput" value="' + escAttr(state.unitSearch) + '" oninput="set({unitSearch:this.value,unitPage:0})" placeholder="Search unit, resident, contact, status, usage or dues..." autocomplete="off">' +
     '<p>Search any record information. Combine words, such as “Reyes owner” or “vacant overdue”.</p></div>' +
     '<div class="filters unit-actions"><span role="status" style="margin-right:auto;font-size:13px;color:var(--muted)">' + rows.length + " matching " + (rows.length === 1 ? "unit" : "units") + "</span>" +
     '<button class="btn primary" onclick="unitForm(null)">+ Add unit</button>' +
     '<button class="btn" onclick="exportUnits()">Export CSV</button></div>' +
-    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(html, ["UNIT", "RESIDENT / OWNER", "OCCUPANCY", "STATUS", "AREA", "CONTACT", "USAGE", "BALANCE", ""], list("unit").length ? "No units match your search." : "No units yet. Tap “Add unit” or import a CSV.") + "</div>";
+    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(html, ["UNIT", "RESIDENT / OWNER", "OCCUPANCY", "STATUS", "AREA", "CONTACT", "USAGE", "BALANCE", ""], list("unit").length ? "No units match your search." : "No units yet. Tap “Add unit” or import a CSV.") + (rows.length > UNIT_PAGE ? pagerHtml(rows.length, unitPage, UNIT_PAGE, "goUnitPage") : "") + "</div>";
 }
 // Downloads the units as a CSV file.
 function exportUnits() {
