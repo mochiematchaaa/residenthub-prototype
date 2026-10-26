@@ -21,7 +21,6 @@ class _ResUnitStatusState extends State<ResUnitStatus> {
   // What was typed, kept per way of using the unit so switching tiles does not lose it.
   final Map<String, TextEditingController> _c = {};
   final Map<String, String> _vals = {};
-  final Set<String> _agreed = {};
 
   String _initial(String k) {
     final r = app.myUnitRec;
@@ -30,7 +29,6 @@ class _ResUnitStatusState extends State<ResUnitStatus> {
 
   TextEditingController _ctrl(String k) => _c.putIfAbsent('$sel.$k', () => TextEditingController(text: _initial(k)));
   String _v(String k) => _vals['$sel.$k'] ?? _initial(k);
-  bool get _agree => _agreed.contains(sel) || (!_agreed.contains('!$sel') && app.myUnitRec?.usage == sel && app.myUnitRec?.usageInfo['agree'] == 'true');
 
   Map<String, String> _collect(UsageForm form) {
     final out = <String, String>{};
@@ -38,7 +36,6 @@ class _ResUnitStatusState extends State<ResUnitStatus> {
       final v = (f.type == UsageFieldType.date || f.type == UsageFieldType.select) ? _v(f.key) : _ctrl(f.key).text;
       out[f.key] = v.trim();
     }
-    if (_agree) out['agree'] = 'true';
     return out;
   }
 
@@ -196,21 +193,6 @@ class _ResUnitStatusState extends State<ResUnitStatus> {
                       _field(context, f),
                       const SizedBox(height: 12),
                     ],
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: _agree,
-                      onChanged: (v) => setState(() {
-                        if (v == true) {
-                          _agreed.add(sel);
-                          _agreed.remove('!$sel');
-                        } else {
-                          _agreed.remove(sel);
-                          _agreed.add('!$sel');
-                        }
-                      }),
-                      title: Text('${usageForms[sel]!.agree} *', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.35)),
-                    ),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(

@@ -713,8 +713,7 @@ function viewRental() {
     (saved.length ? '<div class="kv rental-kv">' + saved.map(function (r) { return "<span>" + esc(r[0]) + "</span><b>" + esc(r[1]) + "</b>"; }).join("") + "</div>" : (rec.statusNote ? '<p style="margin:10px 0 0;font-size:13px;color:var(--muted)">' + esc(rec.statusNote) + "</p>" : "")) +
     (st === "rejected" && rec.usageRemark ? '<p style="margin:10px 0 0;font-size:13px;color:#A02B1D">Admin note: “' + esc(rec.usageRemark) + "”</p>" : "") +
     (rec.statusDate ? '<p style="margin:10px 0 0;font-size:12px;color:var(--muted)">Declared ' + esc(rec.statusDate) + ". Change the form below any time. Sending it again puts it back under review.</p>" : "") + "</div>" : "";
-  var details = form ? '<div class="usage-sec"><span class="num">2</span>' + esc(form.title) + '</div><div class="uf-grid">' + form.fields.map(usageFieldHtml).join("") + "</div>" +
-    '<label class="uf-check"><input type="checkbox" ' + (state.usageInfo.agree ? "checked" : "") + ' onchange="setUsageInfo(\'agree\',this.checked)"><span>' + esc(form.agree) + ' <b class="req">*</b></span></label>' : "";
+  var details = form ? '<div class="usage-sec"><span class="num">2</span>' + esc(form.title) + '</div><div class="uf-grid">' + form.fields.map(usageFieldHtml).join("") + "</div>" : "";
   var bring = form ? '<div class="card bring"><h2 style="font-size:19px;margin-bottom:4px">What to bring to the office</h2><p class="hint" style="margin:0 0 10px">Have these ready when you visit. The office keeps copies on file.</p><ul class="checklist">' + form.bring.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul></div>" : "";
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + statusCard +
     '<div class="card"><h2 style="font-size:19px;margin-bottom:10px">' + (rec.usage ? "Update your declaration" : "Declare your unit's usage") + '</h2><div class="usage-sec"><span class="num">1</span>How is your unit used?</div><div class="usage-grid">' +
@@ -723,7 +722,7 @@ function viewRental() {
     (needs ? '<div class="note-box">This type needs the administrator\'s approval before it is active. You will see the decision on this page.</div>' : (form ? '<div class="note-box good">This type is saved right away. No approval is needed.</div>' : "")) +
     '<button class="btn primary" style="margin-top:4px;align-self:flex-start" onclick="saveUnitUsage()">' + (needs ? "Send for review" : "Save declaration") + '</button>' + (state.usageMsg ? '<div style="font-size:13px;color:#A02B1D;font-weight:600">' + esc(state.usageMsg) + "</div>" : "") + "</div></div></div>" +
     '<div style="display:flex;flex-direction:column;gap:16px">' + bring + '<div class="card"><h2 style="font-size:19px;margin-bottom:4px">How this works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tell us how your unit is actually being used.</li><li>Owner-occupied, leased and vacant units, and units under renovation, are saved right away.</li><li>Short-term rentals (like Airbnb) and home-based businesses need the administrator\'s approval first. You will see the decision right here.</li></ol></div>' +
-    '<div class="card"><h2 style="font-size:19px;margin-bottom:4px">Why we ask</h2><div class="benefit-row"><div><h4>Security</h4><p>The guardhouse knows who to expect when a unit has tenants, guests or workers coming in.</p></div></div><div class="benefit-row"><div><h4>Insurance</h4><p>Business or short-term-rental use can change what the building\'s coverage needs to account for.</p></div></div><div class="benefit-row"><div><h4>Fair dues</h4><p>Keeps the association\'s records accurate for everyone, in case usage ever affects dues.</p></div></div></div></div></div>';
+    '<div class="card"><h2 style="font-size:19px;margin-bottom:4px">Why we ask</h2><div class="benefit-row"><div><h4>Security</h4><p>The office knows who is staying, renting or working in a unit.</p></div></div><div class="benefit-row"><div><h4>Insurance</h4><p>Business or short-term-rental use can change what the building\'s coverage needs to account for.</p></div></div><div class="benefit-row"><div><h4>Fair dues</h4><p>Keeps the association\'s records accurate for everyone, in case usage ever affects dues.</p></div></div></div></div></div>';
 }
 // True if the text looks like a valid Philippine mobile number.
 function phoneOk(v) { var d = String(v || "").replace(/[^\d+]/g, "").replace(/^\+/, ""); if (d.indexOf("63") === 0) d = d.slice(2); else if (d.charAt(0) === "0") d = d.slice(1); return /^9\d{9}$/.test(d); }
@@ -740,8 +739,6 @@ function saveUnitUsage() {
       if (v) info[f.k] = v;
     }
     if (info.start && info.end && info.end < info.start) return set({ usageMsg: "The end date must be after the start date." });
-    if (!i.agree) return set({ usageMsg: "Please tick the box at the end to confirm." });
-    info.agree = true;
     summary = usageSummary(key, info);
   }
   var rec = unitRec(myUnit());
