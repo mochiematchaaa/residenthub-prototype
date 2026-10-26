@@ -17,8 +17,8 @@ class ResHome extends StatelessWidget {
     final rows = app.myDueRows;
     final paid = rows.where((d) => d.status == 'Paid').length;
     final unpaid = rows.length - paid;
-    final posts = app.announcements.where((a) => a.status == 'Published').take(3).toList();
-    final emergency = app.announcements.where((a) => a.status == 'Published' && a.type == 'Emergency').toList();
+    final posts = app.myAnnouncements.take(3).toList();
+    final emergency = app.myAnnouncements.where((a) => a.type == 'Emergency').toList();
     final rec = app.myUnitRec;
     final upcoming = app.upcomingBooking;
     final openGr = app.myGrievances.where((g) => g.stage < 2).length;

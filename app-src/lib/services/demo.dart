@@ -158,8 +158,19 @@ List<_DemoUnit> _demoUnits() {
 List<Account> _demoAccounts() {
   final added = _sd(_off(-60));
   final occ = _demoUnits().where((u) => u.occupied).take(24).toList();
+  final now = DateTime.now();
+  // A few accounts are marked as recently created or changed so the contact list shows New / Updated.
+  const newOnes = {5, 11};
+  const changed = {2: 'Mobile number', 8: 'Email address', 15: 'Unit'};
   return [
-    for (final u in occ) Account('demo-u${u.i}', u.person, '${u.key}@demo.test', u.contact, u.label, 'Resident', added, verified: true),
+    for (var k = 0; k < occ.length; k++)
+      Account('demo-u${occ[k].i}', occ[k].person, '${occ[k].key}@demo.test', occ[k].contact, occ[k].label, 'Resident', added,
+          verified: true,
+          createdAt: newOnes.contains(k) ? now.subtract(Duration(days: k == 5 ? 1 : 3)) : now.subtract(const Duration(days: 60)),
+          updatedAt: newOnes.contains(k)
+              ? now.subtract(Duration(days: k == 5 ? 1 : 3))
+              : (changed.containsKey(k) ? now.subtract(Duration(days: k + 1)) : null),
+          lastChange: newOnes.contains(k) ? 'New account' : (changed[k] ?? '')),
   ];
 }
 

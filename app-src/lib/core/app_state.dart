@@ -143,8 +143,14 @@ class Announcement {
   final int id;
   String title, body, date, status, type;
   bool sms;
+
+  /// Units that should see this notice. Empty means every resident.
+  List<String> units;
   Announcement(this.id, this.title, this.body, this.date, this.status,
-      this.type, this.sms);
+      this.type, this.sms, {List<String>? units}) : units = units ?? [];
+
+  /// True if a resident living in [unit] should see this notice.
+  bool visibleTo(String unit) => units.isEmpty || units.contains(unit);
 }
 
 /// A community event residents can join (RSVP).
@@ -162,8 +168,20 @@ class Account {
 
   /// Email and mobile number were confirmed with codes.
   bool verified;
+
+  /// When the account was created and last changed, and what changed (e.g. "Mobile number").
+  DateTime? createdAt, updatedAt;
+  String lastChange;
   Account(this.id, this.name, this.email, this.phone, this.unit, this.role, this.added,
-      {this.suspended = false, this.verified = false});
+      {this.suspended = false, this.verified = false, this.createdAt, this.updatedAt, this.lastChange = ''});
+
+  /// "New" if the account was created in the last [days] days.
+  bool isNew([int days = 7]) => createdAt != null && DateTime.now().difference(createdAt!).inDays < days;
+
+  /// True if the contact info changed in the last [days] days (and the account is not just new).
+  bool isUpdated([int days = 7]) => !isNew(days) && updatedAt != null && DateTime.now().difference(updatedAt!).inDays < days;
+
+  bool get hasMobile => AppState.validMobile(AppState.normalizePhone(phone));
 }
 
 /// The signed-in person's profile.
@@ -302,6 +320,9 @@ class AppState extends ChangeNotifier {
       ..addAll(list);
     _n();
   }
+
+  /// Resident accounts, in unit order (the list the administrator picks recipients from).
+  List<Account> get residentAccounts => [for (final a in trusted) if (a.role == 'Resident') a];
 
   /// Mobile numbers of the resident accounts (used to text announcements).
   List<String> get residentPhones => [
@@ -932,6 +953,9 @@ class AppState extends ChangeNotifier {
 
   /// The signed-in resident's notifications, built from what is really on record.
   /// Each entry is [text, tone] with tone good | bad | info.
+  /// Published announcements this resident should see: those for everyone and those sent to their unit.
+  List<Announcement> get myAnnouncements => [for (final a in announcements) if (a.status == 'Published' && a.visibleTo(myUnit)) a];
+
   List<List<String>> get myNotifs {
     final out = <List<String>>[];
     for (final b in myBookings) {
@@ -972,7 +996,7 @@ class AppState extends ChangeNotifier {
     }
     final mySlot = slotOf(myUnit);
     if (mySlot != null) out.add(['Motor parking slot ${mySlot.id} is assigned to your unit.', 'good']);
-    for (final a in announcements.where((a) => a.status == 'Published').take(2)) {
+    for (final a in myAnnouncements.take(2)) {
       out.add(['New announcement: ${a.title}.', 'info']);
     }
     return out;
@@ -1527,11 +1551,11 @@ class AppState extends ChangeNotifier {
   }
 
   /// Creates an announcement (and can text the residents).
-  void addAnnouncement(String title, String body, String type, bool sms) {
+  void addAnnouncement(String title, String body, String type, bool sms, {List<String>? units}) {
     announcements.insert(
         0,
         Announcement(nextId(), title, body.isEmpty ? '—' : body, shortDate(DateTime.now()),
-            'Published', type, sms));
+            'Published', type, sms, units: units));
     logActivity('Announcement published: $title', 'Announcements');
     _n();
   }

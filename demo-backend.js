@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v4", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v5", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -56,9 +56,13 @@
     var occ = U.filter(function (u) { return u.status === "Occupied"; });
     var withAcc = occ.slice(0, 24);
     users.push({ id: "demo-admin", email: "admin@demo.test", password: PW, profile: { id: "demo-admin", email: "admin@demo.test", name: "Administrator", role: "admin", unit: null, phone: "0917 000 0000", suspended: false, must_change_password: false, contact_verified_at: verified } });
-    withAcc.forEach(function (u) {
+    withAcc.forEach(function (u, k) {
       var id = "demo-u" + u.i, email = u.key + "@demo.test";
-      users.push({ id: id, email: email, password: PW, profile: { id: id, email: email, name: u.person, role: "resident", unit: u.label, phone: u.contact, suspended: false, must_change_password: false, contact_verified_at: verified } });
+      // sample "new" and "updated" accounts so the Access page has something to show
+      var isNew = k === 5 || k === 11, isUpd = k === 2 || k === 8 || k === 15;
+      var made = new Date(Date.now() - (isNew ? (k === 5 ? 1 : 3) : 20 + k) * 86400000).toISOString();
+      var changed = isUpd ? new Date(Date.now() - (k === 2 ? 1 : k === 8 ? 2 : 4) * 86400000).toISOString() : made;
+      users.push({ id: id, email: email, password: PW, profile: { id: id, email: email, name: u.person, role: "resident", unit: u.label, phone: u.contact, suspended: false, must_change_password: false, contact_verified_at: verified, created_at: made, updated_at: changed, last_change: isUpd ? (k === 2 ? "Mobile number" : k === 8 ? "Email address" : "Unit") : (isNew ? "New account" : "") } });
     });
     var byUnit = {};
     U.forEach(function (u) { byUnit[u.label] = { unit: u.label, name: u.house, type: u.type, status: u.status, contact: u.contact, usage: u.type === "Tenant" ? "tenant" : "owner" }; });
@@ -384,6 +388,7 @@
   var PUBLIC = ["announcement", "event", "doc", "poll", "vendor", "slot", "setting", "booking", "rsvp", "vote"];
   function canRead(r) {
     if (role() === "admin") return true;
+    if (r.kind === "announcement" && r.value && r.value.units && r.value.units.length && r.value.units.indexOf(myunit()) < 0) return false; // a notice sent to chosen units only
     if (r.unit === "__admin") return false;
     if (r.unit === "") return true;
     if (PUBLIC.indexOf(r.kind) >= 0) return true;
@@ -441,7 +446,11 @@
             }
             if (q.op === "update") {
               var u = db.users.filter(function (x) { return match(x.profile); })[0];
-              if (u) { Object.assign(u.profile, q.patch); save(); chans.forEach(function (cb) { cb({}); }); }
+              if (u) {
+                var kk = Object.keys(q.patch || {}), shown = { name: "Name", phone: "Mobile number", email: "Email address", unit: "Unit" }, hit = kk.filter(function (x) { return shown[x] && String(q.patch[x]) !== String(u.profile[x]); });
+                Object.assign(u.profile, q.patch);
+                if (hit.length) { u.profile.updated_at = new Date().toISOString(); u.profile.last_change = hit.map(function (x) { return shown[x]; }).join(", "); }
+                save(); chans.forEach(function (cb) { cb({}); }); }
               return resolve({ data: null, error: null });
             }
           }
@@ -523,7 +532,7 @@
               if (b.action === "create") {
                 if (db.users.some(function (u) { return u.email === b.email; })) return bad("An account with that email already exists.");
                 var id = "u" + (++db.seq);
-                db.users.push({ id: id, email: b.email, password: "Temp#Pass1x", profile: { id: id, email: b.email, name: b.name, role: "resident", unit: b.unit, phone: b.phone, suspended: false, must_change_password: true, contact_verified_at: null } });
+                db.users.push({ id: id, email: b.email, password: "Temp#Pass1x", profile: { id: id, email: b.email, name: b.name, role: "resident", unit: b.unit, phone: b.phone, suspended: false, must_change_password: true, contact_verified_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_change: "New account" } });
                 save(); return ok({ email: b.email, password: "Temp#Pass1x" });
               }
               var t = db.users.filter(function (u) { return u.id === b.userId; })[0];

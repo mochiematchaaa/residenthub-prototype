@@ -323,25 +323,3 @@ void showResolveSheet(BuildContext context, Grievance g) {
     },
   );
 }
-
-/// Popup to post an announcement about a scheduled job to every resident.
-void showNotifySheet(BuildContext context, MTask t) {
-  final equip = maint.equipOf(t);
-  showFormSheet(
-    context,
-    title: 'Notify residents',
-    subtitle: 'This posts an announcement that every resident can read.',
-    fields: [
-      FieldSpec('title', 'Title', initial: 'Maintenance notice: ${t.title}'),
-      FieldSpec('body', 'Message', lines: 4,
-          initial: 'Scheduled on ${shortDate(t.due)}: ${t.title}${equip.isEmpty ? '' : ' ($equip)'}. Some areas may be briefly unavailable. Thank you for your understanding.'),
-    ],
-    submit: 'Post notice',
-    onSubmit: (v) {
-      final title = (v['title'] as String).trim();
-      if (title.isEmpty) return 'Enter a title.';
-      maint.notifyResidents(app, title, (v['body'] as String).trim());
-      return null;
-    },
-  );
-}

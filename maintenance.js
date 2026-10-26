@@ -122,7 +122,7 @@
       '<p class="hint" style="margin:0 0 14px">' + (rs.avg == null ? "No finished repairs yet." : "Average repair time " + (rs.avg < 1 ? "under a day" : rs.avg.toFixed(1) + " days") + " across " + plural(rs.n, "finished repair") + ".") + " Maintenance spending this year: <b>" + money(rs.year) + "</b>." + (closed.length ? " Closed to bookings now: <b>" + closed.map(function (c) { return esc(c.v.facility); }).join(", ") + "</b>." : "") + "</p>" +
       '<div class="filters" style="margin-bottom:14px">' + tabs.map(function (t) {
         return '<button class="' + (tab === t[0] ? "active" : "") + '" onclick="set({mtab:\'' + t[0] + '\'})">' + t[1] + "</button>";
-      }).join("") + "</div>" + (tab === "equip" ? maintEquip(eq) : tab === "staff" ? maintStaff() : maintSched(ts, kind));
+      }).join("") + "</div>" + (tab === "equip" ? maintEquip(eq) : tab === "staff" ? maintStaff() : maintSched(ts, kind) + recentNotices());
   }
 
   function maintSched(ts, kind) {
@@ -289,26 +289,81 @@
     });
   };
 
-  // Posts an announcement to every resident about a scheduled job.
+  // Notify residents: choose everyone or chosen residents, and whether to also text their mobile numbers.
+  // The notice is an announcement; a notice for chosen residents is only readable by the units that were chosen.
+  function residentsList() {
+    return (DB.accounts || []).filter(function (a) { return a.role !== "admin" && !a.suspended; })
+      .sort(function (x, y) { return String(x.unit || "").localeCompare(String(y.unit || ""), undefined, { numeric: true }) || String(x.name).localeCompare(String(y.name)); });
+  }
+  function recentNotices() {
+    var ns = list("mnotice").sort(function (a, b) { return b.v.at - a.v.at; }).slice(0, 5);
+    if (!ns.length) return "";
+    return '<div class="card" style="margin-top:16px;padding:0;overflow:hidden"><div style="padding:14px 18px"><h3 style="margin:0;font-size:17px">Recent notices</h3><p class="hint" style="margin:4px 0 0">Who each notice was sent to. Text messages are simulated in this prototype; the real system needs a text-message service.</p></div>' +
+      tableRows(ns.map(function (r) {
+        var n = r.v;
+        return "<tr><td><b>" + esc(n.title) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(new Date(n.at).toLocaleString()) + "</div></td><td>" + esc(n.to) + "</td><td>" +
+          (n.channel === "sms" ? esc(plural(n.smsSent, "text message")) + " sent" + (n.noPhone ? ' <span class="chip warn">' + esc(plural(n.noPhone, "resident")) + " without a mobile number</span>" : "") : "Dashboard and app only") + "</td></tr>";
+      }), ["NOTICE", "SENT TO", "HOW"], "") + "</div>";
+  }
   window.maintNotify = function (id) {
     var row = getRow("mtask", id); if (!row) return;
-    var t = row.value;
+    var t = row.value, res = residentsList(), picked = {};
     openForm({
       title: "Notify residents",
-      intro: "This posts an announcement that every resident can read.",
-      submit: "Post notice",
+      intro: "Choose who gets this notice and how. It appears under Announcements in their dashboard and app.",
+      submit: "Send notice",
       fields: [
+        { name: "audience", label: "Send to", type: "select", options: [["all", "All residents (" + res.length + ")"], ["pick", "Choose residents…"]], value: "all" },
+        { name: "channel", label: "How", type: "select", options: [["app", "Notice in the dashboard and app"], ["sms", "Notice + text message to their mobile numbers"]], value: "app" },
         { name: "title", label: "Title", value: "Maintenance notice: " + t.title },
         { name: "body", label: "Message", type: "textarea", value: "Scheduled on " + fd(t.due) + ": " + t.title + (t.equipName ? " (" + t.equipName + ")" : "") + ". Some areas may be briefly unavailable. Thank you for your understanding." }
       ],
       onSubmit: async function (d) {
         if (!d.title) return { error: "Enter a title." };
-        var nid = nextId();
-        await put("announcement", nid, "", { id: nid, title: d.title, body: d.body || "—", date: shortDate(new Date()), status: "Published", type: "Maintenance" });
-        logAct("Maintenance notice posted: " + d.title, "Announcements");
-        toast("Notice posted for all residents.");
+        var targets = d.audience === "all" ? res : res.filter(function (a) { return picked[a.id]; });
+        if (!targets.length) return { error: "Choose at least one resident." };
+        var units = null;
+        if (d.audience !== "all") { units = []; targets.forEach(function (a) { if (a.unit && units.indexOf(a.unit) < 0) units.push(a.unit); }); }
+        var nid = nextId(), v = { id: nid, title: d.title, body: d.body || "—", date: shortDate(new Date()), status: "Published", type: "Maintenance" };
+        if (units) v.units = units;
+        await put("announcement", nid, "", v);
+        var sms = d.channel === "sms" ? targets.filter(function (a) { return a.phone; }) : [], noPhone = d.channel === "sms" ? targets.length - sms.length : 0;
+        var to = units ? plural(targets.length, "resident") + " in " + plural(units.length, "unit") : "All residents (" + targets.length + ")";
+        var rid = String(nextId());
+        await put("mnotice", rid, "__admin", { id: rid, title: d.title, at: Date.now(), to: to, count: targets.length, channel: d.channel, smsSent: sms.length, noPhone: noPhone });
+        logAct("Maintenance notice sent to " + to + (d.channel === "sms" ? ", " + plural(sms.length, "text message") : "") + ": " + d.title, "Announcements");
+        toast("Notice sent to " + to + "." + (d.channel === "sms" ? " " + plural(sms.length, "text message") + " sent (simulated)." + (noPhone ? " " + plural(noPhone, "resident") + " without a mobile number." : "") : ""));
       }
     });
+    var form = document.getElementById("rhForm"); if (!form) return;
+    var aud = form.querySelector('select[name="audience"]'), chn = form.querySelector('select[name="channel"]'), lab = aud.parentNode;
+    var box = document.createElement("div"); box.style.cssText = "display:none;border:1px solid #d9d2c3;border-radius:12px;padding:8px;background:#fff";
+    box.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input type="search" id="mtPickQ" placeholder="Search name or unit" style="flex:1;min-width:140px;height:34px;border:1px solid #d9d2c3;border-radius:999px;padding:0 12px;font-size:13px">' +
+      '<button type="button" class="btn" id="mtPickAll" style="min-height:34px;padding:0 10px;font-size:12px">Select shown</button><button type="button" class="btn" id="mtPickNone" style="min-height:34px;padding:0 10px;font-size:12px">Clear</button></div>' +
+      '<div id="mtPickList" style="max-height:220px;overflow:auto"></div>';
+    lab.parentNode.insertBefore(box, lab.nextSibling);
+    var info = document.createElement("div"); info.className = "hint"; info.style.cssText = "margin:0;font-size:13px"; box.parentNode.insertBefore(info, chn.parentNode.nextSibling);
+    var qEl = box.querySelector("#mtPickQ"), listEl = box.querySelector("#mtPickList");
+    function shown() { var q = qEl.value.trim().toLowerCase(); return res.filter(function (a) { return !q || (a.name + " " + (a.unit || "")).toLowerCase().indexOf(q) >= 0; }); }
+    function summary() {
+      var tg = aud.value === "all" ? res : res.filter(function (a) { return picked[a.id]; }), ph = tg.filter(function (a) { return a.phone; }).length;
+      info.innerHTML = "Will reach <b>" + plural(tg.length, "resident") + "</b>" + (chn.value === "sms" ? ". <b>" + ph + "</b> can get a text message" + (tg.length - ph ? ' <span class="chip warn">' + (tg.length - ph) + " have no mobile number</span>" : "") + "." : ".");
+    }
+    function draw() {
+      listEl.innerHTML = shown().map(function (a) {
+        return '<label style="display:flex;gap:10px;align-items:center;padding:6px 4px;cursor:pointer;border-radius:8px"><input type="checkbox" data-id="' + escAttr(a.id) + '"' + (picked[a.id] ? " checked" : "") + '><span style="font-size:13px;line-height:1.35"><b>' + esc(a.name) + "</b> · " + esc(a.unit || "—") +
+          '<br><span style="color:var(--muted)">' + (a.phone ? esc(a.phone) : "No mobile number") + "</span></span></label>";
+      }).join("") || '<div class="hint" style="padding:8px">No resident matches.</div>';
+      summary();
+    }
+    listEl.addEventListener("change", function (e) { var id = e.target.getAttribute("data-id"); if (id) { picked[id] = e.target.checked; summary(); } });
+    qEl.addEventListener("input", draw);
+    qEl.addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });
+    box.querySelector("#mtPickAll").addEventListener("click", function () { shown().forEach(function (a) { picked[a.id] = true; }); draw(); });
+    box.querySelector("#mtPickNone").addEventListener("click", function () { picked = {}; draw(); });
+    aud.addEventListener("change", function () { box.style.display = aud.value === "pick" ? "block" : "none"; summary(); });
+    chn.addEventListener("change", summary);
+    draw();
   };
 
   window.maintDelete = function (kind, id) {
@@ -608,4 +663,26 @@
       return h.replace('</div><div class="pills-row">', card + '</div><div class="pills-row">');
     };
   }
+
+  if (IS_ADMIN && window.viewManage) {
+    // Access page: mark residents whose account is new or whose details changed in the last 7 days, and count who has no mobile number.
+    var origManage = window.viewManage;
+    window.viewManage = function () {
+      var h = origManage(), week = 7 * 86400000, now = Date.now(), nNew = 0, nUpd = 0, noPhone = 0;
+      (DB.accounts || []).forEach(function (a) {
+        if (a.role === "admin") return;
+        if (!a.phone) noPhone++;
+        var c = Date.parse(a.created_at || ""), u = Date.parse(a.updated_at || ""), chip = "";
+        if (c && now - c < week) { chip = '<span class="chip good" title="Account created ' + esc(new Date(c).toLocaleDateString()) + '">New</span>'; nNew++; }
+        else if (u && now - u < week) { chip = '<span class="chip info" title="Changed ' + esc(new Date(u).toLocaleDateString()) + '">Updated: ' + esc(a.last_change || "details") + "</span>"; nUpd++; }
+        if (!chip) return;
+        var cell = '<td style="font-weight:700">' + esc(a.name) + '</td><td style="color:var(--muted)">' + esc(a.email) + "</td>";
+        h = h.replace(cell, function () { return '<td style="font-weight:700">' + esc(a.name) + " " + chip + '</td><td style="color:var(--muted)">' + esc(a.email) + "</td>"; });
+      });
+      return '<div class="card" style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center"><b>Resident contact info, last 7 days</b>' +
+        '<span class="chip good">' + nNew + " new</span><span class=\"chip info\">" + nUpd + " updated</span>" + (noPhone ? '<span class="chip warn">' + noPhone + " without a mobile number</span>" : "") +
+        '<span class="hint" style="margin:0;flex:1 1 260px">Notify residents uses this list: the name, unit and mobile number come from each account.</span></div>' + h;
+    };
+  }
 })();
+
