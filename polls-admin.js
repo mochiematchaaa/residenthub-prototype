@@ -108,7 +108,7 @@ function pollBuilderHtml() {
     (el ? "Each unit gets one secret ballot. Residents see the results only after the election closes." : "Ask one question or several, like a form. Each unit answers once.") + '</p></div><button class="btn" onclick="cancelPoll()">Cancel</button></div>' +
     '<div class="pb-wrap"><div class="pb-main">' +
     '<div class="card pb-sec"><div class="pb-sech"><span class="pb-step">1</span><h3>Details</h3></div>' +
-    '<div class="pq-label">Category</div><select class="pb-cat" onchange="pdSet(\'category\',this.value)">' + POLL_CATEGORIES.map(function (c) { return '<option' + (d.category === c ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>" +
+    '<div class="pq-label">Category</div><div class="pb-catrow"><select class="pb-cat" onchange="pdSet(\'category\',this.value)">' + pollCategories().map(function (c) { return '<option' + (d.category === c ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + '</select><button type="button" class="btn" onclick="newPollCategory()">+ New category</button></div>' +
     '<div class="pq-label">' + (el ? "Election title" : "Poll title") + "</div>" + richEditor("title", d.titleHtml, el ? "e.g. 2026 Board of Directors election" : "e.g. Building facilities survey", true) +
     '<div class="pq-label">Description <small>optional</small></div>' + richEditor("desc", d.descHtml, "Tell residents what this is for and how to answer") + "</div>" +
     '<div class="card pb-sec"><div class="pb-sech"><span class="pb-step">2</span><h3>' + (el ? "Positions and candidates" : "Questions") + '</h3>' + (el ? '<button class="btn" style="margin-left:auto" onclick="pqBoard()">Add standard board positions</button>' : "") + "</div>" +
@@ -152,7 +152,7 @@ function viewPolls() {
   if (state.pollDraft) return pollBuilderHtml();
   var all = pollsAll(), open = all.filter(function (p) { return p.open; }).length, units = list("unit").length;
   var shown = all.filter(function (p) { return (state.pollFilter === "all" || (state.pollFilter === "open") === p.open) && pollCatMatch(p); });
-  return '<div class="filters" style="margin-bottom:4px"><button class="btn primary" onclick="newPoll(\'poll\')">+ New poll</button><button class="btn" onclick="newPoll(\'election\')">+ New election</button></div>' +
+  return '<div class="filters" style="margin-bottom:4px"><button class="btn primary" onclick="newPoll(\'poll\')">+ New poll</button><button class="btn" onclick="newPoll(\'election\')">+ New election</button><button class="btn" style="margin-left:auto" onclick="manageCategories()">Manage categories</button></div>' +
     pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All (" + all.length + ")"]], state.pollFilter, "pollFilter") + pollCatFilterHtml(all) +
     '<div class="poll-list">' + (shown.map(function (p) {
       var election = p.kind === "election", hidden = election && p.open && p.showResults === "closed";
@@ -163,6 +163,59 @@ function viewPolls() {
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn" onclick="toggleVoters(' + p.id + ')">' + (state.votersOpen === p.id ? "Hide voters" : "Who voted (" + p.ballots + ")") + '</button><button class="btn" onclick="togglePoll(' + p.id + ')">' + (p.open ? (election ? "Close election" : "Close poll") : "Reopen") + '</button><button class="btn" onclick="exportPollXlsx(' + p.id + ')"' + (hidden ? ' disabled title="Available when the election closes"' : "") + '>Export to Excel</button><button class="btn" style="margin-left:auto;color:var(--bad-fg)" onclick="deletePoll(' + p.id + ')">Delete</button></div>' + (state.votersOpen === p.id ? votersPanel(p) : "") + "</div>";
     }).join("") || '<p class="empty">No polls here yet.</p>') + "</div>";
 }
+/* ---------- categories ---------- */
+// Adds a category to the list (the office's own, besides the built-in ones).
+async function addCategoryName(name) {
+  name = String(name || "").trim().replace(/\s+/g, " ");
+  if (!name) return { error: "Type a category name." };
+  if (name.length > 40) return { error: "Keep the name under 40 characters." };
+  var all = pollCategories();
+  if (all.some(function (c) { return c.toLowerCase() === name.toLowerCase(); })) return { error: "That category already exists." };
+  var custom = (setting("poll_categories").list || []).concat([name]);
+  await put("setting", "poll_categories", "", { list: custom });
+  logAct("Poll category added: " + name, "Polls");
+  return { name: name };
+}
+// "+ New category" next to the category list of the builder: adds it and picks it.
+function newPollCategory() {
+  openForm({ title: "New category", intro: "For example Pets, Elevators or Recreation.", submit: "Add category", fields: [{ name: "name", label: "Category name", placeholder: "e.g. Pets" }],
+    onSubmit: async function (d) {
+      var r = await addCategoryName(d.name);
+      if (r.error) return r;
+      if (state.pollDraft) state.pollDraft.category = r.name;
+    } });
+}
+// The list of categories, with a form to add one and a way to remove the ones the office added.
+function manageCategories() {
+  var custom = setting("poll_categories").list || [], all = pollsAll();
+  var row = function (c, i) {
+    var n = all.filter(function (p) { return p.category === c; }).length, mine = i >= 0;
+    return '<div class="cat-row"><span class="cat-name">' + esc(c) + '</span><span class="cat-n">' + n + " poll" + (n === 1 ? "" : "s") + "</span>" + (mine ? '<button class="opt-x" title="Remove" aria-label="Remove ' + escAttr(c) + '" onclick="removePollCategory(' + i + ')">&times;</button>' : '<span class="cat-lock">built in</span>') + "</div>";
+  };
+  openModal('<h2>Poll categories</h2><p style="margin:0 0 10px;font-size:13.5px;color:var(--muted)">Residents can filter the polls by category. Add your own, for example Pets or Elevators.</p>' +
+    '<div class="cat-list">' + custom.map(function (c, i) { return row(c, i); }).join("") + POLL_CATEGORIES.map(function (c) { return row(c, -1); }).join("") + "</div>" +
+    '<form class="cat-add" onsubmit="event.preventDefault();addPollCategoryFromBox()"><input id="catNew" maxlength="40" placeholder="New category name" autocomplete="off"><button class="btn primary" type="submit">Add</button></form><div class="formerr" id="catErr" hidden></div>' +
+    '<div class="modal-actions"><button class="btn" onclick="closeModal()">Done</button></div>');
+  var el = document.getElementById("catNew"); if (el) el.focus();
+}
+async function addPollCategoryFromBox() {
+  var box = document.getElementById("catNew"), err = document.getElementById("catErr");
+  try {
+    var r = await addCategoryName(box.value);
+    if (r.error) { err.textContent = r.error; err.hidden = false; return; }
+    await rhRefresh(true); manageCategories(); toast("Category added: " + r.name);
+  } catch (e) { toast(errText(e)); }
+}
+function removePollCategory(i) {
+  var custom = (setting("poll_categories").list || []).slice(), name = custom[i]; if (name == null) return;
+  custom.splice(i, 1);
+  act(async function () {
+    await put("setting", "poll_categories", "", { list: custom });
+    logAct("Poll category removed: " + name, "Polls");
+    toast("Removed " + name + ". Polls that used it keep their label.");
+  }).then(function () { manageCategories(); });
+}
+
 /* ---------- who voted ---------- */
 function toggleVoters(id) { set({ votersOpen: state.votersOpen === id ? null : id, votersTab: "voted" }); }
 // Units that voted (with the day, and the answers of a normal poll) and units that have not voted yet. In an election the choices stay secret.
