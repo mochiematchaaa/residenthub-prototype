@@ -9,7 +9,7 @@ import '../core/core.dart';
 /// Everything the visitor changes stays in memory and is gone when the page is closed.
 /// Prototype build: `flutter build web --dart-define=PROTOTYPE=true`. Same front end with sample data and no database,
 /// but without the "demo" wording on screen.
-const bool kPrototype = bool.fromEnvironment('PROTOTYPE');
+const bool kPrototype = bool.fromEnvironment('PROTOTYPE', defaultValue: true);
 const bool kDemo = bool.fromEnvironment('DEMO') || kPrototype;
 
 /// The demo and the prototype start EMPTY, so the import can be tried on empty lists.
