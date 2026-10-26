@@ -134,6 +134,7 @@ class _AdminFinanceState extends State<AdminFinance> {
   Widget build(BuildContext context) {
     final paid = app.dues.where((d) => d.paid).toList();
     final unpaid = app.dues.where((d) => !d.paid).toList();
+    final through = _paidThrough(paid);
     final s = q.trim().toLowerCase();
     final found = [
       for (final d in (filter == 'Paid' ? paid : unpaid))
@@ -522,6 +523,13 @@ class _AdminFinanceState extends State<AdminFinance> {
                       Text('${d.unit} · ${d.name}', style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
                       Text(d.label, style: TextStyle(color: muted(context), fontSize: 12.5)),
+                      if (d.paid && through[d.id] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Paid through ${through[d.id]!.method}${through[d.id]!.reference == '—' ? '' : ' · Ref ${through[d.id]!.reference}'} · ${through[d.id]!.date}',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: lavDeep),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(peso(d.amt), style: hd(17)),
                     ],
@@ -558,6 +566,22 @@ class _AdminFinanceState extends State<AdminFinance> {
           ),
       ],
     );
+  }
+
+  /// Which payment (type, reference, date) settled each paid charge: a unit's charges and payments with the same text and amount are paired oldest to oldest.
+  Map<int, PaymentRecord> _paidThrough(List<Due> paid) {
+    final byKey = <String, List<PaymentRecord>>{};
+    final pays = [...app.payments]..sort((a, b) => a.id.compareTo(b.id));
+    for (final p in pays) {
+      byKey.putIfAbsent('${p.unit}|${p.forText}|${p.amount.toDouble()}', () => []).add(p);
+    }
+    final out = <int, PaymentRecord>{};
+    final dues = [...paid]..sort((a, b) => a.id.compareTo(b.id));
+    for (final d in dues) {
+      final list = byKey['${d.unit}|${d.note}|${d.amount.toDouble()}'];
+      if (list != null && list.isNotEmpty) out[d.id] = list.removeAt(0);
+    }
+    return out;
   }
 
   Widget _heroStat(String k, String v) => Column(
