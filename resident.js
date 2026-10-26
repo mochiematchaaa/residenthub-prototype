@@ -59,6 +59,15 @@ function notifs() {
     if (r.v.status === "Approved") out.push(["Your " + r.v.place + " booking (" + r.v.when + ") was approved.", "good", "res"]);
     else if (r.v.status === "Denied") out.push(["Your " + r.v.place + " booking (" + r.v.when + ") was not approved.", "bad", "res"]);
   });
+  // charges the office billed: a summary of what is unpaid, and each new charge with the day it was billed
+  var openDues = myOpenDues().slice().sort(function (x, y) { return Number(y.id) - Number(x.id); });
+  if (openDues.length) {
+    var owed = openDues.reduce(function (t, r) { return t + Number(r.v.amount || 0); }, 0), latest = openDues[0];
+    out.push(["You have " + openDues.length + " unpaid charge" + (openDues.length > 1 ? "s" : "") + " (" + peso(owed) + "). Latest: " + latest.v.note + ", billed " + (billedOn(latest.id, latest.v) || "recently") + ".", "info", "dues"]);
+  }
+  openDues.filter(function (r) { var d = parseShort(billedOn(r.id, r.v)); return d && Date.now() - d.getTime() < 14 * 86400000; }).slice(0, 3).forEach(function (r) {
+    out.push(["New charge from the office: " + r.v.note + " (" + peso(Number(r.v.amount)) + "), billed " + billedOn(r.id, r.v) + (r.v.dueDate ? ", due " + r.v.dueDate : "") + ".", "info", "dues"]);
+  });
   var over = myOpenDues().filter(function (r) { return isOverdue(r.v); });
   if (over.length) out.push([over.length === 1 ? "A charge is overdue: " + over[0].v.note + "." : over.length + " charges are overdue.", "bad", "dues"]);
   myProofs().slice(0, 3).forEach(function (r) {
@@ -323,7 +332,7 @@ function dueItems() {
     var d = r.v, pending = proofs.some(function (p) { return p.v.status === "Pending" && p.v.forText === d.note; });
     var conf = proofs.filter(function (p) { return p.v.status === "Confirmed" && p.v.forText === d.note; })[0];
     var st = d.paid ? "paid" : isOverdue(d) ? "overdue" : pending ? "pending" : "open";
-    return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, receipt: conf ? conf.id : "", mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
+    return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, billed: billedOn(r.id, d), receipt: conf ? conf.id : "", mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
   });
   var prq = getRow("request", myUnit());
   if (prq && prq.value.slot && prq.value.amount && !prq.value.confirmed) {
@@ -342,7 +351,7 @@ function dueCardHtml(it) {
     : it.st === "pending" ? ""
     : '<button class="btn primary dz-mini" onclick="payThis(\'' + escAttr(it.id) + '\')">Pay ' + peso(it.amount).replace(/\.00$/, "") + "</button>";
   return '<div class="dz-item ' + tone + (state.dzFlash === it.id ? " flash" : "") + '" data-due="' + escAttr(it.id) + '"><span class="dz-ic ' + tone + '">' + ic + '</span><div class="dz-main"><b>' + esc(it.title) + '</b><div class="dz-sub"><span class="chip ' + (tone === "info" ? "info" : tone) + '">' + label + "</span>" +
-    (it.due ? '<span class="dz-date">' + esc(it.due) + "</span>" : "") + (cd ? '<span class="dz-cd ' + cd.tone + '">' + esc(cd.text) + "</span>" : "") + '</div></div><div class="dz-end"><div class="dz-amt">' + peso(it.amount) + "</div>" + act + "</div></div>";
+    (it.due ? '<span class="dz-date">' + esc(it.due) + "</span>" : "") + (it.billed ? '<span class="dz-date" title="The day the office billed this charge">Billed ' + esc(it.billed) + "</span>" : "") + (cd ? '<span class="dz-cd ' + cd.tone + '">' + esc(cd.text) + "</span>" : "") + '</div></div><div class="dz-end"><div class="dz-amt">' + peso(it.amount) + "</div>" + act + "</div></div>";
 }
 // PAGE: Dues and payments.
 // "Your monthly dues": how the unit's dues are worked out, and what it has been billed, has paid and still owes.

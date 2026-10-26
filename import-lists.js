@@ -214,7 +214,7 @@
         c.have.push(key);
         return { rec: { unit: unit, amount: a, note: note, dueDate: due }, show: { unit: unit, due: due, note: note } };
       },
-      save: function (r) { var id = nextId(), u = unitRec(r.unit) || {}; return put("due", id, r.unit, { id: id, unit: r.unit, name: u.name && u.name !== "—" ? u.name : "", amount: r.amount, note: r.note, dueDate: r.dueDate }); }
+      save: function (r) { var id = nextId(), u = unitRec(r.unit) || {}; return put("due", id, r.unit, { id: id, billedOn: shortDate(new Date()), unit: r.unit, name: u.name && u.name !== "—" ? u.name : "", amount: r.amount, note: r.note, dueDate: r.dueDate }); }
     },
     payments: {
       label: "payments received", file: "payments-received", note: "Each unit in the file has its unpaid charge marked as paid and a receipt is made. Use it for a list from the bank, GCash or the cashier.",

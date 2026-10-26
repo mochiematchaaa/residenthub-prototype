@@ -90,7 +90,7 @@ function viewFin() {
     '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' +
     tableRows(rows.map(function (r) {
       var d = r.v;
-      return '<tr><td style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + '</td><td style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td style="font-weight:700">' + peso(Number(d.amount)) + "</td><td>" + paidCell(paidInfo[r.id], d.paid) + "</td><td>" +
+      return '<tr><td style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + (billedOn(r.id, d) ? '<div style="font-size:12px;color:var(--muted)">Billed ' + esc(billedOn(r.id, d)) + "</div>" : "") + '</td><td style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td style="font-weight:700">' + peso(Number(d.amount)) + "</td><td>" + paidCell(paidInfo[r.id], d.paid) + "</td><td>" +
         (d.paid ? '<span class="chip good">Paid</span>' : '<button class="btn" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button> ' + (isOverdue(d) ? '<span class="chip bad">Overdue</span>' : "")) +
         (d.paid ? "" : ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="editDue(\'' + escAttr(r.id) + '\')">Edit</button>') +
         ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteDue(\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
@@ -340,11 +340,11 @@ function billDues() {
         if (existing.some(function (x) { return x.unit === u.id && x.note === note; })) continue;
         if (!(area > 0)) { noArea++; continue; }
         var id = nextId();
-        await put("due", id, u.id, { id: id, unit: u.id, name: u.v.name && u.v.name !== "—" ? u.v.name : "", amount: Math.round(area * rate * 100) / 100, area: area, rate: rate, note: note, dueDate: due });
+        await put("due", id, u.id, { id: id, unit: u.id, name: u.v.name && u.v.name !== "—" ? u.v.name : "", amount: Math.round(area * rate * 100) / 100, area: area, rate: rate, billedOn: shortDate(new Date()), note: note, dueDate: due });
         n++;
       }
       logAct("Dues billed for " + d.period + ": " + n + " unit" + (n === 1 ? "" : "s"), "Finance");
-      toast((n ? "Billed " + n + " unit" + (n === 1 ? "" : "s") + " (floor area × " + peso(rate) + " per sqm)." : "Nobody new to bill for that month.") + (noArea ? " " + noArea + " unit" + (noArea === 1 ? " has" : "s have") + " no floor area yet; add it under Units." : ""));
+      toast((n ? "Billed " + n + " unit" + (n === 1 ? "" : "s") + " (floor area × " + peso(rate) + " per sqm). Each resident is notified under Notifications and Dues." : "Nobody new to bill for that month.") + (noArea ? " " + noArea + " unit" + (noArea === 1 ? " has" : "s have") + " no floor area yet; add it under Units." : ""));
     }
   });
 }
@@ -363,7 +363,7 @@ function chargeForm() {
       var due = "";
       if (d.due) { var p = parseShort(d.due); if (!p) return { error: 'Enter the due date like "Oct 15, 2026".' }; due = shortDate(p); }
       var id = nextId(), u = unitRec(d.unit) || {};
-      await put("due", id, d.unit, { id: id, unit: d.unit, name: u.name && u.name !== "—" ? u.name : "", amount: a, note: d.note, dueDate: due });
+      await put("due", id, d.unit, { id: id, unit: d.unit, name: u.name && u.name !== "—" ? u.name : "", amount: a, note: d.note, dueDate: due, billedOn: shortDate(new Date()) });
       logAct("Charge added, " + d.unit + ": " + d.note, "Finance");
     }
   });
