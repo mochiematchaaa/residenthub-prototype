@@ -63,7 +63,6 @@ class _AdminAccessState extends State<AdminAccess> {
               decoration: const InputDecoration(hintText: 'Search name, email or unit…', prefixIcon: Icon(Icons.search_rounded)),
             ),
             _ContactSummary(),
-            const _UpdateHistory(),
             RCard(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
@@ -118,6 +117,7 @@ class _AdminAccessState extends State<AdminAccess> {
                           ),
                         ],
                       ),
+                      _HistoryDropdown(t),
                       const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
@@ -234,75 +234,35 @@ class _ContactSummary extends StatelessWidget {
   }
 }
 
-/// A dropdown that lists every change to resident contact info, newest first, with a filter for one resident.
-class _UpdateHistory extends StatefulWidget {
-  const _UpdateHistory();
-
-  @override
-  State<_UpdateHistory> createState() => _UpdateHistoryState();
-}
-
-class _UpdateHistoryState extends State<_UpdateHistory> {
-  String who = '';
+/// A small dropdown under a resident's contact line that lists every change to their account, newest first.
+class _HistoryDropdown extends StatelessWidget {
+  final Account a;
+  const _HistoryDropdown(this.a);
 
   @override
   Widget build(BuildContext context) {
-    final res = app.residentAccounts;
-    final all = <(Account, AccountChange)>[
-      for (final a in res) for (final c in a.history) (a, c),
-    ]..sort((x, y) => y.$2.at.compareTo(x.$2.at));
-    final shown = who.isEmpty ? all : all.where((e) => e.$1.id == who).toList();
-    final names = [for (final a in res) if (a.history.isNotEmpty) a]..sort((x, y) => x.name.compareTo(y.name));
-    return RCard(
-      padding: EdgeInsets.zero,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          title: Row(children: [
-            Text('Update history', style: hd(15)),
-            const SizedBox(width: 8),
-            Pill('${shown.length} change${shown.length == 1 ? '' : 's'}', tone: Tone.info),
-          ]),
-          children: [
-            DropdownButtonFormField<String>(
-              value: who,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Show history for'),
-              items: [
-                const DropdownMenuItem(value: '', child: Text('All residents')),
-                for (final a in names) DropdownMenuItem(value: a.id, child: Text('${a.name} · ${a.unit}', overflow: TextOverflow.ellipsis)),
-              ],
-              onChanged: (v) => setState(() => who = v ?? ''),
-            ),
-            const SizedBox(height: 10),
-            if (shown.isEmpty) Text('No changes yet.', style: TextStyle(color: muted(context))),
-            for (final e in shown.take(40))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    IconBadge(e.$2.from.isEmpty && e.$2.to.isEmpty ? Icons.person_add_alt_1_rounded : Icons.edit_note_rounded,
-                        tone: e.$2.from.isEmpty && e.$2.to.isEmpty ? Tone.good : Tone.info, size: 36),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${e.$1.name} · ${e.$1.unit}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-                          Text(e.$2.from.isEmpty && e.$2.to.isEmpty ? e.$2.field : '${e.$2.field}: ${e.$2.from.isEmpty ? '—' : e.$2.from} → ${e.$2.to}',
-                              style: const TextStyle(fontSize: 13)),
-                          Text(shortDate(e.$2.at), style: TextStyle(color: muted(context), fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+    if (a.history.isEmpty) return const SizedBox.shrink();
+    final list = [...a.history]..sort((x, y) => y.at.compareTo(x.at));
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 4),
+        dense: true,
+        title: Text('Update history (${list.length})', style: TextStyle(color: muted(context), fontSize: 13, fontWeight: FontWeight.w600)),
+        children: [
+          for (final c in list)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text.rich(TextSpan(children: [
+                  TextSpan(text: '${shortDate(c.at)} · ', style: TextStyle(color: muted(context))),
+                  TextSpan(text: c.from.isEmpty && c.to.isEmpty ? c.field : '${c.field}: ${c.from.isEmpty ? '—' : c.from} → ${c.to}'),
+                ]), style: const TextStyle(fontSize: 13, height: 1.35)),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
