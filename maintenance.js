@@ -302,7 +302,7 @@
       tableRows(ns.map(function (r) {
         var n = r.v;
         return "<tr><td><b>" + esc(n.title) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(new Date(n.at).toLocaleString()) + "</div></td><td>" + esc(n.to) + "</td><td>" +
-          (n.channel === "sms" ? esc(plural(n.smsSent, "text message")) + " sent" + (n.noPhone ? ' <span class="chip warn">' + esc(plural(n.noPhone, "resident")) + " without a mobile number</span>" : "") : "Dashboard and app only") + "</td></tr>";
+          (n.channel === "sms" ? "Dashboard, app and " + esc(plural(n.smsSent, "text message")) + (n.noPhone ? ' <span class="chip warn">' + esc(plural(n.noPhone, "resident")) + " without a mobile number</span>" : "") : "Dashboard and app only") + "</td></tr>";
       }), ["NOTICE", "SENT TO", "HOW"], "") + "</div>";
   }
   window.maintNotify = function (id) {
@@ -314,7 +314,7 @@
       submit: "Send notice",
       fields: [
         { name: "audience", label: "Send to", type: "select", options: [["all", "All residents (" + res.length + ")"], ["pick", "Choose residents…"]], value: "all" },
-        { name: "channel", label: "How", type: "select", options: [["app", "Notice in the dashboard and app"], ["sms", "Notice + text message to their mobile numbers"]], value: "app" },
+        { name: "channel", label: "How", type: "select", options: [["sms", "Dashboard, app and text message (all at once)"], ["app", "Dashboard and app only"]], value: "sms" },
         { name: "title", label: "Title", value: "Maintenance notice: " + t.title },
         { name: "body", label: "Message", type: "textarea", value: "Scheduled on " + fd(t.due) + ": " + t.title + (t.equipName ? " (" + t.equipName + ")" : "") + ". Some areas may be briefly unavailable. Thank you for your understanding." }
       ],
@@ -332,7 +332,7 @@
         var rid = String(nextId());
         await put("mnotice", rid, "__admin", { id: rid, title: d.title, at: Date.now(), to: to, count: targets.length, channel: d.channel, smsSent: sms.length, noPhone: noPhone });
         logAct("Maintenance notice sent to " + to + (d.channel === "sms" ? ", " + plural(sms.length, "text message") : "") + ": " + d.title, "Announcements");
-        toast("Notice sent to " + to + "." + (d.channel === "sms" ? " " + plural(sms.length, "text message") + " sent (simulated)." + (noPhone ? " " + plural(noPhone, "resident") + " without a mobile number." : "") : ""));
+        toast("Notice sent to " + to + (d.channel === "sms" ? " on the dashboard and app, plus " + plural(sms.length, "text message") + " (text messages are simulated in the prototype)."  : ".") + (d.channel === "sms" ? "" + (noPhone ? " " + plural(noPhone, "resident") + " without a mobile number." : "") : ""));
       }
     });
     var form = document.getElementById("rhForm"); if (!form) return;
@@ -347,7 +347,7 @@
     function shown() { var q = qEl.value.trim().toLowerCase(); return res.filter(function (a) { return !q || (a.name + " " + (a.unit || "")).toLowerCase().indexOf(q) >= 0; }); }
     function summary() {
       var tg = aud.value === "all" ? res : res.filter(function (a) { return picked[a.id]; }), ph = tg.filter(function (a) { return a.phone; }).length;
-      info.innerHTML = "Will reach <b>" + plural(tg.length, "resident") + "</b>" + (chn.value === "sms" ? ". <b>" + ph + "</b> can get a text message" + (tg.length - ph ? ' <span class="chip warn">' + (tg.length - ph) + " have no mobile number</span>" : "") + "." : ".");
+      info.innerHTML = "Will reach <b>" + plural(tg.length, "resident") + "</b>" + (chn.value === "sms" ? " on the dashboard and in the app, and by text message at the same time. <b>" + ph + "</b> have a mobile number to text" + (tg.length - ph ? ' <span class="chip warn">' + (tg.length - ph) + " have no mobile number</span>" : "") + "." : ".");
     }
     function draw() {
       listEl.innerHTML = shown().map(function (a) {

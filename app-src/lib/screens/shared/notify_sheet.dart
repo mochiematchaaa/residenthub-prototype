@@ -28,7 +28,7 @@ class _NotifySheet extends StatefulWidget {
 class _NotifySheetState extends State<_NotifySheet> {
   late final TextEditingController title, body, search;
   bool everyone = true;
-  bool text = false;
+  bool text = true;
   final Set<String> picked = {};
   String? error;
 
@@ -140,13 +140,13 @@ class _NotifySheetState extends State<_NotifySheet> {
             Text('How', style: TextStyle(color: muted(context), fontSize: 12.5, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Wrap(spacing: 8, children: [
-              ChoiceChip(label: const Text('Notice in the app'), selected: !text, onSelected: (_) => setState(() => text = false)),
-              ChoiceChip(label: const Text('Notice + text message'), selected: text, onSelected: (_) => setState(() => text = true)),
+              ChoiceChip(label: const Text('Dashboard and app only'), selected: !text, onSelected: (_) => setState(() => text = false)),
+              ChoiceChip(label: const Text('Dashboard, app and text message'), selected: text, onSelected: (_) => setState(() => text = true)),
             ]),
             const SizedBox(height: 8),
             Text(
               'Will reach ${rec.length} resident${rec.length == 1 ? '' : 's'}'
-              '${text ? ' · $withPhone can get a text message${rec.length - withPhone > 0 ? ' (${rec.length - withPhone} without a mobile number)' : ''}' : ''}.'
+              '${text ? ' on the dashboard and in the app, and by text message at the same time. $withPhone ${withPhone == 1 ? 'has' : 'have'} a mobile number to text${rec.length - withPhone > 0 ? ' (${rec.length - withPhone} without)' : ''}' : ''}.'
               '${text ? ' The text opens in your phone\'s messaging app with their numbers filled in; you tap Send.' : ''}',
               style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
             ),
