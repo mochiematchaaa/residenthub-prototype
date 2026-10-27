@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v13", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v14", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -75,7 +75,7 @@
     /* floor area by unit type (A smaller, C larger, upper floors a little bigger); dues are charged per square meter */
     function areaOf(label) { var L = label.slice(-1), f = parseInt(label.slice(5), 10); return ({ A: 32, B: 45, C: 60 }[L] || 40) + (f >= 9 ? 8 : 0); }
     var SQM_RATE = 50;
-    U.forEach(function (u) { byUnit[u.label] = { unit: u.label, name: u.house, type: u.type, status: u.status, area: areaOf(u.label), contact: u.contact, usage: u.type === "Tenant" ? "tenant" : "owner" }; });
+    U.forEach(function (u, ui) { byUnit[u.label] = { unit: u.label, name: u.house, type: u.type, status: u.status, area: areaOf(u.label), dueDay: 1 + (ui * 7 + 2) % 28, contact: u.contact, usage: u.type === "Tenant" ? "tenant" : "owner" }; });
     function tenantInfo(u, from, to) { return { tname: u.person, tphone: u.contact, occupants: String(ri(1, 4)), start: dk(dayOff(from)), end: dk(dayOff(to)), emerg: pick(FIRST) + " " + u.house.split(" ")[0] + ", 0917 000 " + ri(2000, 2999), plates: "ABC " + ri(1000, 9999) }; }
     var tenants = U.filter(function (u) { return u.type === "Tenant" && u.status === "Occupied"; });
     tenants.forEach(function (u, k) {
@@ -132,14 +132,14 @@
     occ.forEach(function (u, hi) {
       var amt = areaOf(u.label) * SQM_RATE;
       [-2, -1, 0].forEach(function (off) {
-        var dd = monthDate(off, 25), note = "Association dues - " + MONL[dd.getMonth()] + " " + dd.getFullYear();
+        var dd = monthDate(off, byUnit[u.label].dueDay), note = "Association dues - " + MONL[dd.getMonth()] + " " + dd.getFullYear();
         var idn = new Date(dd.getFullYear(), dd.getMonth(), 1, 9).getTime() + hi;
         var paid = off < 0 ? !(off === -1 && hi % 9 === 3) && !(off === -2 && hi % 23 === 5) : (hi % 5 === 0 || hi % 5 === 2 || hi % 5 === 3);
         var due = { id: idn, unit: u.label, name: u.house, amount: amt, area: areaOf(u.label), rate: SQM_RATE, billedOn: sd(new Date(dd.getFullYear(), dd.getMonth(), 1, 9)), note: note, dueDate: sd(dd) };
         if (paid) due.paid = true;
         R("due", idn, u.label, due);
         if (paid) {
-          var pd = monthDate(off, 1 + (hi * 5 + off * 7 + 11) % 27);
+          var pd = monthDate(off, Math.max(1, byUnit[u.label].dueDay - (hi % 4)));
           if (pd > now) pd = new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - (hi % 10)), 12);
           var no = "OR-" + YEAR + "-" + String(++receipt).padStart(4, "0");
           var method = METHODS[(hi + off + 2) % 3];

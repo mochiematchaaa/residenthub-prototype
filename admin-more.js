@@ -93,7 +93,7 @@ function viewFin() {
       var d = r.v, od = !d.paid && isOverdue(d);
       var chip = d.paid ? '<span class="chip good">Paid</span>' : od ? '<span class="chip bad">Overdue</span>' : '<span class="chip warn">Unpaid</span>';
       return '<tr><td class="nw" style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + (billedOn(r.id, d) ? '<div class="cell-sub">Billed ' + esc(billedOn(r.id, d)) + "</div>" : "") + (d.paid ? '<div class="cell-sub">' + paidCell(paidInfo[r.id], d.paid).replace(/<\/?div[^>]*>/g, " ").replace(/<b>/g, "Paid by <b>") + "</div>" : "") + '</td><td class="nw" style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td class="nw"><b>' + peso(Number(d.amount)) + '</b><div style="margin-top:4px">' + chip + '</div></td><td><div class="row-actions">' +
-        (d.paid ? "" : '<button class="btn primary" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button><button class="btn" onclick="editDue(\'' + escAttr(r.id) + '\')">Edit</button>') +
+        (d.paid ? "" : '<button class="btn primary" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button><button class="btn" onclick="editDue(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" onclick="remindDue(\'' + escAttr(r.id) + '\')">Remind</button>') +
         '<button class="btn danger" onclick="deleteDue(\'' + escAttr(r.id) + '\')">Delete</button></div></td></tr>';
     }), ["UNIT", "FOR", "DUE", "AMOUNT", "ACTIONS"], dues.length ? (fq ? "No charge matches your search." : "Nothing unpaid. Everyone is up to date.") : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + (shownDues.length > FIN_PAGE ? pagerHtml(shownDues.length, finPage, FIN_PAGE, "goFinPage") : "") + "</div>" +
     unitDuesCard() +
@@ -102,7 +102,7 @@ function viewFin() {
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (rate ? peso(rate) + " per sqm" : "not set yet") + '</b></span></div>' +
     '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" ' + (state.duesRecalc === false ? "" : "checked") + ' onchange="state.duesRecalc=this.checked"> When I save a new rate, also update the unpaid monthly dues to it</label>' +
     '<div id="duesPreview">' + duesPreviewHtml(state.duesDraft != null ? state.duesDraft : rate) + "</div>" +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">Residents rent a motor/motorcycle slot for one month or by the day. Set a rate for each. The board can change them at any time.</p>' +
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Monthly rate (₱ / month)<input id="motorRate" type="number" min="0" value="' + escAttr(state.motorDraft != null ? state.motorDraft : (mrate || "")) + '" oninput="state.motorDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate\',\'motorDraft\',\'Monthly parking rate\')">Update monthly</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (mrate ? peso(mrate) + "/month" : "not set yet") + "</b></span></div>" +
@@ -136,17 +136,20 @@ function viewFin() {
 function editUnitArea(unit) {
   var u = unitRec(unit) || {}, rate = Number(setting("dues_rate_sqm").rate) || 0;
   openForm({
-    title: "Unit size · " + unit,
-    intro: "Each unit pays by its floor area, so units of different sizes pay different amounts. Monthly dues = floor area × " + (rate ? peso(rate) + " per sqm" : "the rate per sqm (set it first under Dues settings)") + ".",
+    title: "Unit size and due day · " + unit,
+    intro: "Each unit has its own due day, so payments come in on different days of the month. Each unit pays by its floor area, so units of different sizes pay different amounts. Monthly dues = floor area × " + (rate ? peso(rate) + " per sqm" : "the rate per sqm (set it first under Dues settings)") + ".",
     fields: [
       { name: "area", label: "Floor area (sqm)", type: "number", step: "0.01", value: u.area || "", placeholder: "e.g. 45" },
+      { name: "dueDay", label: "Dues are due on day (1 to 31)", type: "number", step: "1", value: u.dueDay || "", placeholder: "e.g. 15" },
       { name: "recalc", label: "Charges not paid yet", type: "select", options: ["Recalculate the unpaid monthly dues with the new size", "Keep them as billed"], value: "Recalculate the unpaid monthly dues with the new size" }
     ],
-    submit: "Save size",
+    submit: "Save",
     onSubmit: async function (d) {
       var area = parseFloat(d.area);
       if (!(area > 0)) return { error: "Enter the floor area in square meters, e.g. 45." };
-      await put("unit", unit, unit, Object.assign({}, u, { unit: unit, area: area }));
+      var dueDay = d.dueDay === "" || d.dueDay == null ? "" : parseInt(d.dueDay, 10);
+      if (dueDay !== "" && !(dueDay >= 1 && dueDay <= 31)) return { error: "The due day is a day of the month from 1 to 31." };
+      await put("unit", unit, unit, Object.assign({}, u, { unit: unit, area: area, dueDay: dueDay }));
       var n = 0;
       if (rate > 0 && String(d.recalc).indexOf("Recalculate") === 0) {
         var open = list("due").filter(function (r) { return r.v.unit === unit && !r.v.paid && Number(r.v.area) > 0 && Number(r.v.rate) > 0; });
@@ -189,15 +192,40 @@ function saveDuesRate() {
     toast("Monthly dues per sqm saved." + (k ? " " + k + " unpaid monthly charge" + (k === 1 ? "" : "s") + " updated to the new rate." : ""));
   });
 }
+// Reminders: the resident sees "Reminder from the office" under Notifications until the charge is paid.
+function remindDue(id) {
+  var row = getRow("due", id); if (!row) return;
+  act(async function () {
+    var v = Object.assign({}, row.value, { remindedOn: shortDate(new Date()), reminders: (Number(row.value.reminders) || 0) + 1 });
+    await put("due", id, v.unit, v);
+    logAct("Reminder sent, " + v.unit + ": " + v.note, "Finance");
+    toast("Reminder sent to " + v.unit + ". They will see it under Notifications.");
+  });
+}
+// Reminds every unit that has an unpaid charge which is overdue, due within 7 days, or has no due date.
+function remindAll() {
+  var today = Date.now(), list2 = list("due").filter(function (r) {
+    if (r.v.paid) return false;
+    if (!r.v.dueDate) return true;
+    var d = parseShort(r.v.dueDate); return !d || d.getTime() - today < 7 * 86400000;
+  });
+  if (!list2.length) return toast("No charge is overdue or due in the next 7 days.");
+  var units = {}; list2.forEach(function (r) { units[r.v.unit] = 1; });
+  confirmBox("Send reminders?", list2.length + " unpaid charge" + (list2.length === 1 ? "" : "s") + " (" + Object.keys(units).length + " unit" + (Object.keys(units).length === 1 ? "" : "s") + ") are overdue or due within 7 days. Each of those residents will see a reminder under Notifications.", "Send reminders", async function () {
+    for (var i = 0; i < list2.length; i++) await put("due", list2[i].id, list2[i].v.unit, Object.assign({}, list2[i].v, { remindedOn: shortDate(new Date()), reminders: (Number(list2[i].v.reminders) || 0) + 1 }));
+    logAct("Reminders sent to " + Object.keys(units).length + " unit(s)", "Finance");
+    toast("Reminders sent to " + Object.keys(units).length + " unit" + (Object.keys(units).length === 1 ? "" : "s") + ".");
+  });
+}
 function unitDuesCard() {
   var rate = Number(setting("dues_rate_sqm").rate) || 0, tb = 0, tp = 0, tbal = 0;
   var rows = sortedUnits().map(function (r) {
     var x = unitDues(r.id); tb += x.billed; tp += x.paid; tbal += x.balance;
-    return "<tr><td style=\"font-weight:700\">" + esc(r.id) + '</td><td style="color:var(--muted)">' + (x.area ? esc(String(x.area)) + " sqm" : '<span class="chip warn">No area</span>') + "</td><td>" + (x.area && rate ? peso(x.monthly) : "—") + "</td><td>" + peso(x.billed) + "</td><td>" + peso(x.paid) + '</td><td style="font-weight:700">' + (x.balance ? peso(x.balance) : "—") + '</td><td><button class="btn" style="min-height:30px;padding:0 12px" onclick="editUnitArea(\'' + escAttr(r.id) + '\')">' + (x.area ? "Edit size" : "Set size") + "</button></td></tr>";
+    return "<tr><td style=\"font-weight:700\">" + esc(r.id) + '</td><td style="color:var(--muted)">' + (x.area ? esc(String(x.area)) + " sqm" : '<span class="chip warn">No area</span>') + "</td><td>" + (x.area && rate ? peso(x.monthly) : "—") + '</td><td style="color:var(--muted)">' + (r.v.dueDay ? "Day " + esc(String(r.v.dueDay)) : "—") + "</td><td>" + peso(x.billed) + "</td><td>" + peso(x.paid) + '</td><td style="font-weight:700">' + (x.balance ? peso(x.balance) : "—") + '</td><td><button class="btn" style="min-height:30px;padding:0 12px" onclick="editUnitArea(\'' + escAttr(r.id) + '\')">' + (x.area ? "Edit size" : "Set size") + "</button></td></tr>";
   });
   return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:16px 18px 6px"><h2 style="margin:0">Unit dues and payments</h2><p class="hint" style="margin:4px 0 0">Worked out automatically. Floor area × rate per sqm = monthly dues. Billed, paid and balance come from the charges and receipts, so they update as soon as you bill or record a payment.</p>' +
     '<p style="margin:8px 0 0;font-size:13px;color:var(--muted)">All units: billed <b>' + peso(tb) + "</b> · paid <b>" + peso(tp) + "</b> · balance <b>" + peso(tbal) + "</b></p></div>" +
-    '<div style="max-height:380px;overflow:auto">' + tableRows(rows, ["UNIT", "AREA", "MONTHLY DUES", "BILLED", "PAID", "BALANCE", ""], "No units yet.") + "</div></div>";
+    '<div style="max-height:380px;overflow:auto">' + tableRows(rows, ["UNIT", "AREA", "MONTHLY DUES", "DUE DAY", "BILLED", "PAID", "BALANCE", ""], "No units yet.") + "</div></div>";
 }
 // Popup form to change the amount (or due date) of one unit's unpaid charge.
 function editDue(id) {
@@ -414,9 +442,9 @@ function billDues() {
   var now = new Date();
   openForm({
     title: "Bill monthly dues",
-    intro: "Adds one charge for every unit that has not been billed for this month yet. Each charge is worked out automatically: the unit's floor area × the rate per sqm.",
+    intro: "Adds one charge for every unit that has not been billed for this month yet. Each charge is worked out automatically: the unit's floor area × the rate per sqm, and it falls due on that unit's own due day, so payments come in all through the month.",
     fields: [{ name: "period", label: "Month", value: LONG_MONTHS[now.getMonth()] + " " + now.getFullYear() },
-      { name: "due", label: "Due date (optional)", placeholder: "e.g. " + shortDate(new Date(now.getFullYear(), now.getMonth(), 15)) }],
+      { name: "due", label: "Due date for units without a due day (optional)", placeholder: "e.g. " + shortDate(new Date(now.getFullYear(), now.getMonth(), 15)) }],
     submit: "Bill",
     onSubmit: async function (d) {
       var rate = Number(setting("dues_rate_sqm").rate);
@@ -427,12 +455,16 @@ function billDues() {
       var due = "";
       if (d.due) { var p = parseShort(d.due); if (!p) return { error: 'Enter the due date like "Oct 15, 2026".' }; due = shortDate(p); }
       var note = "Association dues - " + d.period, n = 0, noArea = 0, existing = vals("due");
+      var pm = LONG_MONTHS.findIndex(function (m) { return d.period.toLowerCase().indexOf(m.toLowerCase()) >= 0; }), py = (/(20\d\d)/.exec(d.period) || [])[1];
+      if (pm < 0) pm = now.getMonth();
+      py = py ? Number(py) : now.getFullYear();
       for (var i = 0; i < units.length; i++) {
         var u = units[i], area = Number(u.v.area);
         if (existing.some(function (x) { return x.unit === u.id && x.note === note; })) continue;
         if (!(area > 0)) { noArea++; continue; }
         var id = nextId();
-        await put("due", id, u.id, { id: id, unit: u.id, name: u.v.name && u.v.name !== "—" ? u.v.name : "", amount: Math.round(area * rate * 100) / 100, area: area, rate: rate, billedOn: shortDate(new Date()), note: note, dueDate: due });
+        var ud = Number(u.v.dueDay) >= 1 ? shortDate(new Date(py, pm, Math.min(Number(u.v.dueDay), new Date(py, pm + 1, 0).getDate()))) : due;
+        await put("due", id, u.id, { id: id, unit: u.id, name: u.v.name && u.v.name !== "—" ? u.v.name : "", amount: Math.round(area * rate * 100) / 100, area: area, rate: rate, billedOn: shortDate(new Date()), note: note, dueDate: ud });
         n++;
       }
       logAct("Dues billed for " + d.period + ": " + n + " unit" + (n === 1 ? "" : "s"), "Finance");
