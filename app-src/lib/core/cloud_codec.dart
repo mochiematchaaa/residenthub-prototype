@@ -187,6 +187,8 @@ Map<String, dynamic> _dueJson(Due d) => {
       if (d.checkedAt > 0) 'checkedAt': d.checkedAt,
       if (d.checkedNo.isNotEmpty) 'checkedNo': d.checkedNo,
       if (d.lateFeeId > 0) 'lateFeeId': d.lateFeeId,
+      if (d.remindedAt > 0) 'remindedAt': d.remindedAt,
+      if (d.lateFeeAuto) 'lateFeeAuto': true,
       if (d.balanceOf > 0) 'balanceOf': d.balanceOf,
       if (d.lateFor > 0) 'lateFor': d.lateFor,
       if (d.partOf > 0) 'partOf': d.partOf,
@@ -207,6 +209,8 @@ Due? _dueFrom(Map<String, dynamic> j) {
       checkedAt: _i(j, 'checkedAt'),
       checkedNo: _s(j, 'checkedNo'),
       lateFeeId: _i(j, 'lateFeeId'),
+      remindedAt: _i(j, 'remindedAt'),
+      lateFeeAuto: _b(j, 'lateFeeAuto'),
       balanceOf: _i(j, 'balanceOf'),
       lateFor: _i(j, 'lateFor'),
       partOf: _num(j, 'partOf'));
@@ -528,6 +532,7 @@ List<CRow> exportRows(AppState a) {
   add('setting', 'poll_categories', '', {'list': a.pollCats});
   add('setting', 'autopost', '', {'on': a.autoPostOn, 'hours': a.autoPostHours});
   add('setting', 'paycheck', '', {'pct': a.latePct});
+  add('setting', 'latefee', '', {'on': a.lateFeeOn, 'days': a.lateFeeDays});
   add('setting', 'paymethods', '', {
     'list': [
       for (final m in a.payMethods) {'name': m.name, 'details': m.details, 'enabled': m.enabled}
@@ -677,6 +682,12 @@ void importRows(AppState a, Iterable<CRow> all) {
   }
   final lateCfg = st['paycheck'];
   if (lateCfg != null && _num(lateCfg, 'pct') > 0) a.latePct = _num(lateCfg, 'pct');
+  final lf = st['latefee'];
+  if (lf != null) {
+    a.lateFeeOn = lf['on'] != false;
+    final ld = _num(lf, 'days').toInt();
+    a.lateFeeDays = ld >= 1 ? ld : 1;
+  }
   final pm = st['paymethods']?['list'];
   for (final m in a.payMethods) {
     m.enabled = m.name == AppState.officePay;

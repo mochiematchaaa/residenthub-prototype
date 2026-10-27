@@ -17,6 +17,9 @@ class AdminSettings extends StatefulWidget {
 
 class _AdminSettingsState extends State<AdminSettings> {
   late bool autoOn = app.autoPostOn;
+  late bool lateOn = app.lateFeeOn;
+  late final lateDays = TextEditingController(text: '${app.lateFeeDays}');
+  late final latePctC = TextEditingController(text: '${app.latePct}');
   late final autoHours = TextEditingController(text: '${app.autoPostHours}');
 
   @override
@@ -99,6 +102,44 @@ class _AdminSettingsState extends State<AdminSettings> {
                       msg(context, autoOn ? 'Saved. Matching payments post $h hours after they are sent.' : 'Saved. Automatic posting is off.');
                     },
                     child: const Text('Save payment settings'),
+                  ),
+                ),
+                const Divider(height: 28),
+                Text('Late charge', style: hd(18)),
+                const SizedBox(height: 4),
+                Text(
+                  'When a charge is still unpaid after its due date, a late charge is added by itself, so an overdue charge never just sits there. It is skipped if the resident already sent their payment, and it is taken off again if they turn out to have paid on time.',
+                  style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Add the late charge automatically', style: TextStyle(fontWeight: FontWeight.w700)),
+                  value: lateOn,
+                  activeThumbColor: lavDeep,
+                  onChanged: (v) => setState(() => lateOn = v),
+                ),
+                TextField(controller: lateDays, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'After how many days overdue')),
+                const SizedBox(height: 10),
+                TextField(controller: latePctC, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Late charge (% of the charge)')),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      final days = int.tryParse(lateDays.text.trim());
+                      final pct = double.tryParse(latePctC.text.trim());
+                      if (days == null || days < 1 || days > 30) {
+                        msg(context, 'Enter the number of days, from 1 to 30.');
+                        return;
+                      }
+                      if (pct == null || pct <= 0 || pct > 100) {
+                        msg(context, 'Enter the late charge as a percentage, from 0.1 to 100.');
+                        return;
+                      }
+                      app.setLateFee(lateOn, days, pct);
+                      msg(context, lateOn ? 'Saved. A $pct% late charge is added $days day${days == 1 ? '' : 's'} after the due date.' : 'Saved. Late charges are no longer added by themselves.');
+                    },
+                    child: const Text('Save late charge'),
                   ),
                 ),
               ],

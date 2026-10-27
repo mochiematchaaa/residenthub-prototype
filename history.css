@@ -304,3 +304,10 @@ html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{
 .dz-chg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--beige);border:1px solid var(--border2)}
 .dz-chg small{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:2px}
 .dz-chg b{font-size:13.5px}
+.late-warn{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--bad-bg);color:var(--bad-fg);border-top:1px solid var(--border2);border-bottom:1px solid var(--border2)}
+.late-warn b{display:block;font-size:14px}.late-warn small{font-size:12.5px}
+.late-ic{width:26px;height:26px;border-radius:50%;background:var(--bad-fg);color:var(--bad-bg);display:grid;place-items:center;font-weight:800;flex:none}
+.late-warn>div{flex:1;min-width:0}
+.fin-charges tr.row-late>td:first-child{box-shadow:inset 4px 0 0 var(--bad-fg)}
+.row-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.row-tags .chip{font-size:11px}
+.lf-set{padding:12px 14px;border-radius:14px;background:var(--beige);border:1px solid var(--border2)}

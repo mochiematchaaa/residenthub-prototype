@@ -86,6 +86,7 @@ function payCheckYes(id) {
         var bid = nextId();
         await put("due", bid, c.unit, { id: bid, unit: c.unit, name: c.name || "", amount: Math.round((full - amt) * 100) / 100, note: c.note + " (balance)", dueDate: c.dueDate, billedOn: shortDate(new Date()), balanceOf: id, checkedAt: Date.now() });
       } else await put("due", id, c.unit, Object.assign({}, c, { paid: true }));
+      await voidAutoLateFee(c, when || new Date());
       logAct("Marked paid, " + c.unit + ": " + c.note + " " + peso(amt) + (short ? " (balance " + peso(full - amt) + " left)" : ""), "Finance");
       toast(short ? "Recorded " + peso(amt) + " for " + c.unit + ". The balance of " + peso(full - amt) + " stays on their dues. Receipt " + r.no + "." : "Marked paid. Receipt " + r.no + " issued to " + c.unit + ".");
     }
@@ -120,7 +121,7 @@ function payCheckNo(id) {
         await put("setting", "paycheck", "", { pct: pct });
       }
       if (d.notify.indexOf("Yes") === 0) {
-        v.remindedOn = shortDate(new Date()); v.reminders = (Number(c.reminders) || 0) + 1; v.remindMsg = String(d.msg || "").trim() || REMIND_DEFAULT; notes.push("reminder sent");
+        v.remindedOn = shortDate(new Date()); v.remindedAt = Date.now(); v.reminders = (Number(c.reminders) || 0) + 1; v.remindMsg = String(d.msg || "").trim() || REMIND_DEFAULT; notes.push("reminder sent");
       }
       await put("due", id, c.unit, v);
       logAct("Not paid, " + c.unit + ": " + c.note + (notes.length ? " (" + notes.join(", ") + ")" : ""), "Finance");
@@ -141,10 +142,88 @@ function payCheckAskAll() {
       var msg = String(d.msg || "").trim() || REMIND_DEFAULT, n = 0;
       for (var i = 0; i < l.length; i++) {
         var cur = getRow("due", l[i].r.id); if (!cur || cur.value.paid) continue;
-        await put("due", l[i].r.id, cur.value.unit, Object.assign({}, cur.value, { remindedOn: shortDate(new Date()), reminders: (Number(cur.value.reminders) || 0) + 1, remindMsg: msg })); n++;
+        await put("due", l[i].r.id, cur.value.unit, Object.assign({}, cur.value, { remindedOn: shortDate(new Date()), remindedAt: Date.now(), reminders: (Number(cur.value.reminders) || 0) + 1, remindMsg: msg })); n++;
       }
       logAct("Asked " + Object.keys(units).length + " unit(s) to send proof of payment", "Finance");
       toast("Sent to " + Object.keys(units).length + " unit" + (Object.keys(units).length === 1 ? "" : "s") + " (" + n + " charge" + (n === 1 ? "" : "s") + ").");
     }
   });
 }
+
+/* ---------- reminder labels, overdue warnings and the automatic late charge ---------- */
+// When the last reminder was sent (older ones only have the day).
+function remindedAtMs(v) { if (Number(v.remindedAt) > 0) return Number(v.remindedAt); var d = parseShort(v.remindedOn || ""); return d ? d.getTime() + 9 * 3600000 : 0; }
+function remindedLabel(v) {
+  var t = remindedAtMs(v); if (!t) return "";
+  var n = Number(v.reminders) || 0;
+  return "Reminded " + (Number(v.remindedAt) > 0 ? clockText(t) : v.remindedOn) + (n > 1 ? " · " + n + " times" : "");
+}
+function remindedRecently(v, hours) { var t = remindedAtMs(v); return !!t && Date.now() - t < (hours || 24) * 3600000; }
+// Days since the due date (0 = due today, null = no due date or already paid).
+function daysLate(d) { var x = parseShort(d.dueDate || ""); if (!x || d.paid) return null; return Math.round((pcDayStart(new Date()) - pcDayStart(x)) / 86400000); }
+// A red notice above the unpaid list: how many are overdue and how many nobody was told about yet.
+function lateWarnHtml(open) {
+  var over = open.filter(function (r) { return isOverdue(r.v); });
+  if (!over.length) return "";
+  var sum = over.reduce(function (t, r) { return t + Number(r.v.amount || 0); }, 0), fresh = over.filter(function (r) { return !remindedRecently(r.v, 24); }).length, fees = over.filter(function (r) { return r.v.lateFeeId; }).length;
+  return '<div class="late-warn"><span class="late-ic">!</span><div><b>' + over.length + " overdue charge" + (over.length === 1 ? "" : "s") + " (" + peso(sum) + ")</b><small>" + (fees ? fees + " already got a late charge. " : "") + (fresh ? fresh + " not reminded in the last 24 hours." : "Everyone overdue was reminded today.") + '</small></div>' + (fresh ? '<button class="btn primary" onclick="remindAll()">Send reminders</button>' : "") + "</div>";
+}
+// Late charge setting: added by itself some days after the due date.
+function lateFeeCfg() { var c = setting("latefee"); return { on: c.on !== false, days: Number(c.days) >= 1 ? Number(c.days) : 1, pct: payCheckCfg().pct }; }
+function lateFeeSettingsHtml() {
+  var c = lateFeeCfg();
+  return '<div class="lf-set"><b>Late charge</b><p class="hint" style="margin:2px 0 8px">When a charge is still unpaid after its due date, a late charge is added by itself, so an overdue charge never just sits there. It is skipped if the resident already sent their payment, and it is taken off again if they turn out to have paid on time.</p>' +
+    '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-bottom:8px"><input type="checkbox" id="lfOn" ' + (c.on ? "checked" : "") + '> Add the late charge automatically</label>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end"><label class="fl" style="width:190px">After how many days overdue<input id="lfDays" type="number" min="1" max="30" step="1" value="' + c.days + '"></label><label class="fl" style="width:170px">Late charge (% of the charge)<input id="lfPct" type="number" min="0.1" max="100" step="0.1" value="' + c.pct + '"></label><button class="btn" onclick="saveLateFee()">Save late charge</button></div></div>';
+}
+function saveLateFee() {
+  var on = document.getElementById("lfOn").checked, days = parseInt(document.getElementById("lfDays").value, 10), pct = parseFloat(document.getElementById("lfPct").value);
+  if (!(days >= 1 && days <= 30)) return toast("Enter the number of days, from 1 to 30.");
+  if (!(pct > 0 && pct <= 100)) return toast("Enter the late charge as a percentage, from 0.1 to 100.");
+  act(async function () {
+    await put("setting", "latefee", "", { on: on, days: days });
+    await put("setting", "paycheck", "", { pct: pct });
+    logAct("Automatic late charge " + (on ? "on, " + pct + "% after " + days + " day" + (days === 1 ? "" : "s") : "turned off"), "Settings");
+    toast(on ? "Saved. A " + pct + "% late charge is added " + days + " day" + (days === 1 ? "" : "s") + " after the due date." : "Saved. Late charges are no longer added by themselves.");
+  });
+}
+// Adds the late charge to every charge that is still unpaid after the waiting days. Skips charges the resident already sent a payment for,
+// charges the office already answered "No" about, and charges that are themselves a late charge or a balance.
+var _lateBusy = false;
+async function autoLateFeeCheck() {
+  if (_lateBusy || !state.authed || !isAdmin()) return;
+  var cfg = lateFeeCfg(); if (!cfg.on) return;
+  var pend = {}; list("proof").forEach(function (o) { if (o.v.status === "Pending") pend[o.v.unit + "|" + o.v.forText] = 1; });
+  var todo = list("due").filter(function (r) {
+    var d = r.v, n = daysLate(d);
+    return !d.paid && n != null && n >= cfg.days && Number(d.amount) > 0 && !d.lateFeeId && !d.checkedAt && !d.lateFor && !d.balanceOf && !/^Late charge/.test(d.note || "") && !pend[d.unit + "|" + d.note];
+  });
+  if (!todo.length) return;
+  _lateBusy = true;
+  var done = 0, units = {};
+  try {
+    for (var i = 0; i < todo.length; i++) {
+      var cur = getRow("due", todo[i].id); if (!cur || cur.value.paid || cur.value.lateFeeId) continue;
+      var c = cur.value, amt = Math.round(Number(c.amount) * cfg.pct) / 100; if (!(amt > 0)) continue;
+      var lid = nextId(), due = new Date(); due.setDate(due.getDate() + 7);
+      await put("due", lid, c.unit, { id: lid, unit: c.unit, name: c.name || "", amount: amt, note: "Late charge: " + c.note, dueDate: shortDate(due), billedOn: shortDate(new Date()), lateFor: todo[i].id, auto: true });
+      await put("due", todo[i].id, c.unit, Object.assign({}, c, { lateFeeId: lid, lateFeeAuto: true, remindedOn: shortDate(new Date()), remindedAt: Date.now(), reminders: (Number(c.reminders) || 0) + 1, remindMsg: "This charge is overdue, so a late charge of " + peso(amt) + " was added. Please pay now and send your proof under Dues. If you already paid, send your payment details so it is removed." }));
+      logAct("Late charge added automatically, " + c.unit + ": " + c.note + " (" + peso(amt) + ")", "Finance");
+      done++; units[c.unit] = 1;
+    }
+  } catch (e) { /* the rest are tried again next time */ }
+  _lateBusy = false;
+  if (done) { toast(done + " late charge" + (done === 1 ? " was" : "s were") + " added automatically (" + Object.keys(units).slice(0, 6).join(", ") + (Object.keys(units).length > 6 ? "…" : "") + "). Residents were notified."); render(); }
+}
+// A late charge added by itself is taken off again when the resident paid on time (or the office finds they paid).
+async function voidAutoLateFee(due, paidDate) {
+  if (!due || !due.lateFeeId || !due.lateFeeAuto) return;
+  var lf = getRow("due", due.lateFeeId); if (!lf || lf.value.paid) return;
+  var dd = parseShort(due.dueDate || ""); if (!dd || !paidDate) return;
+  if (pcDayStart(paidDate) > pcDayStart(dd)) return;   // really paid late: the late charge stays
+  await del("due", due.lateFeeId);
+  logAct("Late charge removed, " + due.unit + ": " + due.note + " (paid on time)", "Finance");
+}
+setInterval(autoLateFeeCheck, 30000);
+var _rhEnter2 = rhEnter;
+rhEnter = function () { _rhEnter2(); setTimeout(autoLateFeeCheck, 2500); };

@@ -118,11 +118,12 @@ class _AdminFinanceState extends State<AdminFinance> {
 
   void _remindAll() {
     final n7 = app.needReminder();
+    final skipped = app.dues.where((d) => !d.paid && d.remindedWithin(24)).length;
     showFormSheet(
       context,
       title: 'Send reminders',
       subtitle:
-          'Right now ${n7.length} unpaid charge${n7.length == 1 ? ' is' : 's are'} overdue or due within 7 days. Change the number of days to include more or fewer. Each resident sees the reminder under Notifications.',
+          'Right now ${n7.length} unpaid charge${n7.length == 1 ? ' is' : 's are'} overdue or due within 7 days and not reminded in the last 24 hours.${skipped == 0 ? '' : ' $skipped already reminded today ${skipped == 1 ? 'is' : 'are'} skipped, so nobody gets the same message twice.'} Change the number of days to include more or fewer. Each resident sees the reminder under Notifications.',
       fields: [
         const FieldSpec('days', 'Include charges overdue or due within this many days', type: TextInputType.number, initial: '7'),
         const FieldSpec('msg', 'Message to the residents (you can edit it)', lines: 3, initial: kReminderDefault),
@@ -478,6 +479,31 @@ class _AdminFinanceState extends State<AdminFinance> {
             }),
             decoration: const InputDecoration(hintText: 'Search unit or description…', prefixIcon: Icon(Icons.search_rounded)),
           ),
+          if (filter == 'Unpaid')
+            Builder(builder: (context) {
+              final over = unpaid.where((d) => d.overdue).toList();
+              if (over.isEmpty) return const SizedBox.shrink();
+              final sum = over.fold<num>(0, (a, d) => a + d.amt);
+              final fresh = over.where((d) => !d.remindedWithin(24)).length;
+              final fees = over.where((d) => d.lateFeeId > 0).length;
+              final t = toneOf(context, Tone.bad);
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: t.fg.withValues(alpha: 0.35))),
+                child: Row(children: [
+                  Icon(Icons.warning_amber_rounded, color: t.fg),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${over.length} overdue charge${over.length == 1 ? '' : 's'} (${peso(sum)})', style: TextStyle(color: t.fg, fontWeight: FontWeight.w800)),
+                      Text('${fees > 0 ? '$fees already got a late charge. ' : ''}${fresh > 0 ? '$fresh not reminded in the last 24 hours.' : 'Everyone overdue was reminded today.'}',
+                          style: TextStyle(color: t.fg, fontSize: 12.5)),
+                    ]),
+                  ),
+                  if (fresh > 0) FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 36)), onPressed: _remindAll, child: const Text('Remind')),
+                ]),
+              );
+            }),
           if (filter == 'Receipts') ReceiptList(receiptRows, showUnit: true),
           if (filter != 'Receipts' && rows.isEmpty) EmptyBox(s.isEmpty ? 'Nothing here yet.' : 'Nothing matches your search.', icon: Icons.payments_outlined),
           if (filter != 'Receipts')
@@ -508,7 +534,19 @@ class _AdminFinanceState extends State<AdminFinance> {
                         const SizedBox(height: 4),
                         Text(peso(d.amt), style: hd(17)),
                         const SizedBox(height: 4),
-                        d.paid ? const Pill('Paid', tone: Tone.good) : (d.overdue ? const Pill('Overdue', tone: Tone.bad) : const Pill('Open', tone: Tone.info)),
+                        Wrap(spacing: 6, runSpacing: 4, children: [
+                          if (d.paid)
+                            const Pill('Paid', tone: Tone.good)
+                          else if (d.overdue)
+                            Pill('⚠ Overdue by ${d.daysLate ?? 0} day${d.daysLate == 1 ? '' : 's'}', tone: Tone.bad)
+                          else if (d.daysLate == 0)
+                            const Pill('⚠ Due today', tone: Tone.warn)
+                          else
+                            const Pill('Open', tone: Tone.info),
+                          if (!d.paid && d.lateFeeId > 0) const Pill('Late charge added', tone: Tone.bad),
+                          if (!d.paid && d.note.startsWith('Late charge')) const Pill('Late charge', tone: Tone.bad),
+                          if (!d.paid && d.remindedLabel.isNotEmpty) Pill(d.remindedLabel, tone: d.remindedWithin(24) ? Tone.good : Tone.info),
+                        ]),
                       ],
                     ),
                   ),
@@ -518,7 +556,8 @@ class _AdminFinanceState extends State<AdminFinance> {
                       onPressed: () => showFormSheet(
                         context,
                         title: 'Remind ${d.unit}',
-                        subtitle: '${d.note} · ${peso(d.amt)}. The resident sees this under Notifications.',
+                        subtitle: '${d.note} · ${peso(d.amt)}. The resident sees this under Notifications.'
+                            '${d.remindedLabel.isEmpty ? '' : '\n${d.remindedLabel}.${d.remindedWithin(24) ? ' They were reminded less than a day ago, so you may not need to send another.' : ''}'}',
                         fields: [FieldSpec('msg', 'Message to the resident (you can edit it)', lines: 3, initial: d.remindMsg.isEmpty ? kReminderDefault : d.remindMsg)],
                         submit: 'Send reminder',
                         onSubmit: (v) {
@@ -530,7 +569,7 @@ class _AdminFinanceState extends State<AdminFinance> {
                         },
                       ),
                       icon: const Icon(Icons.notifications_active_outlined),
-                      tooltip: d.remindedOn.isEmpty ? 'Remind this unit' : 'Reminded ${d.remindedOn}. Tap to remind again',
+                      tooltip: d.remindedLabel.isEmpty ? 'Remind this unit' : '${d.remindedLabel}. Tap to remind again',
                     ),
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
