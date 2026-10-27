@@ -58,9 +58,9 @@ class FloatingNav extends StatelessWidget {
       child: Semantics(
         button: true,
         selected: sel,
-        label: it.label,
+        label: tr(it.label),
         child: Tooltip(
-          message: it.label,
+          message: tr(it.label),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => onTap(i),

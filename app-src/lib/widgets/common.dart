@@ -198,7 +198,7 @@ class SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(top: 6, bottom: 2),
       child: Row(
         children: [
-          Expanded(child: Text(title, style: hd(19))),
+          Expanded(child: Text(tr(title), style: hd(19))),
           if (action != null) TextButton(onPressed: onAction, child: Text(action!)),
         ],
       ),
@@ -247,7 +247,7 @@ class NavGroup extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(label.toUpperCase(), style: TextStyle(color: muted(context), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          child: Text(tr(label).toUpperCase(), style: TextStyle(color: muted(context), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
         ),
         for (var i = 0; i < children.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
@@ -371,9 +371,9 @@ class NavTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
+                Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: muted(context), fontSize: 12.5)),
+                Text(tr(subtitle), style: TextStyle(color: muted(context), fontSize: 12.5)),
               ],
             ),
           ),

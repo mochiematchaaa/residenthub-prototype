@@ -304,7 +304,13 @@ class SessionService {
 
   /// Change password: the current password is checked first.
   Future<String?> changePassword(String cur, String nw, String conf) async {
-    if (kDemo) return kDemoOff;
+    if (kDemo) {
+      // The prototype has no real passwords: check the same rules, but nothing is changed.
+      if (cur.isEmpty) return 'Enter your current password.';
+      final bad = _checkNew(nw, conf);
+      if (bad != null) return bad;
+      return null;
+    }
     final email = app.role == Role.admin ? app.adminEmail : (app.me?.email ?? '');
     if (cur.isEmpty) return 'Enter your current password.';
     final bad = _checkNew(nw, conf);

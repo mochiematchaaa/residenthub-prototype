@@ -4,6 +4,7 @@ export 'amenity.dart';
 export 'app_state.dart';
 export 'community.dart';
 export 'doc_model.dart';
+export 'i18n.dart';
 export 'expenses.dart';
 export 'maintenance.dart';
 export 'payments.dart';

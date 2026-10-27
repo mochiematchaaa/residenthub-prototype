@@ -90,7 +90,7 @@ class ResMore extends StatelessWidget {
           NavTile(icon: Icons.folder_copy_outlined, title: 'Community documents', subtitle: '${app.communityDocs.length} shared files', onTap: () => go(context, const ResDocuments())),
         ]),
         NavGroup(label: 'Account', children: [
-          NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Profile, password, appearance, devices', onTap: () => go(context, const ResSettings())),
+          NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Profile, password, devices, language', onTap: () => go(context, const ResSettings())),
         ]),
         OutlinedButton.icon(
           onPressed: () async {
