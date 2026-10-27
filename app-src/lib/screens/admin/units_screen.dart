@@ -166,6 +166,18 @@ class _AdminUnitsState extends State<AdminUnits> {
               ),
             ),
             const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  go(context, UnitHistoryScreen(unit: u.unit));
+                },
+                icon: const Icon(Icons.manage_search_rounded),
+                label: const Text('Full history'),
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(

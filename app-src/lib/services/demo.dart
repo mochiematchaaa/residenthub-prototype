@@ -404,6 +404,21 @@ List<CRow> _demoRows() {
           'reference': 'GC${year * 1000000 + 101400 + hi}',
           'amount': amt,
           'date': _sd(_off(-(hi % 3))),
+          'at': DateTime.now().subtract(Duration(hours: 5 + (hi % 3) * 20)).millisecondsSinceEpoch,
+          'status': 'Pending',
+        });
+      } else if (off == 0 && hi % 11 == 4) {
+        // a payment with the wrong amount: it waits for the office instead of posting by itself
+        r('proof', idn + 7000, u.label, {
+          'id': idn + 7000,
+          'unit': u.label,
+          'payer': u.house,
+          'forText': note,
+          'method': 'GCash',
+          'reference': 'GC${year * 1000000 + 101500 + hi}',
+          'amount': amt - 250,
+          'date': _sd(_off(-1)),
+          'at': DateTime.now().subtract(const Duration(hours: 30)).millisecondsSinceEpoch,
           'status': 'Pending',
         });
       }
@@ -777,6 +792,7 @@ List<CRow> _demoRows() {
         'reference': 'GC${year * 1000000 + 101403}',
         'amount': 1500,
         'date': _sd(now),
+        'at': now.subtract(const Duration(hours: 5)).millisecondsSinceEpoch,
         'status': 'Pending',
         'slot': reqs[k][1],
       });

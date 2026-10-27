@@ -3,6 +3,8 @@
 // The tab pages are deliberately created WITHOUT `const` inside build():
 // a const widget is identical on every rebuild, so Flutter would skip it and
 // the tab would not refresh after the shared AppState changes.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
@@ -10,8 +12,34 @@ import '../../widgets/widgets.dart';
 import 'admin_screens.dart';
 
 /// Administrator app frame: five tabs + the floating pill navigation bar.
-class AdminShell extends StatelessWidget {
+class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
+
+  @override
+  State<AdminShell> createState() => _AdminShellState();
+}
+
+class _AdminShellState extends State<AdminShell> {
+  Timer? _auto;
+
+  /// Posts the payments that matched their charge and waited long enough. In a live system this runs on the server.
+  void _autoPost() {
+    final n = app.autoPostCheck();
+    if (n > 0 && mounted) msg(context, '$n payment${n == 1 ? ' was' : 's were'} posted automatically.');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoPost());
+    _auto = Timer.periodic(const Duration(seconds: 30), (_) => _autoPost());
+  }
+
+  @override
+  void dispose() {
+    _auto?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

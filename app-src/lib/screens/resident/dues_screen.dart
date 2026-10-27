@@ -474,8 +474,13 @@ class _ResDuesState extends State<ResDues> {
                 for (final p in app.myProofs)
                   ListTile(
                     title: Text('${p.method} · ${peso(p.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text('Ref. ${p.reference} · ${p.date}${p.status == 'Rejected' && p.reason.isNotEmpty ? '\nReason: ${p.reason}' : ''}'),
-                    trailing: Pill(p.status == 'Confirmed' ? 'Verified' : p.status),
+                    subtitle: Text(
+                      'Ref. ${p.reference} · ${p.date}'
+                      '${p.status == 'Rejected' && p.reason.isNotEmpty ? '\nReason: ${p.reason}' : ''}'
+                      '${p.status == 'Pending' && app.autoPostOn ? '\nPosts automatically by ${clockText(app.autoPostAt(p))} if it matches your charge.' : ''}'
+                      '${p.status == 'Confirmed' && p.auto ? '\nPosted automatically. Receipt ${p.receiptNo}.' : ''}',
+                    ),
+                    trailing: Pill(p.status == 'Confirmed' ? (p.auto ? 'Posted' : 'Verified') : p.status),
                   ),
               ],
             ),

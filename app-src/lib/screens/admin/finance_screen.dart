@@ -11,6 +11,7 @@ import '../shared/document_viewer_screen.dart';
 import '../shared/payment_widgets.dart';
 import 'admin_screens.dart';
 import 'finance_cards.dart';
+import 'verify_panel.dart';
 
 /// What the reminder says until the office edits it.
 const kReminderDefault = 'Please settle your dues when you can. Thank you!';
@@ -74,15 +75,6 @@ class _AdminFinanceState extends State<AdminFinance> {
       app.payDue(d.id, method: 'Imported payment list', reference: picked.name);
     }
     if (mounted) msg(context, '${hits.length} payment${hits.length > 1 ? 's' : ''} recorded from the file.');
-  }
-
-  /// Another submission (any unit) that used the same payment method and reference number, or null.
-  PaymentProof? _duplicateOf(PaymentProof p) {
-    if (p.reference.trim().isEmpty || p.reference == '—') return null;
-    for (final o in app.proofs) {
-      if (o.id != p.id && o.status != 'Rejected' && o.method == p.method && o.reference.toLowerCase() == p.reference.toLowerCase()) return o;
-    }
-    return null;
   }
 
   /// Rejects a submission: the administrator gives the reason, and the resident sees it.
@@ -268,50 +260,10 @@ class _AdminFinanceState extends State<AdminFinance> {
             ),
           ),
           if (pendingProofs.isNotEmpty)
-            RCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const IconBadge(Icons.fact_check_outlined, accent: true),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text('Payments to verify', style: hd(17))),
-                  ]),
-                  const SizedBox(height: 4),
-                  for (final p in pendingProofs) ...[
-                    const Divider(height: 22),
-                    Text('${p.unit} · ${p.payer}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text('${p.method} · Ref. ${p.reference} · ${p.date}', style: TextStyle(color: muted(context), fontSize: 12.5)),
-                    if (_duplicateOf(p) != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text('Duplicate reference: also sent by ${_duplicateOf(p)!.unit}', style: const TextStyle(color: Color(0xFF8A6D00), fontSize: 12.5, fontWeight: FontWeight.w700)),
-                      ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Text(peso(p.amount), style: hd(17)),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () => _reject(p),
-                          child: const Text('Reject'),
-                        ),
-                        const SizedBox(width: 6),
-                        FilledButton(
-                          style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                          onPressed: () {
-                            final rec = app.confirmProof(p);
-                            final slot = p.forText == parkingPayFor ? app.slotOf(p.unit) : null;
-                            msg(context, slot != null ? 'Payment verified. ${slot.id} is now assigned to ${p.unit}. Receipt ${rec.receiptNo} issued.' : 'Payment verified. Receipt ${rec.receiptNo} issued.');
-                          },
-                          child: const Text('Verify'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+            VerifyPanel(
+              proofs: pendingProofs,
+              onReject: _reject,
+              onChangeSettings: () => go(context, const AdminSettings()),
             ),
           const DailyCollectionsCard(),
           RCard(

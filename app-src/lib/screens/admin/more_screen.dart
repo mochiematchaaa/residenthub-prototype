@@ -7,6 +7,7 @@ import '../../services/demo.dart' show kDemo;
 import '../../services/session.dart';
 import '../../widgets/widgets.dart';
 import 'admin_screens.dart';
+import 'unit_history_screen.dart';
 
 class AdminMore extends StatelessWidget {
   const AdminMore({super.key});
@@ -87,6 +88,7 @@ class AdminMore extends StatelessWidget {
               ),
             ),
           NavTile(icon: Icons.bar_chart_rounded, title: 'Reports', subtitle: 'Collections, units, concerns, bookings', onTap: () => go(context, const AdminReports())),
+          NavTile(icon: Icons.manage_search_rounded, title: 'Unit history', subtitle: 'Everything on record for one unit, with Excel export', onTap: () => go(context, const UnitHistoryScreen())),
           NavTile(icon: Icons.history_rounded, title: 'Activity log', subtitle: '${app.activityLog.length} recorded', onTap: () => go(context, const AdminActivity())),
         ]),
         NavGroup(label: 'Money and files', children: [
@@ -95,9 +97,8 @@ class AdminMore extends StatelessWidget {
           NavTile(icon: Icons.folder_copy_outlined, title: 'Community documents', subtitle: '${app.communityDocs.length} files', onTap: () => go(context, const AdminDocs())),
         ]),
         NavGroup(label: 'Administration', children: [
-          NavTile(icon: Icons.admin_panel_settings_outlined, title: 'Manage access', subtitle: '${app.trusted.length + 1} accounts', onTap: () => go(context, const AdminAccess())),
           NavTile(icon: Icons.contacts_outlined, title: 'Directory and house rules', subtitle: '${directoryContacts.length} contacts · ${houseRules.length} rules', onTap: () => go(context, const AdminDirectory())),
-          NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Profile, photo, password, appearance', onTap: () => go(context, const AdminSettings())),
+          NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Profile, access, payments, password', onTap: () => go(context, const AdminSettings())),
         ]),
         OutlinedButton.icon(
           onPressed: () async {
