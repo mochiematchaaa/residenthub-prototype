@@ -466,7 +466,9 @@ function chooseDue(id) {
   var row = id ? getRow("due", id) : null;
   state.payUnit = row ? row.value.unit : "";
   state.payDues = row ? [String(id)] : [];
+  state.finTab = "pay"; // the payment desk lives on the "Record payment" tab, so go there
   render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
   if (id) { var el = document.getElementById("payDesk"); if (el && window.innerWidth < 1100) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
 }
 // Picks the resident / unit in the payment desk; the oldest unpaid charge is ticked first.
