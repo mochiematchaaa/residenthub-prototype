@@ -246,6 +246,7 @@ function unitForm(edit) {
       { name: "type", label: "Occupancy", type: "select", options: ["Owner", "Tenant"], value: u.type || "Owner" },
       { name: "status", label: "Status", type: "select", options: ["Occupied", "Vacant"], value: u.status || "Occupied" },
       { name: "area", label: "Floor area (sqm)", type: "number", step: "0.01", value: u.area || "", placeholder: "e.g. 45" },
+      { name: "dueDay", label: "Dues are due on day (1 to 31)", type: "number", step: "1", value: u.dueDay || "", placeholder: "e.g. 15 (each unit can have its own day)" },
       { name: "contact", label: "Contact number", value: u.contact && u.contact !== "—" ? u.contact : "" }
     ],
     onSubmit: async function (d) {
@@ -258,7 +259,9 @@ function unitForm(edit) {
       var old = edit ? unitRec(edit) || {} : {};
       var area = d.area === "" || d.area == null ? "" : parseFloat(d.area);
       if (area !== "" && !(area > 0)) return { error: "Enter the floor area in square meters, e.g. 45." };
-      await put("unit", label, label, Object.assign({}, old, { unit: label, name: d.name || "—", type: d.type, status: d.status, area: area, contact: d.contact || "—", usage: old.usage || "owner" }));
+      var dueDay = d.dueDay === "" || d.dueDay == null ? "" : parseInt(d.dueDay, 10);
+      if (dueDay !== "" && !(dueDay >= 1 && dueDay <= 31)) return { error: "The due day is a day of the month from 1 to 31." };
+      await put("unit", label, label, Object.assign({}, old, { unit: label, name: d.name || "—", type: d.type, status: d.status, area: area, dueDay: dueDay, contact: d.contact || "—", usage: old.usage || "owner" }));
       logAct((edit ? "Unit updated: " : "Unit added: ") + label, "Units");
     }
   });

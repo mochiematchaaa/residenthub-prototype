@@ -68,6 +68,12 @@ function notifs() {
   openDues.filter(function (r) { var d = parseShort(billedOn(r.id, r.v)); return d && Date.now() - d.getTime() < 14 * 86400000; }).slice(0, 3).forEach(function (r) {
     out.push(["New charge from the office: " + r.v.note + " (" + peso(Number(r.v.amount)) + "), billed " + billedOn(r.id, r.v) + (r.v.dueDate ? ", due " + r.v.dueDate : "") + ".", "info", "dues"]);
   });
+  // reminders sent by the office, and charges that fall due in the next 3 days
+  myOpenDues().forEach(function (r) {
+    var rem = parseShort(r.v.remindedOn || ""), due = parseShort(r.v.dueDate || ""), days = due ? Math.round((due.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null;
+    if (rem && Date.now() - rem.getTime() < 10 * 86400000) out.push(["Reminder from the office (" + r.v.remindedOn + "): " + r.v.note + " (" + peso(Number(r.v.amount)) + ") " + (days == null ? "is waiting for your payment." : days < 0 ? "is overdue by " + (-days) + " day" + (days === -1 ? "" : "s") + "." : days === 0 ? "is due today." : "is due in " + days + " day" + (days === 1 ? "" : "s") + " (" + r.v.dueDate + ")."), days != null && days < 0 ? "bad" : "info", "dues"]);
+    else if (days != null && days >= 0 && days <= 3) out.push([r.v.note + " is due " + (days === 0 ? "today" : "in " + days + " day" + (days === 1 ? "" : "s")) + " (" + r.v.dueDate + ").", "info", "dues"]);
+  });
   var over = myOpenDues().filter(function (r) { return isOverdue(r.v); });
   if (over.length) out.push([over.length === 1 ? "A charge is overdue: " + over[0].v.note + "." : over.length + " charges are overdue.", "bad", "dues"]);
   myProofs().slice(0, 3).forEach(function (r) {
