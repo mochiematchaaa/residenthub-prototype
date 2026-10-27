@@ -675,8 +675,8 @@ void importRows(AppState a, Iterable<CRow> all) {
     final h = _num(ap, 'hours').toInt();
     a.autoPostHours = h > 0 ? h : 24;
   }
-  final pc = st['paycheck'];
-  if (pc != null && _num(pc, 'pct') > 0) a.latePct = _num(pc, 'pct');
+  final lateCfg = st['paycheck'];
+  if (lateCfg != null && _num(lateCfg, 'pct') > 0) a.latePct = _num(lateCfg, 'pct');
   final pm = st['paymethods']?['list'];
   for (final m in a.payMethods) {
     m.enabled = m.name == AppState.officePay;
