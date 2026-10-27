@@ -1335,7 +1335,13 @@ class AppState extends ChangeNotifier {
         nLate++;
         out.insert(0, ['Overdue by ${-days} day${days == -1 ? '' : 's'}: ${d.note} (${peso(d.amt)}). Tap to pay and send your proof.', 'bad', '${d.id}']);
       } else if (days >= 0 && days <= 2) {
-        out.add(['${d.note} is due ${days == 0 ? 'today' : 'in $days day${days == 1 ? '' : 's'}'} (${d.dueDate}). Pay now so it does not turn overdue.', 'warn', '${d.id}']);
+        out.add([
+          days == 0
+              ? '${d.note} is due TODAY (${d.dueDate}). Pay within the day and send your proof so your dashboard updates.'
+              : '${d.note} is due ${days == 1 ? 'tomorrow' : 'in $days days'} (${d.dueDate}). Send your proof before the due date so your dashboard updates.',
+          days == 0 ? 'bad' : 'warn',
+          '${d.id}'
+        ]);
       }
     }
     for (final r in myDueRows) {

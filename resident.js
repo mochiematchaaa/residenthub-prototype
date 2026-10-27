@@ -77,7 +77,7 @@ function notifs() {
   myOpenDues().forEach(function (r) {
     var rem = parseShort(r.v.remindedOn || ""), due = parseShort(r.v.dueDate || ""), days = due ? Math.round((due.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null;
     if (rem && Date.now() - rem.getTime() < 10 * 86400000) out.push(["Reminder from the office (" + r.v.remindedOn + ")" + (r.v.remindMsg ? ": " + r.v.remindMsg + " —" : ":") + " " + r.v.note + " (" + peso(Number(r.v.amount)) + ") " + (days == null ? "is waiting for your payment." : days < 0 ? "is overdue by " + (-days) + " day" + (days === -1 ? "" : "s") + "." : days === 0 ? "is due today." : "is due in " + days + " day" + (days === 1 ? "" : "s") + " (" + r.v.dueDate + ")."), days != null && days < 0 ? "bad" : "info", "dues"]);
-    else if (days != null && days >= 0 && days <= 2 && !hasPendingProof(r.v)) out.push([r.v.note + " (" + peso(Number(r.v.amount)) + ") is due " + (days === 0 ? "today" : days === 1 ? "tomorrow" : "in " + days + " days") + " (" + r.v.dueDate + "). Tap to pay and send your proof.", "warn", "dues", r.id]);
+    else if (days != null && days >= 0 && days <= 2 && !hasPendingProof(r.v)) out.push([r.v.note + " (" + peso(Number(r.v.amount)) + ") is due " + (days === 0 ? "TODAY. Pay within the day and send your proof so your dashboard updates" : days === 1 ? "tomorrow" : "in " + days + " days") + " (" + r.v.dueDate + "). Tap to pay and send your proof.", days === 0 ? "bad" : "warn", "dues", r.id]);
   });
   // every overdue charge, with a Pay button (the notice shows by itself the day after the due date)
   myOpenDues().filter(function (r) { return isOverdue(r.v) && !hasPendingProof(r.v); }).slice(0, 4).forEach(function (r) {
@@ -460,7 +460,7 @@ function duesAlertHtml(items) {
   });
   soon.forEach(function (i) {
     var c = dueCountdown(i.d);
-    html += '<div class="dz-alert warn"><span class="dz-alert-ic">⏰</span><div><b>' + esc(i.title) + " is due " + (c.n === 0 ? "today" : c.n === 1 ? "tomorrow" : "in 2 days") + '</b><small>' + peso(i.amount) + " · " + esc(i.due) + "</small></div><button class=\"btn primary\" onclick=\"payThis('" + escAttr(i.id) + "')\">Pay now</button></div>";
+    html += '<div class="dz-alert ' + (c.n === 0 ? "bad" : "warn") + '"><span class="dz-alert-ic">⏰</span><div><b>' + esc(i.title) + " is due " + (c.n === 0 ? "TODAY" : c.n === 1 ? "tomorrow" : "in 2 days") + '</b><small>' + peso(i.amount) + " · " + esc(i.due) + (c.n === 0 ? ". Please pay within the day and send your proof before it ends, so your dashboard updates. Already paid at the office? The office records it right away." : ". Send your proof before the due date so your dashboard updates.") + "</small></div><button class=\"btn primary\" onclick=\"payThis('" + escAttr(i.id) + "')\">" + (c.n === 0 ? "Pay and send proof" : "Pay now") + "</button></div>";
   });
   if (sent.length) html += '<div class="dz-alert info"><span class="dz-alert-ic">✓</span><div><b>' + sent.length + " payment" + (sent.length === 1 ? "" : "s") + ' sent, waiting for the office</b><small>You will get a notice and a receipt as soon as it is checked.</small></div></div>';
   return html ? '<div class="dz-alerts">' + html + "</div>" : "";
