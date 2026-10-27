@@ -31,6 +31,19 @@ const _months = [
   'January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'
 ];
+/// "Oct 28, 3:20 PM"
+String clockText(DateTime d) {
+  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  return '${_months[d.month - 1].substring(0, 3)} ${d.day}, $h:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'AM' : 'PM'}';
+}
+
+/// "5h 12m", "45 min", "2 days", or "now".
+String waitText(Duration d) {
+  if (d.inSeconds <= 60) return 'now';
+  final m = d.inMinutes, h = m ~/ 60;
+  if (h >= 48) return '${(h / 24).round()} days';
+  return h > 0 ? '${h}h ${m % 60}m' : '$m min';
+}
 String longDate(DateTime d) => '${_months[d.month - 1]} ${d.day}, ${d.year}';
 String shortDate(DateTime d) =>
     '${_months[d.month - 1].substring(0, 3)} ${d.day}, ${d.year}';
@@ -92,6 +105,15 @@ class ActivityEntry {
   final String title, area;
   final DateTime at;
   const ActivityEntry(this.title, this.area, this.at);
+}
+
+/// The result of checking a payment a resident sent: [why] lists what does not match (empty = clean).
+class ProofCheck {
+  final List<String> why;
+  final num? expected;
+  final Due? due;
+  const ProofCheck(this.why, this.expected, this.due);
+  bool get ok => why.isEmpty;
 }
 
 /// A facility booking (place, day, time, status Pending/Approved/Denied).
@@ -888,7 +910,7 @@ class AppState extends ChangeNotifier {
     proofs.insert(
         0,
         PaymentProof(nextId(), myUnit, myHousehold, method, reference.trim(), shortDate(DateTime.now()), a,
-            forText: target == null ? 'Association dues' : target.note));
+            forText: target == null ? 'Association dues' : target.note, at: DateTime.now().millisecondsSinceEpoch));
     logActivity('Payment reference sent, $myUnit', 'Finance');
     _n();
     return null;
@@ -965,8 +987,78 @@ class AppState extends ChangeNotifier {
   /// Date -> 'October 2026'.
   String monthLabel(DateTime d) => '${_months[d.month - 1]} ${d.year}';
 
-  /// Admin: the proof checks out - record the payment and issue a receipt.
-  PaymentRecord confirmProof(PaymentProof p) {
+  // ---- automatic posting of the payments residents send
+
+  /// When on, a payment that matches its charge is posted by itself [autoPostHours] after it was sent.
+  bool autoPostOn = true;
+  int autoPostHours = 24;
+
+  void setAutoPost(bool on, int hours) {
+    autoPostOn = on;
+    autoPostHours = hours;
+    logActivity('Automatic posting ${on ? 'on, after $hours hours' : 'turned off'}', 'Settings');
+    _n();
+  }
+
+  /// What is wrong (if anything) with a payment the resident sent. Clean ones can be posted automatically.
+  ProofCheck proofCheck(PaymentProof p) {
+    final why = <String>[];
+    final isParking = p.forText == parkingPayFor;
+    final named = _openDueNamed(p.unit, p.forText);
+    num? expected;
+    if (named != null) {
+      expected = named.amt;
+    } else if (isParking) {
+      if (motorRate > 0) {
+        expected = motorRate;
+      } else {
+        why.add('The parking rate is not set, so the amount cannot be checked.');
+      }
+    } else if (p.forText == 'Other charge') {
+      why.add('An "other charge" has no fixed amount. Check it yourself.');
+    } else if (dues.any((d) => d.unit == p.unit && d.paid && d.note == p.forText)) {
+      why.add('That charge is already marked paid.');
+    } else {
+      why.add('No unpaid charge named "${p.forText}" for this unit.');
+    }
+    if (expected != null && (p.amount - expected).abs() > 0.009) {
+      final diff = (p.amount - expected).abs();
+      why.add('Amount sent ${peso(p.amount)} but it should be ${peso(expected)} (${p.amount < expected ? 'short' : 'over'} by ${peso(diff)}).');
+    }
+    final ref = p.reference.trim();
+    if (ref.length < 4 || ref == '—') {
+      why.add('No reference number.');
+    } else {
+      final low = ref.toLowerCase();
+      final dup = proofs.where((o) => o.id != p.id && o.status != 'Rejected' && o.reference.toLowerCase() == low && o.method == p.method).firstOrNull;
+      if (dup != null) {
+        why.add('The same reference number was also sent by ${dup.unit}.');
+      } else if (payments.any((o) => o.reference.toLowerCase() == low && o.method == p.method)) {
+        why.add('This reference number already has a receipt.');
+      }
+    }
+    return ProofCheck(why, expected, named);
+  }
+
+  /// When a pending payment will be posted by itself.
+  DateTime autoPostAt(PaymentProof p) => p.sentAt.add(Duration(hours: autoPostHours));
+
+  /// Posts, by itself, every clean payment that has waited long enough. Returns how many were posted.
+  int autoPostCheck() {
+    if (!autoPostOn || role != Role.admin) return 0;
+    final now = DateTime.now();
+    final ready = [
+      for (final p in proofs)
+        if (p.status == 'Pending' && !p.direct && !autoPostAt(p).isAfter(now) && proofCheck(p).ok) p,
+    ];
+    for (final p in ready) {
+      confirmProof(p, auto: true);
+    }
+    return ready.length;
+  }
+
+  /// Admin: the proof checks out - record the payment and issue a receipt. [auto] = posted by the system.
+  PaymentRecord confirmProof(PaymentProof p, {bool auto = false}) {
     if (p.status != 'Pending') {
       // Already handled (for example on the website a moment ago): return the receipt that exists.
       for (final r in payments) {
@@ -974,6 +1066,7 @@ class AppState extends ChangeNotifier {
       }
     }
     p.status = 'Confirmed';
+    p.auto = auto;
     p.receiptNo = nextReceiptNo();
     p.confirmedOn = shortDate(DateTime.now());
     final isParking = p.forText == parkingPayFor;
@@ -987,7 +1080,7 @@ class AppState extends ChangeNotifier {
     }
     p.forText = forText;
     final rec = _addPayment(p.unit, p.payer, forText, p.method, p.reference, p.amount, proof: p);
-    logActivity('Payment recorded, ${p.unit}', 'Finance');
+    logActivity(auto ? 'Payment posted automatically, ${p.unit} (${p.receiptNo})' : 'Payment recorded, ${p.unit}', 'Finance');
     // A paid parking reservation: the chosen slot goes to the resident straight away.
     if (isParking && p.slot.isNotEmpty) {
       final req = parking.where((r) => r.unit == p.unit && !r.confirmed && r.slot == p.slot).firstOrNull;
@@ -1128,7 +1221,12 @@ class AppState extends ChangeNotifier {
     }
     for (final p in myProofs) {
       if (p.status == 'Confirmed') {
-        out.add(['Your payment (ref. ${p.reference}) was verified. The receipt is under Dues & payment.', 'good']);
+        out.add(['Your payment (ref. ${p.reference}) was ${p.auto ? 'posted automatically' : 'verified'}. Receipt ${p.receiptNo} is under Dues & payment.', 'good']);
+      } else if (p.status == 'Pending') {
+        out.add([
+          'We received your payment details (${peso(p.amount)}, ref. ${p.reference}).${autoPostOn ? ' It will be posted to your dues automatically by ${clockText(autoPostAt(p))}. If something does not match, the office will tell you here.' : ' The office will verify it soon.'}',
+          'info'
+        ]);
       } else if (p.status == 'Rejected') {
         out.add(['Your payment (ref. ${p.reference}) was rejected${p.reason.isEmpty ? ' (please check the reference number)' : ': ${p.reason.replaceAll(RegExp(r'[.\s]+$'), '')}'}. You can send the correct details.', 'bad']);
       }
@@ -1606,7 +1704,7 @@ class AppState extends ChangeNotifier {
     proofs.insert(
         0,
         PaymentProof(nextId(), myUnit, myHousehold, method, reference.trim(), shortDate(DateTime.now()), r.amount,
-            forText: parkingPayFor, slot: r.slot));
+            forText: parkingPayFor, slot: r.slot, at: DateTime.now().millisecondsSinceEpoch));
     logActivity('Payment reference sent, $myUnit', 'Finance');
     _n();
     return null;

@@ -21,3 +21,4 @@ export 'reports_screen.dart';
 export 'settings_screen.dart';
 export 'unit_status_screen.dart';
 export 'units_screen.dart';
+export 'unit_history_screen.dart';

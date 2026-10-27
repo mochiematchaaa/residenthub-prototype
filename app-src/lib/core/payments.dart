@@ -51,6 +51,21 @@ class PaymentProof {
 
   /// For a parking payment: the slot the resident reserved.
   final String slot;
+
+  /// When the resident sent it (milliseconds, 0 = unknown, then the date is used), and whether the
+  /// system posted it by itself after the waiting time.
+  final int at;
+  bool auto;
+
+  /// When the details were sent. Older records only have a date, so 9 AM of that day is used.
+  DateTime get sentAt {
+    if (at > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(at);
+    final m = RegExp(r'^([A-Za-z]{3}) (\d{1,2}), (\d{4})$').firstMatch(date);
+    if (m == null) return DateTime.now();
+    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return DateTime(int.parse(m[3]!), names.indexOf(m[1]!) + 1, int.parse(m[2]!), 9);
+  }
+
   PaymentProof(this.id, this.unit, this.payer, this.method, this.reference,
       this.date, this.amount,
       {this.status = 'Pending',
@@ -60,7 +75,9 @@ class PaymentProof {
       this.reason = '',
       this.rejectedOn = '',
       this.direct = false,
-      this.slot = ''});
+      this.slot = '',
+      this.at = 0,
+      this.auto = false});
 
   /// Shared with the website through the live database (same field names).
   Map<String, dynamic> toJson() => {
@@ -79,6 +96,9 @@ class PaymentProof {
         if (rejectedOn.isNotEmpty) 'rejectedOn': rejectedOn,
         if (direct) 'direct': true,
         if (slot.isNotEmpty) 'slot': slot,
+        if (at > 0) 'at': at,
+        if (auto) 'auto': true,
+        if (auto) 'confirmedBy': 'Automatic posting',
       };
 
   static PaymentProof? fromJson(Map<String, dynamic> j) {
@@ -103,6 +123,8 @@ class PaymentProof {
       rejectedOn: s('rejectedOn'),
       direct: j['direct'] == true,
       slot: s('slot'),
+      at: j['at'] is num ? (j['at'] as num).toInt() : 0,
+      auto: j['auto'] == true,
     );
   }
 }
