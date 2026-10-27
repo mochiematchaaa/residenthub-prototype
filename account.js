@@ -156,7 +156,7 @@ function acctOverview() {
 function acctProfile() {
   var p = DB.profile || {}, admin = acctIsAdmin(), hist = (p.history || []).slice(0, 5);
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px"><div class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:19px">' + L("Manage profile", "Pamahalaan ang profile") + "</h2>" +
-    '<div style="display:flex;align-items:center;gap:14px"><span class="avatar big">' + esc(initials(p.name || p.email || "?")) + '</span><div><b style="font-size:16px">' + esc(p.name || "—") + '</b><div class="hint" style="margin:0">' + (admin ? L("Administrator", "Administrator") : esc(p.unit || "")) + "</div></div></div>" +
+    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span class="avatar big">' + avatarInner(p.photo, p.name || p.email) + '</span><div style="flex:1;min-width:180px"><b style="font-size:16px">' + esc(p.name || "—") + '</b><div class="hint" style="margin:0 0 8px">' + (admin ? L("Administrator", "Administrator") : esc(p.unit || "")) + '</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="acctPickPhoto()">' + (p.photo ? L("Change picture", "Palitan ang larawan") : L("Add a profile picture", "Magdagdag ng larawan")) + "</button>" + (p.photo ? '<button class="btn" type="button" onclick="acctRemovePhoto()">' + L("Remove", "Alisin") + "</button>" : "") + '</div><div class="hint" style="margin:6px 0 0">' + L("A square picture works best. It is shrunk to fit.", "Mas maganda ang parisukat na larawan. Paliliitin ito para magkasya.") + "</div></div></div>" +
     '<label class="fl">' + L("Full name", "Buong pangalan") + '<input id="acName" value="' + escAttr(p.name || "") + '" autocomplete="name"></label>' +
     '<label class="fl">' + L("Email (used to sign in)", "Email (para sa pag-sign in)") + '<input value="' + escAttr(p.email || "") + '" disabled></label>' +
     '<label class="fl">' + (admin ? L("Mobile number", "Mobile number") : L("Mobile number (verified; ask the office to change it)", "Mobile number (beripikado; hilingin sa opisina na baguhin)")) + '<input id="acPhone" value="' + escAttr(p.phone || "") + '" inputmode="tel" placeholder="0917 555 0112"' + (admin ? "" : " disabled") + "></label>" +
@@ -165,6 +165,22 @@ function acctProfile() {
     '<div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:8px">' + L("Account", "Account") + '</h2><div class="kv"><span>' + L("Role", "Tungkulin") + "</span><b>" + (admin ? L("Administrator", "Administrator") : L("Resident", "Residente")) + "</b><span>" + L("Status", "Katayuan") + "</span><b>" + (p.suspended ? L("Suspended", "Naka-suspend") : L("Active", "Aktibo")) + "</b><span>" + L("Created", "Ginawa") + "</span><b>" + (p.created_at ? acctDate(new Date(p.created_at).getTime()) : "—") + "</b></div></div>" +
     '<div class="card"><h2 style="font-size:19px;margin-bottom:8px">' + L("Recent changes to your details", "Mga kamakailang pagbabago sa iyong detalye") + "</h2>" +
     (hist.length ? hist.map(function (h) { return '<div class="acct-row"><div><b>' + esc(h.field) + "</b><small>" + esc(h.from || "—") + " → " + esc(h.to || "—") + "</small></div><small>" + acctDate(new Date(h.at).getTime()) + "</small></div>"; }).join("") : '<p class="empty">' + L("No changes yet.", "Wala pang pagbabago.") + "</p>") + "</div></div></div>";
+}
+// Chooses a new profile picture, shrinks it and saves it on the profile.
+async function acctPickPhoto() {
+  var data = await pickImage(320, 0.82);
+  if (!data) return;
+  await acctSavePhoto(data, L("Profile picture updated.", "Na-update ang larawan."));
+}
+function acctRemovePhoto() { acctSavePhoto("", L("Profile picture removed.", "Naalis ang larawan.")); }
+async function acctSavePhoto(data, msg) {
+  try {
+    var r = await sb.from("profiles").update({ photo: data }).eq("id", DB.user.id);
+    if (r.error) throw r.error;
+    DB.profile.photo = data;
+    try { await rhRefresh(true); } catch (e) { /* carry on */ }
+    toast(msg); render();
+  } catch (e) { toast(errText(e)); }
 }
 async function acctSaveProfile() {
   var name = (document.getElementById("acName").value || "").trim(), admin = acctIsAdmin(), patch = { name: name };

@@ -6,7 +6,7 @@ var state = {
   bellOpen: false, bellSeen: false,
   unitSearch: "", unitPage: 0, facIdx: 0,
   newPollQ: "", newPollOpts: "", pollFilter: "open",
-  finTab: "overview", expPage: 0, finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
+  finTab: "overview", expPage: 0, finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, pcAll: false, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
   expMonth: "", expDay: "",
   manage: { name: "", email: "", phone: "", unit: "" }, manageSearch: "", manageErr: ""
 };
@@ -97,7 +97,7 @@ function render() {
       '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>" + tr("Expenses") + "</span></button>" +
       navBtn("history", "Resident profiles") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
       '<div class="side-label">' + tr("Admin") + '</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
-      '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + esc(initials(adminName())) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
+      '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + avatarInner(myPhoto(), adminName()) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>" + tr("Log out") + "</span></button></div></aside>" +
       "<main>" +
       '<div class="topline">' + searchBox("Search units, residents, announcements, polls...") +
@@ -167,7 +167,7 @@ function viewHome() {
     summaryCard("pink", "Finance", [[peso(monthEarnings()), "Earnings this month", "fin"], [c.unpaid, "Unpaid dues", "fin"]], "heart", bars ? '<div class="bars" title="One bar per recent charge. Solid bars are paid.">' + bars + "</div>" : "") +
     summaryCard("green", "Needs attention", [[c.grievances, "Complaints", "req"], [c.bookings, "Bookings", "fac"], [c.rentals, "Unit status to review", "rentals"]], "triangle") +
     summaryCard("blue", "Community life", [[openPolls, "Open polls", "polls"], [used + "/" + slots.length, "Parking used", "parking"]], "burst") +
-    "</div>" +
+    "</div>" + (typeof payCheckPanel === "function" ? payCheckPanel(4) : "") +
     '<div class="pills-row">' + quick.map(function (q) { return '<button onclick="set({view:\'' + q[1] + '\'})">' + q[0] + "</button>"; }).join("") + "</div>" +
     '<div class="two-lists"><section><div class="sec-head"><h2>Pending requests</h2><button class="btn-dark sm" onclick="set({view:\'fac\'})">Open requests</button></div>' +
     '<div class="lrows">' + (rows.join("") || '<p class="empty">Nothing is waiting for you. Nice work.</p>') + "</div></section>" +
