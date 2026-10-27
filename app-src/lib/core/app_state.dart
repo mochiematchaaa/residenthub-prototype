@@ -100,6 +100,10 @@ class Unit {
   /// When the office last saved the record (milliseconds, 0 = never).
   int profileUpdated = 0;
 
+  /// When the resident last edited their own household details, and who did it.
+  int selfUpdated = 0;
+  String selfBy = '';
+
   /// Short-term rentals and home businesses need the administrator's approval.
   bool get needsApproval => usage == 'shortterm' || usage == 'business';
 }
@@ -1236,7 +1240,7 @@ class AppState extends ChangeNotifier {
   List<List<String>> get myNotifs {
     final out = <List<String>>[];
     final hh = myUnitRec;
-    if (hh != null && hh.profileUpdated > 0 && DateTime.now().millisecondsSinceEpoch - hh.profileUpdated < 7 * 86400000) {
+    if (hh != null && hh.profileUpdated > hh.selfUpdated && DateTime.now().millisecondsSinceEpoch - hh.profileUpdated < 7 * 86400000) {
       out.add(['The office updated your household record on ${shortDate(DateTime.fromMillisecondsSinceEpoch(hh.profileUpdated))}. You can see it on your dashboard.', 'info']);
     }
     for (final b in myBookings) {
@@ -1718,6 +1722,24 @@ class AppState extends ChangeNotifier {
   num parkAmount(String plan, int days, {String size = 'Regular'}) {
     final r = parkRatesFor(size);
     return plan == 'day' ? r.day * (days < 1 ? 1 : days) : r.month;
+  }
+
+  /// Resident: saves the household details they may edit themselves (the office sees them).
+  void saveMyRecord(Map<String, String> v, {int residents = 0}) {
+    final u = myUnitRec;
+    if (u == null) return;
+    String t(String k) => (v[k] ?? '').trim();
+    u.members = t('members');
+    u.pets = t('pets');
+    u.vehicles = t('vehicles');
+    u.emergencyName = t('emergencyName');
+    u.emergencyRelation = t('emergencyRelation');
+    u.emergencyPhone = t('emergencyPhone');
+    u.residents = residents;
+    u.selfUpdated = DateTime.now().millisecondsSinceEpoch;
+    u.selfBy = me?.name ?? 'the resident';
+    logActivity('Resident updated household record, ${u.unit}', 'Units');
+    _n();
   }
 
   /// Admin: saves the household record of a unit. The resident sees it on their dashboard.
@@ -2235,12 +2257,12 @@ class AppState extends ChangeNotifier {
   }
 
   /// Creates an announcement (and can text the residents).
-  void addAnnouncement(String title, String body, String type, bool sms, {List<String>? units}) {
+  void addAnnouncement(String title, String body, String type, bool sms, {List<String>? units, bool draft = false}) {
     announcements.insert(
         0,
         Announcement(nextId(), title, body.isEmpty ? '—' : body, shortDate(DateTime.now()),
-            'Published', type, sms, units: units));
-    logActivity('Announcement published: $title', 'Announcements');
+            draft ? 'Draft' : 'Published', type, sms, units: units));
+    logActivity(draft ? 'Announcement saved as draft: $title' : 'Announcement published: $title', 'Announcements');
     _n();
   }
 

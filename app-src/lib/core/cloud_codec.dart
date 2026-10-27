@@ -92,7 +92,7 @@ Map<String, dynamic> _unitJson(Unit u) => {
       'statusDate': u.statusDate,
       'usageStatus': u.usageStatus,
       'usageRemark': u.usageRemark,
-      if (u.profileUpdated > 0) ...{
+      if (u.profileUpdated > 0 || u.selfUpdated > 0) ...{
         'email': u.email,
         'moveIn': u.moveIn,
         'residents': u.residents,
@@ -106,6 +106,8 @@ Map<String, dynamic> _unitJson(Unit u) => {
         'noteOffice': u.noteOffice,
         'profileUpdated': u.profileUpdated,
         'profileBy': u.profileBy,
+        'selfUpdated': u.selfUpdated,
+        'selfBy': u.selfBy,
       },
       'usageInfo': {for (final e in u.usageInfo.entries) e.key: e.key == 'agree' ? e.value == 'true' : e.value},
     };
@@ -138,7 +140,9 @@ Unit? _unitFrom(Map<String, dynamic> j) {
     ..noteResident = _s(j, 'noteResident')
     ..noteOffice = _s(j, 'noteOffice')
     ..profileUpdated = _i(j, 'profileUpdated')
-    ..profileBy = _s(j, 'profileBy');
+    ..profileBy = _s(j, 'profileBy')
+    ..selfUpdated = _i(j, 'selfUpdated')
+    ..selfBy = _s(j, 'selfBy');
 }
 
 Map<String, dynamic> _updateJson(StatusUpdate s) =>

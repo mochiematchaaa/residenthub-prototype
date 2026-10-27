@@ -7,53 +7,44 @@ import '../../services/texting.dart';
 import '../../widgets/widgets.dart';
 import '../shared/import_sheet.dart';
 
-class AdminAnnouncements extends StatelessWidget {
+class AdminAnnouncements extends StatefulWidget {
   const AdminAnnouncements({super.key});
+
+  @override
+  State<AdminAnnouncements> createState() => _AdminAnnouncementsState();
+}
+
+class _AdminAnnouncementsState extends State<AdminAnnouncements> {
+  int tab = 0; // 0 announcements, 1 events
+  String filter = 'All'; // All | Published | Drafts
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: app,
-      builder: (context, _) => DefaultTabController(
-        length: 2,
-        child: BuildingBackdrop(
-          child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            toolbarHeight: 72,
-            leadingWidth: 72,
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 20),
-              child: Center(child: CircleBtn(Icons.arrow_back_rounded, tooltip: 'Back', onTap: () => Navigator.of(context).maybePop())),
+      builder: (context, _) {
+        final drafts = app.announcements.where((a) => a.status != 'Published').length;
+        return SubPage(
+          title: 'Announcements',
+          subtitle: 'Publish announcements and plan community events.',
+          children: [
+            SubTabs(
+              items: [SubTabItem('Announcements', count: app.announcements.length), SubTabItem('Events', count: app.events.length)],
+              index: tab,
+              onChanged: (i) => setState(() => tab = i),
             ),
-            title: const Text('Announcements'),
-            bottom: const TabBar(
-              indicatorColor: lavDeep,
-              labelColor: ink,
-              tabs: [Tab(text: 'Announcements'), Tab(text: 'Events')],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => tab == 0 ? _newAnnouncement(context) : _newEvent(context),
+                icon: const Icon(Icons.add_rounded),
+                label: Text(tab == 0 ? 'New announcement' : 'Add event'),
+              ),
             ),
-          ),
-          floatingActionButton: Builder(
-            builder: (ctx) => FloatingActionButton.extended(
-              backgroundColor: lav,
-              foregroundColor: ink,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Create'),
-              onPressed: () {
-                final idx = DefaultTabController.of(ctx).index;
-                idx == 0 ? _newAnnouncement(context) : _newEvent(context);
-              },
-            ),
-          ),
-          body: TabBarView(
-            children: [
-              _annList(context),
-              _eventList(context),
-            ],
-          ),
-        ),
-        ),
-      ),
+            if (tab == 0) ..._annList(context, drafts) else ..._eventList(context),
+          ],
+        );
+      },
     );
   }
 
@@ -66,13 +57,17 @@ class AdminAnnouncements extends StatelessWidget {
         FieldSpec('body', 'Message', lines: 4),
       ],
       choices: const [ChoiceSpec('type', 'Type', ['General', 'Maintenance', 'Warning', 'Emergency'], 'General')],
-      toggles: const [ToggleSpec('sms', "Also text residents (opens your messaging app)", true)],
-      submit: 'Publish announcement',
+      toggles: const [
+        ToggleSpec('draft', 'Save as a draft (do not publish yet)', false),
+        ToggleSpec('sms', "Also text residents (opens your messaging app)", true),
+      ],
+      submit: 'Save',
       onSubmit: (v) {
         final t = (v['title'] as String).trim();
         if (t.isEmpty) return 'Add a title first.';
-        final sms = v['sms'] == true;
-        app.addAnnouncement(t, (v['body'] as String).trim(), v['type'] as String, sms);
+        final draft = v['draft'] == true;
+        final sms = v['sms'] == true && !draft;
+        app.addAnnouncement(t, (v['body'] as String).trim(), v['type'] as String, v['sms'] == true, draft: draft);
         if (sms) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) textResidents(context, t, (v['body'] as String).trim());
@@ -102,16 +97,20 @@ class AdminAnnouncements extends StatelessWidget {
     );
   }
 
-  Widget _annList(BuildContext context) {
-    final list = app.announcements;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 100),
-      children: [
-        const Padding(padding: EdgeInsets.only(bottom: 12), child: ImportBar(['announcements'])),
-        if (list.isEmpty) const EmptyBox('No announcements yet.', icon: Icons.campaign_outlined),
+  List<Widget> _annList(BuildContext context, int drafts) {
+    final all = app.announcements;
+    final list = [for (final a in all) if (filter == 'All' || (filter == 'Drafts') == (a.status != 'Published')) a];
+    final opts = ['All', 'Published', 'Drafts'];
+    return [
+        FilterRow(
+          options: [for (final o in opts) o == 'All' ? 'All (${all.length})' : o == 'Published' ? 'Published (${all.length - drafts})' : 'Drafts ($drafts)'],
+          selected: filter == 'All' ? 'All (${all.length})' : filter == 'Published' ? 'Published (${all.length - drafts})' : 'Drafts ($drafts)',
+          onSelect: (v) => setState(() => filter = v.split(' ').first),
+        ),
+        if (list.isEmpty) EmptyBox(all.isEmpty ? 'No announcements yet.' : 'Nothing in this list.', icon: Icons.campaign_outlined),
         for (final a in list)
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: EdgeInsets.zero,
             child: RCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,15 +173,12 @@ class AdminAnnouncements extends StatelessWidget {
               ),
             ),
           ),
-      ],
-    );
+        const ImportBar(['announcements']),
+    ];
   }
 
-  Widget _eventList(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 100),
-      children: [
-        const Padding(padding: EdgeInsets.only(bottom: 12), child: ImportBar(['events'])),
+  List<Widget> _eventList(BuildContext context) {
+    return [
         if (app.events.isEmpty) const EmptyBox('No upcoming events.', icon: Icons.celebration_outlined),
         for (final e in app.events)
           Padding(
@@ -210,7 +206,7 @@ class AdminAnnouncements extends StatelessWidget {
               ),
             ),
           ),
-      ],
-    );
+        const ImportBar(['events']),
+    ];
   }
 }

@@ -7,6 +7,7 @@ import '../../services/unit_history.dart';
 import '../../services/unit_history_export.dart';
 import '../../widgets/widgets.dart';
 import '../shared/payment_widgets.dart';
+import '../shared/record_sheet.dart';
 
 class UnitHistoryScreen extends StatefulWidget {
   /// The unit to show. Null shows the list of units to pick from.
@@ -96,67 +97,14 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
     );
   }
 
-  Widget _recField(BuildContext context, String k, String v, {String empty = 'Not on file'}) {
-    final has = v.trim().isNotEmpty;
-    return SizedBox(
-      width: 150,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(k.toUpperCase(), style: TextStyle(color: muted(context), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.7)),
-        const SizedBox(height: 2),
-        Text(has ? v : empty, style: TextStyle(fontWeight: has ? FontWeight.w700 : FontWeight.w500, fontSize: 13, color: has ? null : muted(context), height: 1.3)),
-      ]),
-    );
-  }
-
   /// The household record: view it here, edit it, and the resident sees it on their dashboard.
   Widget _recordCard(BuildContext context, Unit u) {
-    final emer = [u.emergencyName, if (u.emergencyRelation.isNotEmpty) '(${u.emergencyRelation})', u.emergencyPhone].where((x) => x.isNotEmpty).join(' ');
-    final upd = u.profileUpdated > 0 ? shortDate(DateTime.fromMillisecondsSinceEpoch(u.profileUpdated)) : '';
-    Widget head(String t) => Padding(
-          padding: const EdgeInsets.only(top: 14, bottom: 8),
-          child: Text(t, style: hd(14)),
-        );
-    return RCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Resident record', style: hd(17)),
-              Text(
-                upd.isEmpty ? 'Not edited by the office yet' : 'Last updated $upd${u.profileBy.isEmpty ? '' : ' by ${u.profileBy}'}',
-                style: TextStyle(color: muted(context), fontSize: 12),
-              ),
-            ]),
-          ),
-          FilledButton.tonalIcon(onPressed: () => _editRecord(context, u), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit record')),
-        ]),
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text('Whatever you save here shows on this resident\'s dashboard.', style: TextStyle(color: muted(context), fontSize: 12)),
-        ),
-        head('Resident'),
-        Wrap(spacing: 14, runSpacing: 12, children: [
-          _recField(context, 'Name', u.name == '—' ? '' : u.name),
-          _recField(context, 'Occupancy', u.type),
-          _recField(context, 'Mobile', u.contact == '—' ? '' : u.contact),
-          _recField(context, 'Email', u.email),
-          _recField(context, 'Moved in', u.moveIn.isEmpty ? '' : isoShort(u.moveIn)),
-        ]),
-        head('Household'),
-        Wrap(spacing: 14, runSpacing: 12, children: [
-          _recField(context, 'People living here', u.residents > 0 ? '${u.residents}' : ''),
-          _recField(context, 'Household members', u.members),
-          _recField(context, 'Pets', u.pets, empty: 'None on file'),
-        ]),
-        head('Emergency contact'),
-        _recField(context, 'Contact person', emer),
-        head('Vehicles and notes'),
-        Wrap(spacing: 14, runSpacing: 12, children: [
-          _recField(context, 'Vehicles', u.vehicles, empty: 'None on file'),
-          _recField(context, 'Note shown to resident', u.noteResident, empty: 'None'),
-          _recField(context, 'Private office note', u.noteOffice, empty: 'None'),
-        ]),
-      ]),
+    final acc = app.trusted.where((t) => t.unit == u.unit).toList();
+    return RecordSheet(
+      u: u,
+      admin: true,
+      email: acc.isEmpty ? '' : acc.first.email,
+      action: FilledButton.icon(onPressed: () => _editRecord(context, u), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit record')),
     );
   }
 

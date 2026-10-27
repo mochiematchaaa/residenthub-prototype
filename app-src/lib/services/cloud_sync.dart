@@ -173,7 +173,11 @@ class CloudSync extends ChangeNotifier {
 
 
   /// What a resident may change on a unit record (the database refuses anything else).
-  static const _residentUnitKeys = ['usage', 'usageStatus', 'usageRemark', 'usageInfo', 'status', 'statusNote', 'statusDate'];
+  static const _residentUnitKeys = [
+    'usage', 'usageStatus', 'usageRemark', 'usageInfo', 'status', 'statusNote', 'statusDate',
+    // the household details a resident keeps up to date themselves
+    'residents', 'members', 'pets', 'vehicles', 'emergencyName', 'emergencyRelation', 'emergencyPhone', 'selfUpdated', 'selfBy',
+  ];
 
   /// A unit written on the website may leave out fields the app fills in with a default (name,
   /// contact, type...). Those are not changes, so leave the defaults out when comparing.
