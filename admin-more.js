@@ -204,28 +204,54 @@ function saveDuesRate() {
   });
 }
 // Reminders: the resident sees "Reminder from the office" under Notifications until the charge is paid.
-function remindDue(id) {
-  var row = getRow("due", id); if (!row) return;
-  act(async function () {
-    var v = Object.assign({}, row.value, { remindedOn: shortDate(new Date()), reminders: (Number(row.value.reminders) || 0) + 1 });
-    await put("due", id, v.unit, v);
-    logAct("Reminder sent, " + v.unit + ": " + v.note, "Finance");
-    toast("Reminder sent to " + v.unit + ". They will see it under Notifications.");
-  });
-}
-// Reminds every unit that has an unpaid charge which is overdue, due within 7 days, or has no due date.
-function remindAll() {
-  var today = Date.now(), list2 = list("due").filter(function (r) {
+var REMIND_DEFAULT = "Please settle your dues when you can. Thank you!";
+// Unpaid charges that are overdue, due within "days" days, or have no due date.
+function remindCandidates(days) {
+  var today = Date.now();
+  return list("due").filter(function (r) {
     if (r.v.paid) return false;
     if (!r.v.dueDate) return true;
-    var d = parseShort(r.v.dueDate); return !d || d.getTime() - today < 7 * 86400000;
+    var d = parseShort(r.v.dueDate); return !d || d.getTime() - today < days * 86400000;
   });
-  if (!list2.length) return toast("No charge is overdue or due in the next 7 days.");
-  var units = {}; list2.forEach(function (r) { units[r.v.unit] = 1; });
-  confirmBox("Send reminders?", list2.length + " unpaid charge" + (list2.length === 1 ? "" : "s") + " (" + Object.keys(units).length + " unit" + (Object.keys(units).length === 1 ? "" : "s") + ") are overdue or due within 7 days. Each of those residents will see a reminder under Notifications.", "Send reminders", async function () {
-    for (var i = 0; i < list2.length; i++) await put("due", list2[i].id, list2[i].v.unit, Object.assign({}, list2[i].v, { remindedOn: shortDate(new Date()), reminders: (Number(list2[i].v.reminders) || 0) + 1 }));
-    logAct("Reminders sent to " + Object.keys(units).length + " unit(s)", "Finance");
-    toast("Reminders sent to " + Object.keys(units).length + " unit" + (Object.keys(units).length === 1 ? "" : "s") + ".");
+}
+// Reminds one unit about one charge. The office can edit the message the resident sees.
+function remindDue(id) {
+  var row = getRow("due", id); if (!row) return;
+  openForm({
+    title: "Remind " + row.value.unit,
+    intro: esc(row.value.note) + " · " + peso(Number(row.value.amount)) + ". The resident sees this under Notifications.",
+    fields: [{ name: "msg", label: "Message to the resident (you can edit it)", type: "textarea", value: row.value.remindMsg || REMIND_DEFAULT }],
+    submit: "Send reminder",
+    onSubmit: async function (d) {
+      var v = Object.assign({}, row.value, { remindedOn: shortDate(new Date()), reminders: (Number(row.value.reminders) || 0) + 1, remindMsg: (d.msg || "").trim() });
+      await put("due", id, v.unit, v);
+      logAct("Reminder sent, " + v.unit + ": " + v.note, "Finance");
+      toast("Reminder sent to " + v.unit + ". They will see it under Notifications.");
+    }
+  });
+}
+// Reminds every unit with an unpaid charge that is overdue or due soon. The office edits the message and how many days ahead to include.
+function remindAll() {
+  var n7 = remindCandidates(7);
+  openForm({
+    title: "Send reminders",
+    intro: "Right now " + n7.length + " unpaid charge" + (n7.length === 1 ? " is" : "s are") + " overdue or due within 7 days. Change the number of days to include more or fewer. Each resident sees the reminder under Notifications.",
+    fields: [
+      { name: "days", label: "Include charges overdue or due within this many days", type: "number", step: "1", value: 7 },
+      { name: "msg", label: "Message to the residents (you can edit it)", type: "textarea", value: REMIND_DEFAULT }
+    ],
+    submit: "Send reminders",
+    onSubmit: async function (d) {
+      var days = parseInt(d.days, 10);
+      if (!(days >= 0 && days <= 365)) return { error: "Enter the number of days, from 0 to 365." };
+      var list2 = remindCandidates(days);
+      if (!list2.length) return { error: "No unpaid charge is overdue or due within " + days + " day" + (days === 1 ? "" : "s") + "." };
+      var units = {}; list2.forEach(function (r) { units[r.v.unit] = 1; });
+      var msg = (d.msg || "").trim(), nu = Object.keys(units).length;
+      for (var i = 0; i < list2.length; i++) await put("due", list2[i].id, list2[i].v.unit, Object.assign({}, list2[i].v, { remindedOn: shortDate(new Date()), reminders: (Number(list2[i].v.reminders) || 0) + 1, remindMsg: msg }));
+      logAct("Reminders sent to " + nu + " unit(s)", "Finance");
+      toast("Reminders sent to " + nu + " unit" + (nu === 1 ? "" : "s") + " (" + list2.length + " charge" + (list2.length === 1 ? "" : "s") + ").");
+    }
   });
 }
 function unitDuesCard() {

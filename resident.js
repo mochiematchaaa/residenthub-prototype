@@ -71,7 +71,7 @@ function notifs() {
   // reminders sent by the office, and charges that fall due in the next 3 days
   myOpenDues().forEach(function (r) {
     var rem = parseShort(r.v.remindedOn || ""), due = parseShort(r.v.dueDate || ""), days = due ? Math.round((due.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null;
-    if (rem && Date.now() - rem.getTime() < 10 * 86400000) out.push(["Reminder from the office (" + r.v.remindedOn + "): " + r.v.note + " (" + peso(Number(r.v.amount)) + ") " + (days == null ? "is waiting for your payment." : days < 0 ? "is overdue by " + (-days) + " day" + (days === -1 ? "" : "s") + "." : days === 0 ? "is due today." : "is due in " + days + " day" + (days === 1 ? "" : "s") + " (" + r.v.dueDate + ")."), days != null && days < 0 ? "bad" : "info", "dues"]);
+    if (rem && Date.now() - rem.getTime() < 10 * 86400000) out.push(["Reminder from the office (" + r.v.remindedOn + ")" + (r.v.remindMsg ? ": " + r.v.remindMsg + " —" : ":") + " " + r.v.note + " (" + peso(Number(r.v.amount)) + ") " + (days == null ? "is waiting for your payment." : days < 0 ? "is overdue by " + (-days) + " day" + (days === -1 ? "" : "s") + "." : days === 0 ? "is due today." : "is due in " + days + " day" + (days === 1 ? "" : "s") + " (" + r.v.dueDate + ")."), days != null && days < 0 ? "bad" : "info", "dues"]);
     else if (days != null && days >= 0 && days <= 3) out.push([r.v.note + " is due " + (days === 0 ? "today" : "in " + days + " day" + (days === 1 ? "" : "s")) + " (" + r.v.dueDate + ").", "info", "dues"]);
   });
   var over = myOpenDues().filter(function (r) { return isOverdue(r.v); });
