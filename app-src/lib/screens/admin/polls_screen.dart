@@ -17,8 +17,40 @@ class AdminPolls extends StatefulWidget {
 }
 
 class _AdminPollsState extends State<AdminPolls> {
-  String _filter = 'open';
+  int _tab = 0; // 0 open, 1 closed, 2 categories
   String _cat = 'all';
+
+  Widget _categories(BuildContext context) {
+    final cats = app.pollCategoryChoices;
+    return RCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text('Poll categories', style: hd(18))),
+          FilledButton.tonalIcon(onPressed: () => showCategoryManager(context), icon: const Icon(Icons.label_outline_rounded, size: 18), label: const Text('Manage')),
+        ]),
+        const SizedBox(height: 2),
+        Text('Residents can filter the polls by category.', style: TextStyle(color: muted(context), fontSize: 12.5)),
+        const SizedBox(height: 8),
+        for (final c in cats)
+          Builder(builder: (context) {
+            final n = app.polls.where((p) => p.category == c).length;
+            final o = app.polls.where((p) => p.category == c && p.open).length;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(c, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('$n poll${n == 1 ? '' : 's'}${o > 0 ? ' · $o open' : ''}'),
+              trailing: TextButton(
+                onPressed: () => setState(() {
+                  _cat = c;
+                  _tab = 0;
+                }),
+                child: const Text('View polls'),
+              ),
+            );
+          }),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,14 +59,7 @@ class _AdminPollsState extends State<AdminPolls> {
       builder: (context, _) {
         final open = app.polls.where((p) => p.open).length;
         final closed = app.polls.length - open;
-        final labels = <String, String>{
-          'open': 'Open ($open)',
-          'closed': 'Closed ($closed)',
-          'all': 'All (${app.polls.length})',
-        };
-        final shown = app.polls
-            .where((p) => (_filter == 'all' || (_filter == 'open') == p.open) && (_cat == 'all' || p.category == _cat))
-            .toList();
+        final shown = app.polls.where((p) => (_tab == 0) == p.open && (_cat == 'all' || p.category == _cat)).toList();
         final ballots = app.polls.fold<int>(0, (s, p) => s + p.ballots);
         return SubPage(
           title: 'Polls & elections',
@@ -55,17 +80,20 @@ class _AdminPollsState extends State<AdminPolls> {
               children: [
                 FilledButton.icon(onPressed: () => go(context, const PollBuilder(kind: 'poll')), icon: const Icon(Icons.add_rounded), label: const Text('New poll')),
                 FilledButton.tonalIcon(onPressed: () => go(context, const PollBuilder(kind: 'election')), icon: const Icon(Icons.how_to_vote_outlined), label: const Text('New election')),
-                OutlinedButton.icon(onPressed: () => showCategoryManager(context), icon: const Icon(Icons.label_outline_rounded), label: const Text('Manage categories')),
               ],
             ),
-            FilterRow(
-              options: labels.values.toList(),
-              selected: labels[_filter]!,
-              onSelect: (v) => setState(() => _filter = labels.entries.firstWhere((e) => e.value == v).key),
+            SubTabs(
+              items: [SubTabItem('Open', count: open, hot: true), SubTabItem('Closed', count: closed), SubTabItem('Categories', count: app.pollCategoryChoices.length)],
+              index: _tab,
+              onChanged: (i) => setState(() => _tab = i),
             ),
-            PollCategoryFilter(polls: app.polls, value: _cat, onChanged: (v) => setState(() => _cat = v)),
-            if (shown.isEmpty) const EmptyBox('No polls here yet. Tap New poll to publish one.', icon: Icons.how_to_vote_outlined),
-            PollGrid(shown, (p) => PollCard(p, admin: true, key: ValueKey(p.id))),
+            if (_tab == 2)
+              _categories(context)
+            else ...[
+              PollCategoryFilter(polls: app.polls, value: _cat, onChanged: (v) => setState(() => _cat = v)),
+              if (shown.isEmpty) EmptyBox(_tab == 0 ? 'No open polls. Tap New poll to publish one.' : 'No closed polls yet.', icon: Icons.how_to_vote_outlined),
+              PollGrid(shown, (p) => PollCard(p, admin: true, key: ValueKey(p.id))),
+            ],
           ],
         );
       },
