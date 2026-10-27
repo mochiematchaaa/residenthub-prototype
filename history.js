@@ -66,6 +66,63 @@ function histSummary(unit) {
     accounts: DB.accounts.filter(function (a) { return a.role === "resident" && a.unit === unit; }) };
 }
 
+
+/* ---------- resident record (profile): the details the office keeps for a unit. Editing saves on the unit, and the resident sees it on their dashboard ---------- */
+function recLines(text) { return String(text || "").split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
+function recList(text, empty) { var l = recLines(text); return l.length ? l.map(function (x) { return "<div>" + esc(x) + "</div>"; }).join("") : '<span style="color:var(--muted);font-weight:500">' + (empty || "Not recorded") + "</span>"; }
+function recVal(v, empty) { return v ? esc(v) : '<span style="color:var(--muted);font-weight:500">' + (empty || "Not recorded") + "</span>"; }
+// The "Resident record" card: view mode, with an Edit record button.
+function recordCardHtml(unit) {
+  var u = unitRec(unit) || {}, acc = accountOfUnit(unit), upd = Number(u.profileUpdated) || 0;
+  var sec = function (title, body) { return '<div class="rec-sec"><h3>' + title + "</h3>" + body + "</div>"; };
+  var kv = function (k, v) { return '<div><label>' + k + "</label><b>" + v + "</b></div>"; };
+  return '<div class="card rec"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start"><div><h2 style="font-size:19px;margin:0">Resident record</h2><p class="hint" style="margin:2px 0 0">' +
+    (upd ? "Last updated " + esc(shortDate(new Date(upd))) + (u.profileBy ? " by " + esc(u.profileBy) : "") + "." : "Not filled in yet.") + ' What you save here is shown to the resident on their dashboard.</p></div><button class="btn primary" onclick="recordForm(\'' + escAttr(unit) + '\')">Edit record</button></div>' +
+    '<div class="rec-grid">' +
+    sec("Resident", kv("Name", recVal(u.name && u.name !== "—" ? u.name : "")) + kv("Occupancy", esc(u.type || "Owner")) + kv("Mobile", recVal(u.contact && u.contact !== "—" ? u.contact : "")) + kv("Email", recVal(u.email || (acc && acc.email) || "")) + kv("Moved in", recVal(u.moveIn ? usageDate(u.moveIn) : "")) + kv("Sign-in account", acc ? esc(acc.email) : "None yet")) +
+    sec("Household", kv("People living here", recVal(u.residents ? String(u.residents) : "")) + kv("Members", recList(u.members)) + kv("Pets", recVal(u.pets, "None recorded"))) +
+    sec("Emergency contact", kv("Name", recVal(u.emergencyName)) + kv("Relationship", recVal(u.emergencyRelation)) + kv("Number", recVal(u.emergencyPhone))) +
+    sec("Vehicles and notes", kv("Vehicles", recList(u.vehicles, "None recorded")) + kv("Note for the resident", recVal(u.noteResident, "None")) + kv("Private office note", recVal(u.noteOffice, "None"))) +
+    "</div></div>";
+}
+function recordForm(unit) {
+  var u = unitRec(unit) || {}, acc = accountOfUnit(unit);
+  openForm({
+    title: "Resident record · " + unit,
+    intro: "Keep the household details up to date. Everything except the private office note is shown to the resident on their dashboard.",
+    fields: [
+      { name: "name", label: "Resident / household name", value: u.name && u.name !== "—" ? u.name : "" },
+      { name: "type", label: "Occupancy", type: "select", options: ["Owner", "Tenant"], value: u.type || "Owner" },
+      { name: "contact", label: "Mobile number", value: u.contact && u.contact !== "—" ? u.contact : "" },
+      { name: "email", label: "Email address", type: "email", value: u.email || (acc ? acc.email : "") },
+      { name: "moveIn", label: "Moved in on", type: "date", value: u.moveIn || "" },
+      { name: "residents", label: "How many people live here", type: "number", step: "1", value: u.residents || "" },
+      { name: "members", label: "Household members (one per line, e.g. Ana Reyes, spouse)", type: "textarea", value: u.members || "" },
+      { name: "pets", label: "Pets", value: u.pets || "", placeholder: "e.g. 1 dog" },
+      { name: "emergencyName", label: "Emergency contact name", value: u.emergencyName || "" },
+      { name: "emergencyRelation", label: "Relationship", value: u.emergencyRelation || "", placeholder: "e.g. Sister" },
+      { name: "emergencyPhone", label: "Emergency contact number", value: u.emergencyPhone || "" },
+      { name: "vehicles", label: "Vehicles (one per line, e.g. Motorcycle · ABC 1234)", type: "textarea", value: u.vehicles || "" },
+      { name: "noteResident", label: "Note shown to the resident", type: "textarea", value: u.noteResident || "" },
+      { name: "noteOffice", label: "Private office note (the resident does not see this)", type: "textarea", value: u.noteOffice || "" }
+    ],
+    submit: "Save record",
+    onSubmit: async function (d) {
+      var res = d.residents === "" || d.residents == null ? "" : parseInt(d.residents, 10);
+      if (res !== "" && !(res >= 0 && res <= 99)) return { error: "Enter how many people live in the unit, e.g. 3." };
+      var old = unitRec(unit) || {}, me = (DB.user && (DB.user.name || DB.user.email)) || "the office";
+      await put("unit", unit, unit, Object.assign({}, old, {
+        unit: unit, name: String(d.name || "").trim() || "—", type: d.type, contact: String(d.contact || "").trim() || "—", email: String(d.email || "").trim(), moveIn: d.moveIn || "",
+        residents: res, members: String(d.members || "").trim(), pets: String(d.pets || "").trim(), emergencyName: String(d.emergencyName || "").trim(), emergencyRelation: String(d.emergencyRelation || "").trim(),
+        emergencyPhone: String(d.emergencyPhone || "").trim(), vehicles: String(d.vehicles || "").trim(), noteResident: String(d.noteResident || "").trim(), noteOffice: String(d.noteOffice || "").trim(),
+        profileUpdated: Date.now(), profileBy: me
+      }));
+      logAct("Resident record updated, " + unit, "Units");
+      toast("Resident record saved. " + unit + " will see it on their dashboard.");
+    }
+  });
+}
+
 function viewHistory() {
   var units = sortedUnits();
   if (!units.length) return emptyCard("No units yet. Add a unit first.");
@@ -107,5 +164,5 @@ function viewHistory() {
   }).join("") || '<p class="hint" style="padding:16px 4px;margin:0">Nothing on record for this filter.</p>';
   var timeline = '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h2>Everything on record</h2><span class="hint" style="margin:0">Newest first. Receipts can be downloaded from here.</span></div><div style="margin-top:12px">' + chips + "</div>" + tl + (rows.length > HIST_PAGE ? pagerHtml(rows.length, pg, HIST_PAGE, "histGoPage") : "") + "</div>";
 
-  return '<div class="hist-grid"><aside class="hist-left card"><input type="search" id="histSearch" value="' + escAttr(state.histQ || "") + '" oninput="set({histQ:this.value})" placeholder="Search unit or resident..." autocomplete="off"><div class="hist-ul">' + listHtml + '</div></aside><div class="hist-main">' + profile + tiles + charts + timeline + "</div></div>";
+  return '<div class="hist-grid"><aside class="hist-left card"><input type="search" id="histSearch" value="' + escAttr(state.histQ || "") + '" oninput="set({histQ:this.value})" placeholder="Search unit or resident..." autocomplete="off"><div class="hist-ul">' + listHtml + '</div></aside><div class="hist-main">' + profile + recordCardHtml(unit) + tiles + charts + timeline + "</div></div>";
 }

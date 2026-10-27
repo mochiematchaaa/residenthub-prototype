@@ -65,3 +65,41 @@
 .hist-side{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
 @media(max-width:1100px){.hist-grid{grid-template-columns:1fr}.hist-left{position:static}.hist-ul{max-height:260px}.hist-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.hist-charts{grid-template-columns:1fr}}
 @media(max-width:560px){.hist-ev{grid-template-columns:54px 12px minmax(0,1fr)}.hist-side{grid-column:3;align-items:flex-start;flex-direction:row;flex-wrap:wrap}}
+
+/* ---------- price calculator (Finance > Settings) ---------- */
+.calc{border:1px solid var(--border2);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--soft,rgba(120,115,217,.05))}
+.calc-head b{font-size:15px;display:block}
+.calc-head span{font-size:12.5px;color:var(--muted)}
+.calc-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:4px;border-radius:14px;background:rgba(120,115,217,.1);width:fit-content;max-width:100%}
+.calc-tabs button{border:0;background:transparent;padding:8px 14px;border-radius:10px;font:inherit;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer}
+.calc-tabs button.on{background:#fff;color:#3B3486;box-shadow:0 1px 4px rgba(60,50,120,.18)}
+.calc-per{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.calc-per button{border:1.5px solid var(--border2);background:transparent;border-radius:999px;padding:5px 14px;font:inherit;font-size:12.5px;font-weight:700;color:inherit;cursor:pointer}
+.calc-per button.on{border-color:#6C5CC7;background:#6C5CC7;color:#fff}
+.calc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.calc-out{display:flex;flex-direction:column;gap:10px}
+.calc-empty{padding:16px;border:1.5px dashed var(--border2);border-radius:14px;font-size:13px;color:var(--muted);text-align:center}
+.calc-main{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#6C5CC7,#5B8DB8);color:#fff}
+.calc-main small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.85;font-weight:700}
+.calc-main b{font-size:28px;line-height:1.15}
+.calc-main span{font-size:12.5px;opacity:.9}
+.calc-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.calc-tile{padding:10px 12px;border-radius:14px;background:#fff;border:1px solid var(--border2)}
+.calc-tile small{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.calc-tile b{font-size:15px}
+.calc-foot{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{background:rgba(255,255,255,.08);color:inherit}
+.psz{width:100%;border-collapse:collapse;font-size:13.5px}
+.psz th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px}
+.psz td{padding:6px 8px;border-top:1px solid var(--border2)}
+.psz input{min-height:38px;width:100%;min-width:80px}
+
+/* ---------- resident record ---------- */
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 18px;margin-top:12px}
+.rec-grid label{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:2px}
+.rec-grid b{font-size:14px;font-weight:700;word-break:break-word}
+.rec-sec{padding:12px 14px;border:1px solid var(--border2);border-radius:16px;background:var(--soft,rgba(120,115,217,.04));display:flex;flex-direction:column;gap:10px}
+.rec-sec h3{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6C5CC7}
+.rec-note{margin-top:10px;padding:10px 14px;border-radius:12px;background:var(--warn-bg,#F7E4A5);color:var(--warn-fg,#6B4A00);font-size:13.5px}
+.rec-none{color:var(--muted);font-weight:500}
+.psz-tag{opacity:.7;font-size:10px!important}

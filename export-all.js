@@ -356,6 +356,13 @@
       sortedUnits().map(function (r) { var u = r.v; return [r.id, u.name, u.type, u.status, u.contact, typeof usageLabel === "function" ? usageLabel(u.usage || "") : u.usage, u.usageStatus || ""]; }),
       "Every unit, occupancy and how it is used");
 
+    add("Residents", "Resident records", [["Unit"], ["Name", "text", { w: 24 }], ["Occupancy"], ["Mobile", "text", { w: 16 }], ["Email", "text", { w: 26 }], ["Moved in", "date"], ["People", "int"], ["Household members", "text", { w: 34 }], ["Emergency contact", "text", { w: 30 }], ["Vehicles", "text", { w: 24 }], ["Pets"], ["Floor area (sqm)", "int"], ["Updated", "text", { w: 14 }]],
+      sortedUnits().map(function (r) {
+        var u = r.v, emer = [u.emergencyName, u.emergencyRelation ? "(" + u.emergencyRelation + ")" : "", u.emergencyPhone].filter(Boolean).join(" ");
+        return [r.id, u.name, u.type, u.contact, u.email || "", u.moveIn || "", Number(u.residents) || "", String(u.members || "").replace(/\n/g, "; "), emer, String(u.vehicles || "").replace(/\n/g, "; "), u.pets || "", Number(u.area) || "", u.profileUpdated ? shortDate(new Date(Number(u.profileUpdated))) : ""];
+      }),
+      "Household details the office keeps for each unit");
+
     add("Residents", "Accounts", [["Name", "text", { w: 24 }], ["Email", "text", { w: 32 }], ["Mobile", "text", { w: 16 }], ["Role"], ["Unit"], ["Suspended", "status", { cf: "susp" }]],
       (DB.accounts || []).map(function (a) { return [a.name, a.email, a.phone, a.role, a.unit || "", a.suspended ? "Yes" : "No"]; }),
       "Sign-in accounts of residents and administrators");
@@ -383,8 +390,8 @@
       sorted(list("booking"), function (a, b) { return String(b.v.day).localeCompare(String(a.v.day)); }).map(function (r) { var b = r.v; return [b.place, b.day, String(b.when || "").split(", ").slice(-1)[0], b.unit, b.who, b.status]; }),
       "Reservations of pool, hall, gym and game room");
 
-    add("Facilities", "Parking slots", [["Slot"], ["Unit"], ["Plan"], ["From", "date"], ["Until", "date"], ["Amount", "money", { sum: 1 }]],
-      sorted(list("slot"), function (a, b) { return naturalCompare(a.id, b.id); }).map(function (r) { var s = r.v; return [r.id, s.unit || "Free", s.plan === "month" ? "Monthly" : s.plan === "day" ? "Daily" : "", s.from, s.until, s.unit ? money(s.amount) : ""]; }),
+    add("Facilities", "Parking slots", [["Slot"], ["Size"], ["Unit"], ["Plan"], ["From", "date"], ["Until", "date"], ["Amount", "money", { sum: 1 }]],
+      sorted(list("slot"), function (a, b) { return naturalCompare(a.id, b.id); }).map(function (r) { var s = r.v; return [r.id, s.size || "Regular", s.unit || "Free", s.plan === "month" ? "Monthly" : s.plan === "day" ? "Daily" : "", s.from, s.until, s.unit ? money(s.amount) : ""]; }),
       "Motor parking slots and who rents them");
 
     add("Facilities", "Parking requests", [["Unit"], ["Household", "text", { w: 26 }], ["Slot"], ["Plan"], ["Days", "int"], ["Amount", "money"], ["Confirmed", "status", { cf: "pay" }]],
