@@ -55,7 +55,7 @@ function eventInfo(r) {
 // The items in the notification bell for this resident.
 function notifs() {
   var out = [], unit = myUnit(), u = myRec();
-  if (u.profileUpdated && Date.now() - Number(u.profileUpdated) < 7 * 86400000) out.push(["The office updated your household record on " + shortDate(new Date(Number(u.profileUpdated))) + ". You can see it on your dashboard.", "info", "home"]);
+  if (u.profileUpdated && Number(u.profileUpdated) > Number(u.selfUpdated || 0) && Date.now() - Number(u.profileUpdated) < 7 * 86400000) out.push(["The office updated your household record on " + shortDate(new Date(Number(u.profileUpdated))) + ". You can see it on your dashboard.", "info", "home"]);
   myBookings().slice(0, 3).forEach(function (r) {
     if (r.v.status === "Approved") out.push(["Your " + r.v.place + " booking (" + r.v.when + ") was approved.", "good", "res"]);
     else if (r.v.status === "Denied") out.push(["Your " + r.v.place + " booking (" + r.v.when + ") was not approved.", "bad", "res"]);
@@ -161,19 +161,36 @@ function homeAside() {
 
 /* "My household record": what the office keeps on file for the unit. The office edits it; it shows up here. */
 function myRecordCard() {
-  var u = myRec(), acc = DB.profile || {}, upd = Number(u.profileUpdated) || 0;
-  var cell = function (k, v) { return '<div><label>' + k + "</label><b>" + v + "</b></div>"; };
-  var val = function (v, empty) { return v ? esc(v) : '<span class="rec-none">' + (empty || "Not on file") + "</span>"; };
-  var lines = function (t, empty) { var l = String(t || "").split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); return l.length ? l.map(function (x) { return "<div>" + esc(x) + "</div>"; }).join("") : '<span class="rec-none">' + (empty || "Not on file") + "</span>"; };
-  var d = unitDues(myUnit()), slot = list("slot").filter(function (r) { return r.v.unit === myUnit(); })[0];
-  var emer = [u.emergencyName, u.emergencyRelation ? "(" + u.emergencyRelation + ")" : "", u.emergencyPhone].filter(Boolean).join(" ");
-  return '<section class="card rec" style="margin-top:18px"><div class="sec-head"><h2>My household record</h2><span class="hint" style="margin:0">' + (upd ? "Updated by the office on " + esc(shortDate(new Date(upd))) : "The office keeps these details on file") + '</span></div>' +
-    (u.noteResident ? '<div class="rec-note">' + esc(u.noteResident) + "</div>" : "") +
-    '<div class="rec-grid">' +
-    cell("Name", val(u.name && u.name !== "—" ? u.name : myName())) + cell("Occupancy", esc(u.type || "Owner")) + cell("Mobile", val(u.contact && u.contact !== "—" ? u.contact : "")) + cell("Email", val(u.email || acc.email || "")) +
-    cell("Moved in", val(u.moveIn ? usageDate(u.moveIn) : "")) + cell("People living here", val(u.residents ? String(u.residents) : "")) + cell("Household members", lines(u.members)) + cell("Pets", val(u.pets, "None on file")) +
-    cell("Emergency contact", val(emer)) + cell("Vehicles", lines(u.vehicles, "None on file")) + cell("Floor area", d.area ? esc(String(d.area)) + " sqm" : '<span class="rec-none">Not set</span>') + cell("Parking slot", slot ? esc(slot.id) + " · " + esc(slot.v.size || "Regular") : '<span class="rec-none">None</span>') +
-    "</div><p class=\"hint\" style=\"margin:10px 0 0\">Something is wrong or out of date? Tell the office and they will update it here.</p></section>";
+  return '<div style="margin-top:18px">' + recordSheetHtml(myUnit(), { admin: false, email: (DB.profile || {}).email || "", button: '<button class="btn primary" onclick="recordSelfForm()">Edit my details</button>' }) + "</div>";
+}
+// Popup where the resident updates their own household details (the office keeps the name, mobile number and unit).
+function recordSelfForm() {
+  var unit = myUnit(), u = myRec();
+  openForm({
+    title: "Edit my details",
+    intro: "Keep your household up to date. The office sees what you save. Your name, mobile number and unit are kept by the office, so ask them if one of those is wrong.",
+    submit: "Save my details",
+    fields: [
+      { name: "residents", label: "How many people live here", type: "number", step: "1", value: u.residents || "" },
+      { name: "members", label: "Household members (one per line, e.g. Ana Reyes, spouse)", type: "textarea", value: u.members || "" },
+      { name: "pets", label: "Pets", value: u.pets || "", placeholder: "e.g. 1 dog" },
+      { name: "emergencyName", label: "Emergency contact name", value: u.emergencyName || "" },
+      { name: "emergencyRelation", label: "Relationship", value: u.emergencyRelation || "", placeholder: "e.g. Sister" },
+      { name: "emergencyPhone", label: "Emergency contact number", value: u.emergencyPhone || "" },
+      { name: "vehicles", label: "Vehicles (one per line, e.g. Motorcycle · ABC 1234)", type: "textarea", value: u.vehicles || "" }
+    ],
+    onSubmit: async function (d) {
+      var res = d.residents === "" || d.residents == null ? "" : parseInt(d.residents, 10);
+      if (res !== "" && !(res >= 0 && res <= 99)) return { error: "Enter how many people live in the unit, e.g. 3." };
+      await put("unit", unit, unit, Object.assign({}, myRec(), {
+        residents: res, members: String(d.members || "").trim(), pets: String(d.pets || "").trim(), emergencyName: String(d.emergencyName || "").trim(),
+        emergencyRelation: String(d.emergencyRelation || "").trim(), emergencyPhone: String(d.emergencyPhone || "").trim(), vehicles: String(d.vehicles || "").trim(),
+        selfUpdated: Date.now(), selfBy: myName()
+      }));
+      logAct("Resident updated household record, " + unit, "Units");
+      toast("Saved. The office can see your updated details.");
+    }
+  });
 }
 function viewHome() {
   var u = myRec(), open = myOpenDues(), bal = balanceFor(myUnit()), next = open[0], nb = nextBooking();
