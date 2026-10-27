@@ -1181,9 +1181,9 @@ class AppState extends ChangeNotifier {
 
   List<List<String>> get myNotifs {
     final out = <List<String>>[];
-    final rec = myUnitRec;
-    if (rec != null && rec.profileUpdated > 0 && DateTime.now().millisecondsSinceEpoch - rec.profileUpdated < 7 * 86400000) {
-      out.add(['The office updated your household record on ${shortDate(DateTime.fromMillisecondsSinceEpoch(rec.profileUpdated))}. You can see it on your dashboard.', 'info']);
+    final hh = myUnitRec;
+    if (hh != null && hh.profileUpdated > 0 && DateTime.now().millisecondsSinceEpoch - hh.profileUpdated < 7 * 86400000) {
+      out.add(['The office updated your household record on ${shortDate(DateTime.fromMillisecondsSinceEpoch(hh.profileUpdated))}. You can see it on your dashboard.', 'info']);
     }
     for (final b in myBookings) {
       if (b.status == 'Approved') {
