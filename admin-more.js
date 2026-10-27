@@ -125,7 +125,7 @@ function viewFin() {
   var tabBar = '<div class="filters fin-tabs" role="tablist" style="margin-bottom:16px">' + tabDefs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({finTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
   var chargesBar = '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><span class="hint" style="margin:0 auto 0 0">Bill every unit for the month, remind residents, or add a single charge.</span><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button></div>';
   var body = tab === "overview" ? statsHtml + (payCheckList().length ? '<div style="margin-top:16px">' + payCheckPanel(0) + "</div>" : "") + '<div style="margin-top:16px">' + verifyHtml + "</div>" + '<div style="margin-top:16px">' + summaryHtml + "</div>"
-    : tab === "charges" ? chargesBar + chargesHtml
+    : tab === "charges" ? chargesBar + chargeTypesCard(dues) + chargesHtml
     : tab === "pay" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + deskHtml + '</div><aside class="fin-side">' + receiptsHtml + "</aside></div>"
     : tab === "daily" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + logHtml + '</div><aside class="fin-side">' + dailyExpHtml + "</aside></div>"
     : tab === "units" ? unitsHtml
@@ -333,15 +333,48 @@ function unitDuesCard() {
     '<div style="max-height:380px;overflow:auto">' + tableRows(rows, ["UNIT", "AREA", "MONTHLY DUES", "DUE DAY", "BILLED", "PAID", "BALANCE", ""], "No units yet.") + "</div></div>";
 }
 // Popup form to change the amount (or due date) of one unit's unpaid charge.
-function editDue(id) {
+// "All charges": one line for each kind of charge (same description), so the whole thing can be changed or removed in one go.
+function chargeTypesCard(dues) {
+  var g = {}, order = [];
+  dues.forEach(function (r) {
+    var n = r.v.note || "Charge"; if (!g[n]) { g[n] = { note: n, units: {}, unpaid: 0, paid: 0, amts: {}, dues: {}, firstUnpaid: "" }; order.push(n); }
+    var x = g[n]; x.units[r.v.unit] = 1;
+    if (r.v.paid) x.paid++; else { x.unpaid++; x.amts[Number(r.v.amount)] = 1; x.dues[r.v.dueDate || "On receipt"] = 1; if (!x.firstUnpaid) x.firstUnpaid = r.id; }
+  });
+  var rows = order.map(function (n) { return g[n]; }).filter(function (x) { return x.unpaid; }).sort(function (a, b) { return b.unpaid - a.unpaid; });
+  if (!rows.length) return "";
+  function range(o, f) { var k = Object.keys(o); if (k.length === 1) return f(k[0]); return "Different (" + k.length + ")"; }
+  var body = rows.map(function (x) {
+    var lateKind = /^Late charge/.test(x.note);
+    return '<tr><td><b>' + esc(x.note) + '</b></td><td class="nw">' + Object.keys(x.units).length + '</td><td class="nw"><span class="chip warn">' + x.unpaid + ' unpaid</span>' + (x.paid ? ' <span class="chip good">' + x.paid + ' paid</span>' : "") + '</td><td class="nw">' + range(x.amts, function (k) { return peso(Number(k)); }) + '</td><td class="nw">' + range(x.dues, esc) + '</td><td><div class="row-actions">' +
+      (x.unpaid > 1 || !lateKind ? '<button class="btn primary" data-n="' + escAttr(x.note) + '" onclick="editChargeAll(this.dataset.n)">Edit all</button>' : "") + '<button class="btn danger" data-n="' + escAttr(x.note) + '" onclick="removeChargeAll(this.dataset.n)">Remove unpaid</button></div></td></tr>';
+  }).join("");
+  return '<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div style="padding:16px 18px 6px"><h2 style="margin:0">All charges, edit as a whole</h2><p class="hint" style="margin:4px 0 0">One line for each kind of charge. <b>Edit all</b> changes the description, amount or due date for every unit\'s unpaid charge of that kind at once. Paid charges are never touched. To change just one unit, use Edit on its row below.</p></div>' +
+    '<table><thead><tr><th>CHARGE</th><th>UNITS</th><th>STATUS</th><th>AMOUNT</th><th>DUE</th><th>ACTIONS</th></tr></thead><tbody>' + body + "</tbody></table></div>";
+}
+function editChargeAll(note) {
+  var r = list("due").filter(function (x) { return !x.v.paid && x.v.note === note; })[0];
+  if (!r) return toast("There is no unpaid charge like that any more.");
+  editDue(r.id, true);
+}
+function removeChargeAll(note) {
+  var l = list("due").filter(function (x) { return !x.v.paid && x.v.note === note; });
+  if (!l.length) return toast("There is no unpaid charge like that any more.");
+  confirmBox("Remove “" + note + "”?", "This removes " + l.length + " unpaid charge" + (l.length === 1 ? "" : "s") + " from the residents' dues. Paid ones stay.", "Remove", async function () {
+    for (var i = 0; i < l.length; i++) await del("due", l[i].id);
+    logAct("Charge removed from " + l.length + " unit(s): " + note, "Finance");
+    toast("Removed " + l.length + " unpaid charge" + (l.length === 1 ? "" : "s") + ".");
+  }, true);
+}
+function editDue(id, allUnits) {
   var row = getRow("due", id);
   if (!row || row.value.paid) return toast("Only an unpaid charge can be edited.");
-  var c = row.value, same = list("due").filter(function (r) { return !r.v.paid && r.v.note === c.note; }), SCOPE1 = "This unit only", SCOPEN = "All units: " + same.length + " unpaid charge" + (same.length === 1 ? "" : "s") + " named this", SCOPEX = "Remove it from all units (unpaid ones)";
+  var c = row.value, same = list("due").filter(function (r) { return !r.v.paid && r.v.note === c.note; }), sameAmt = same.every(function (r) { return Math.abs(Number(r.v.amount) - Number(c.amount)) < 0.005; }), SCOPE1 = "This unit only", SCOPEN = "All units: " + same.length + " unpaid charge" + (same.length === 1 ? "" : "s") + " named this", SCOPEX = "Remove it from all units (unpaid ones)";
   openForm({
     title: "Edit charge · " + c.unit,
-    intro: (c.area && c.rate ? "Worked out as " + c.area + " sqm × " + peso(c.rate) + " = " + peso(c.area * c.rate) + ". " : "") + "Change the description, amount or due date. Pick <b>" + esc(SCOPEN.split(":")[0]) + "</b> to change every unit's unpaid charge with this description in one go (paid ones are never touched).",
+    intro: (c.area && c.rate ? "Worked out as " + c.area + " sqm × " + peso(c.rate) + " = " + peso(c.area * c.rate) + ". " : "") + "Change the description, amount or due date. Pick <b>" + esc(SCOPEN.split(":")[0]) + "</b> to change every unit's unpaid charge with this description in one go (paid ones are never touched)." + (same.length > 1 && !sameAmt ? " <b>These units pay different amounts.</b> Leave the amount as it is to keep each unit's own amount; type a new amount only if everyone should pay that same amount." : ""),
     fields: [{ name: "note", label: "Description", value: c.note || "" }, { name: "amount", label: "Amount (₱)", type: "number", step: "0.01", value: c.amount }, { name: "due", label: "Due date (optional)", value: c.dueDate || "", placeholder: "e.g. Oct 30, 2026" },
-      { name: "scope", label: "Apply to", type: "select", options: same.length > 1 ? [SCOPE1, SCOPEN, SCOPEX] : [SCOPE1, SCOPEX], value: SCOPE1 }],
+      { name: "scope", label: "Apply to", type: "select", options: same.length > 1 ? [SCOPE1, SCOPEN, SCOPEX] : [SCOPE1, SCOPEX], value: allUnits && same.length > 1 ? SCOPEN : SCOPE1 }],
     onSubmit: async function (d) {
       var cur = getRow("due", id);
       if (!cur || cur.value.paid) return { error: "This charge was already paid." };
@@ -359,7 +392,8 @@ function editDue(id) {
       var targets = d.scope === SCOPE1 ? [cur] : list("due").filter(function (r) { return !r.v.paid && r.v.note === c.note; }).map(function (r) { return { id: r.id, unit: r.unit, value: r.v }; });
       for (var i = 0; i < targets.length; i++) {
         var t = targets[i];
-        await put("due", t.id, t.unit, Object.assign({}, t.value, { note: note, amount: a, dueDate: due, edited: true }));
+        var keepOwn = d.scope !== SCOPE1 && !sameAmt && Math.abs(a - Number(c.amount)) < 0.005;
+        await put("due", t.id, t.unit, Object.assign({}, t.value, { note: note, amount: keepOwn ? t.value.amount : a, dueDate: due, edited: true }));
         // a payment already sent for the old description follows the new one
         var pend = list("proof").filter(function (o) { return o.v.status === "Pending" && o.unit === t.unit && o.v.forText === c.note; });
         for (var k = 0; k < pend.length; k++) await put("proof", pend[k].id, pend[k].unit, Object.assign({}, pend[k].v, { forText: note }));
