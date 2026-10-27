@@ -1139,6 +1139,7 @@ class AppState extends ChangeNotifier {
         if (!d.paid &&
             d.daysLate != null &&
             d.daysLate! >= lateFeeDays &&
+            d.daysLate! <= lateFeeDays + 6 &&
             d.amount > 0 &&
             d.lateFeeId == 0 &&
             d.checkedAt == 0 &&

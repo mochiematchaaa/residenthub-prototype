@@ -116,6 +116,36 @@ class _AdminFinanceState extends State<AdminFinance> {
     );
   }
 
+  /// Add a charge for one unit, or for every unit at once (type "All units").
+  void _addChargeSheet() {
+    showFormSheet(
+      context,
+      title: 'Add finance charge',
+      fields: const [
+        FieldSpec('unit', 'Unit', hint: 'e.g. Unit 12A, or type All units to bill everyone', initial: ''),
+        FieldSpec('amount', 'Amount (₱) for each unit', type: TextInputType.number),
+        FieldSpec('note', 'Description', hint: 'e.g. Facility damage fee'),
+        FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 30, 2026'),
+      ],
+      submit: 'Add charge',
+      onSubmit: (v) {
+        final err = app.addCharge(v['unit'] as String, v['amount'] as String, v['note'] as String, dueRaw: v['due'] as String);
+        if (err == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                filter = 'Unpaid';
+                page = 0;
+              });
+              msg(context, 'Charge added to ${(v['unit'] as String).trim()}.');
+            }
+          });
+        }
+        return err;
+      },
+    );
+  }
+
   /// One line for each kind of charge (same description), so a whole kind can be changed or removed in one go.
   Widget _chargeTypes(BuildContext context) {
     final groups = <String, List<Due>>{};
@@ -135,6 +165,7 @@ class _AdminFinanceState extends State<AdminFinance> {
             const IconBadge(Icons.tune_rounded, accent: true),
             const SizedBox(width: 12),
             Expanded(child: Text('All charges, edit as a whole', style: hd(17))),
+            TextButton.icon(onPressed: _addChargeSheet, icon: const Icon(Icons.add_rounded), label: const Text('New kind')),
           ]),
           const SizedBox(height: 8),
           Text(
@@ -536,32 +567,7 @@ class _AdminFinanceState extends State<AdminFinance> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => showFormSheet(
-                  context,
-                  title: 'Add finance charge',
-                  fields: const [
-                    FieldSpec('unit', 'Unit', hint: 'e.g. Unit 12A, or type All units to bill everyone', initial: ''),
-                    FieldSpec('amount', 'Amount (₱) for each unit', type: TextInputType.number),
-                    FieldSpec('note', 'Description', hint: 'e.g. Facility damage fee'),
-                    FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 30, 2026'),
-                  ],
-                  submit: 'Add charge',
-                  onSubmit: (v) {
-                    final err = app.addCharge(v['unit'] as String, v['amount'] as String, v['note'] as String, dueRaw: v['due'] as String);
-                    if (err == null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            filter = 'Unpaid';
-                            page = 0;
-                          });
-                          msg(context, 'Charge added to ${(v['unit'] as String).trim()}.');
-                        }
-                      });
-                    }
-                    return err;
-                  },
-                ),
+                onPressed: _addChargeSheet,
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Charge'),
               ),

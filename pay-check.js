@@ -172,7 +172,7 @@ function lateWarnHtml(open) {
 function lateFeeCfg() { var c = setting("latefee"); return { on: c.on !== false, days: Number(c.days) >= 1 ? Number(c.days) : 1, pct: payCheckCfg().pct }; }
 function lateFeeSettingsHtml() {
   var c = lateFeeCfg();
-  return '<div class="lf-set"><b>Late charge</b><p class="hint" style="margin:2px 0 8px">When a charge is still unpaid after its due date, a late charge is added by itself, so an overdue charge never just sits there. It is skipped if the resident already sent their payment, and it is taken off again if they turn out to have paid on time.</p>' +
+  return '<div class="lf-set"><b>Late charge</b><p class="hint" style="margin:2px 0 8px">When a charge is still unpaid after its due date, a late charge is added by itself, so an overdue charge never just sits there. It is added during the first week of being overdue (older ones are handled with “Did they pay?”), skipped if the resident already sent their payment, and taken off again if they turn out to have paid on time.</p>' +
     '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-bottom:8px"><input type="checkbox" id="lfOn" ' + (c.on ? "checked" : "") + '> Add the late charge automatically</label>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end"><label class="fl" style="width:190px">After how many days overdue<input id="lfDays" type="number" min="1" max="30" step="1" value="' + c.days + '"></label><label class="fl" style="width:170px">Late charge (% of the charge)<input id="lfPct" type="number" min="0.1" max="100" step="0.1" value="' + c.pct + '"></label><button class="btn" onclick="saveLateFee()">Save late charge</button></div></div>';
 }
@@ -196,7 +196,7 @@ async function autoLateFeeCheck() {
   var pend = {}; list("proof").forEach(function (o) { if (o.v.status === "Pending") pend[o.v.unit + "|" + o.v.forText] = 1; });
   var todo = list("due").filter(function (r) {
     var d = r.v, n = daysLate(d);
-    return !d.paid && n != null && n >= cfg.days && Number(d.amount) > 0 && !d.lateFeeId && !d.checkedAt && !d.lateFor && !d.balanceOf && !/^Late charge/.test(d.note || "") && !pend[d.unit + "|" + d.note];
+    return !d.paid && n != null && n >= cfg.days && n <= cfg.days + 6 && Number(d.amount) > 0 && !d.lateFeeId && !d.checkedAt && !d.lateFor && !d.balanceOf && !/^Late charge/.test(d.note || "") && !pend[d.unit + "|" + d.note];
   });
   if (!todo.length) return;
   _lateBusy = true;
