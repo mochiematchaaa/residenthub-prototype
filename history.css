@@ -311,3 +311,17 @@ html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{
 .fin-charges tr.row-late>td:first-child{box-shadow:inset 4px 0 0 var(--bad-fg)}
 .row-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.row-tags .chip{font-size:11px}
 .lf-set{padding:12px 14px;border-radius:14px;background:var(--beige);border:1px solid var(--border2)}
+/* summary cards: a clear gap and an edge, so neighbouring pastel cards do not run into each other */
+.sc-grid{gap:18px}
+.sc{border:1px solid rgba(20,20,40,.10);box-shadow:0 8px 20px -12px rgba(20,20,60,.30)}
+.sc.mt{grid-column:1/-1}
+.pc{margin-top:20px;margin-bottom:6px}
+/* day-by-day log: each section is its own tinted box and each payment its own row */
+.dl-head{margin:18px 0 10px;font-size:16px}
+.dl-sec{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:18px;margin-top:12px;border:1px solid var(--border2)}
+.dl-sec.good{background:var(--good-bg)}.dl-sec.warn{background:var(--warn-bg)}
+.dl-sec h3{margin:0 0 2px;font-size:14px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.dl-sum{font-weight:800}
+.dl-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);font-size:13.5px}
+.dl-row>span{min-width:0}.dl-row small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.dl-amt{white-space:nowrap}

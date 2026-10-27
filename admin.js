@@ -167,7 +167,7 @@ function viewHome() {
     summaryCard("pink", "Finance", [[peso(monthEarnings()), "Earnings this month", "fin"], [c.unpaid, "Unpaid dues", "fin"]], "heart", bars ? '<div class="bars" title="One bar per recent charge. Solid bars are paid.">' + bars + "</div>" : "") +
     summaryCard("green", "Needs attention", [[c.grievances, "Complaints", "req"], [c.bookings, "Bookings", "fac"], [c.rentals, "Unit status to review", "rentals"]], "triangle") +
     summaryCard("blue", "Community life", [[openPolls, "Open polls", "polls"], [used + "/" + slots.length, "Parking used", "parking"]], "burst") +
-    "</div>" + (typeof payCheckPanel === "function" ? payCheckPanel(4) : "") +
+    "<!--sc-end--></div>" + (typeof payCheckPanel === "function" ? payCheckPanel(4) : "") +
     '<div class="pills-row">' + quick.map(function (q) { return '<button onclick="set({view:\'' + q[1] + '\'})">' + q[0] + "</button>"; }).join("") + "</div>" +
     '<div class="two-lists"><section><div class="sec-head"><h2>Pending requests</h2><button class="btn-dark sm" onclick="set({view:\'fac\'})">Open requests</button></div>' +
     '<div class="lrows">' + (rows.join("") || '<p class="empty">Nothing is waiting for you. Nice work.</p>') + "</div></section>" +

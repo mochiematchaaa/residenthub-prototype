@@ -402,16 +402,16 @@ function dayLogCard(dues) {
   var paid = paidOn(sel), due = dueOn(sel), isFuture = sel > today;
   var selDate = parseShort(shortDateFromKey(sel));
   var head = (sel === today ? "Today" : selDate.toLocaleDateString("en-US", { weekday: "long" })) + ", " + shortDateFromKey(sel);
-  function row(a, b, c) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border2);font-size:13.5px"><span style="min-width:0"><b>' + a + '</b><br><span style="color:var(--muted);font-size:12.5px">' + b + "</span></span><b>" + c + "</b></div>"; }
-  var paidHtml = isFuture ? "" : '<h3 style="margin:14px 0 2px;font-size:14px">Paid this day · ' + peso(sum(paid, function (x) { return x.amount; })) + "</h3>" +
-    (paid.length ? paid.map(function (x) { return row(esc(x.unit) + " · " + esc(x.payer || ""), esc(x.forText || "") + " · " + esc(x.method || "") + (x.receiptNo ? " · Receipt " + esc(x.receiptNo) : ""), peso(Number(x.amount))); }).join("") : '<p class="hint" style="margin:4px 0 0">Nobody paid on this day.</p>');
-  var dueHtml = '<h3 style="margin:14px 0 2px;font-size:14px">' + (sel < today ? "Was due this day and still unpaid" : "Due this day") + " · " + peso(sum(due, function (x) { return x.v.amount; })) + "</h3>" +
-    (due.length ? due.map(function (x) { return row(esc(x.v.unit) + (x.v.name ? " · " + esc(x.v.name) : ""), esc(x.v.note || ""), peso(Number(x.v.amount))); }).join("") : '<p class="hint" style="margin:4px 0 0">No charge falls due on this day.</p>');
+  function row(a, b, c) { return '<div class="dl-row"><span><b>' + a + "</b><small>" + b + '</small></span><b class="dl-amt">' + c + "</b></div>"; }
+  var paidHtml = isFuture ? "" : '<section class="dl-sec good"><h3>Paid this day <span class="dl-sum">' + peso(sum(paid, function (x) { return x.amount; })) + "</span></h3>" +
+    (paid.length ? paid.map(function (x) { return row(esc(x.unit) + " · " + esc(x.payer || ""), esc(x.forText || "") + " · " + esc(x.method || "") + (x.receiptNo ? " · Receipt " + esc(x.receiptNo) : ""), peso(Number(x.amount))); }).join("") : '<p class="hint" style="margin:0">Nobody paid on this day.</p>') + "</section>";
+  var dueHtml = '<section class="dl-sec warn"><h3>' + (sel < today ? "Was due this day and still unpaid" : "Due this day") + ' <span class="dl-sum">' + peso(sum(due, function (x) { return x.v.amount; })) + "</span></h3>" +
+    (due.length ? due.map(function (x) { return row(esc(x.v.unit) + (x.v.name ? " · " + esc(x.v.name) : ""), esc(x.v.note || ""), peso(Number(x.v.amount))); }).join("") : '<p class="hint" style="margin:0">No charge falls due on this day.</p>') + "</section>";
   return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Day by day</h2><p class="hint" style="margin:4px 0 0">See who paid on each day, and who is expected to pay on the coming days.</p></div>' +
     '<div style="display:flex;gap:6px;align-items:center"><button class="btn" style="min-height:32px;padding:0 12px" onclick="dayLogShift(-1)" aria-label="Previous day">&#8249;</button><input type="date" value="' + escAttr(sel) + '" onchange="set({logDay:this.value||dayKey(new Date())})" style="min-height:32px"><button class="btn" style="min-height:32px;padding:0 12px" onclick="dayLogShift(1)" aria-label="Next day">&#8250;</button>' +
     (sel !== today ? '<button class="btn" style="min-height:32px;padding:0 12px" onclick="set({logDay:\'\'})">Today</button>' : "") + "</div></div>" +
     '<div style="display:flex;gap:6px;margin:12px 0 4px;overflow-x:auto">' + strip + "</div>" +
-    '<h3 style="margin:12px 0 0;font-size:15px">' + head + "</h3>" + paidHtml + dueHtml + "</div>";
+    '<h3 class="dl-head">' + head + "</h3>" + paidHtml + dueHtml + "</div>";
 }
 // Bars for every day of a month (small labels, only days with money show an amount).
 function dailyChart(days) {
