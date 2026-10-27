@@ -301,3 +301,6 @@ html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{
 .vp-checks .chip.good{background:var(--good-bg);color:var(--good-fg)}.vp-checks .chip.bad{background:var(--bad-bg);color:var(--bad-fg)}
 .vp-late{padding:12px 14px;border-radius:14px;background:var(--bad-bg);color:var(--bad-fg);font-size:13px;margin-bottom:10px}
 .vp-item.late{border-color:var(--bad-fg)}
+.dz-chg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--beige);border:1px solid var(--border2)}
+.dz-chg small{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:2px}
+.dz-chg b{font-size:13.5px}

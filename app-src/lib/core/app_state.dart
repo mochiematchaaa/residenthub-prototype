@@ -987,17 +987,20 @@ class AppState extends ChangeNotifier {
   List<Due> get myDues => dues.where((d) => d.unit == myUnit).toList()..sort((a, b) => b.id.compareTo(a.id));
 
   /// Resident: "I have paid" with the reference number. [due] is the charge being paid (the oldest open one when null).
-  String? submitProof(String method, String reference, String amountRaw, {Due? due, String image = ''}) {
+  String? submitProof(String method, String reference, String amountRaw, {Due? due, String image = '', String paidOn = ''}) {
     final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter the amount you paid.';
     if (reference.trim().isEmpty) {
       return 'Enter the reference number from your payment receipt.';
     }
+    final paidDay = parseShortDate(paidOn.trim());
+    if (paidDay == null) return 'Enter the date you paid, like ${shortDate(DateTime.now())}.';
+    if (paidDay.isAfter(DateTime.now())) return 'The date you paid cannot be in the future.';
     final target = (due != null && !due.paid) ? due : _firstOpenDue(myUnit);
     proofs.insert(
         0,
         PaymentProof(nextId(), myUnit, myHousehold, method, reference.trim(), shortDate(DateTime.now()), a,
-            forText: target == null ? 'Association dues' : target.note, at: DateTime.now().millisecondsSinceEpoch, image: image));
+            forText: target == null ? 'Association dues' : target.note, at: DateTime.now().millisecondsSinceEpoch, image: image, paidOn: shortDate(paidDay)));
     logActivity('Payment reference sent, $myUnit', 'Finance');
     _n();
     return null;
@@ -1146,6 +1149,16 @@ class AppState extends ChangeNotifier {
       checks.add(const CheckItem(false, 'Charge not found'));
     }
     checks.add(p.image.isNotEmpty ? const CheckItem(true, 'Photo attached') : const CheckItem(null, 'No photo'));
+    final dueDay = named == null ? null : parseShortDate(named.dueDate);
+    final paidDay = parseShortDate(p.paidOn);
+    if (paidDay == null) {
+      checks.add(const CheckItem(null, 'No payment date given'));
+    } else if (dueDay == null) {
+      checks.add(CheckItem(null, 'Paid on ${p.paidOn}'));
+    } else {
+      final late = DateTime(paidDay.year, paidDay.month, paidDay.day).difference(DateTime(dueDay.year, dueDay.month, dueDay.day)).inDays;
+      checks.add(late <= 0 ? CheckItem(true, 'Paid on time (${p.paidOn})') : CheckItem(null, 'Paid $late day${late == 1 ? '' : 's'} after the due date'));
+    }
     return ProofCheck(why, expected, named, checks);
   }
 

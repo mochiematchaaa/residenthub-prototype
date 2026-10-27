@@ -99,6 +99,8 @@ class _VerifyPanelState extends State<VerifyPanel> {
             _fact(context, 'Method', p.method),
             _fact(context, 'Reference no.', p.reference.isEmpty ? '—' : p.reference),
             _fact(context, 'Expected', chk.expected == null ? 'Not known' : peso(chk.expected!)),
+            _fact(context, 'Due date', chk.due == null || chk.due!.dueDate.isEmpty ? '—' : chk.due!.dueDate),
+            _fact(context, 'Date paid', p.paidOn.isEmpty ? 'Not given' : p.paidOn),
             SizedBox(
               width: 150,
               child: Column(
