@@ -98,8 +98,10 @@ function viewFin() {
     }), ["UNIT", "FOR", "DUE", "AMOUNT", "ACTIONS"], dues.length ? (fq ? "No charge matches your search." : "Nothing unpaid. Everyone is up to date.") : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + (shownDues.length > FIN_PAGE ? pagerHtml(shownDues.length, finPage, FIN_PAGE, "goFinPage") : "") + "</div>" +
     unitDuesCard() +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Dues settings</h2><p class="hint" style="margin:0">Dues are charged <b>per square meter</b>. Each unit pays its floor area × this rate every month, so “Bill monthly dues” works out every unit\'s amount by itself. Set a unit\'s floor area under Units. You can still change the amount of one unit\'s charge with “Edit”.</p>' +
-    '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:200px">Monthly dues per sqm (₱)<input id="duesRate" type="number" min="0" step="0.01" value="' + escAttr(state.duesDraft != null ? state.duesDraft : (rate || "")) + '" oninput="state.duesDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'dues_rate_sqm\',\'duesDraft\',\'Monthly dues per sqm\')">Save rate</button>' +
+    '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:200px">Monthly dues per sqm (₱)<input id="duesRate" type="number" min="0" step="0.01" value="' + escAttr(state.duesDraft != null ? state.duesDraft : (rate || "")) + '" oninput="state.duesDraft=this.value;duesPreview()"></label><button class="btn primary" onclick="saveDuesRate()">Save rate</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (rate ? peso(rate) + " per sqm" : "not set yet") + '</b></span></div>' +
+    '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" ' + (state.duesRecalc === false ? "" : "checked") + ' onchange="state.duesRecalc=this.checked"> When I save a new rate, also update the unpaid monthly dues to it</label>' +
+    '<div id="duesPreview">' + duesPreviewHtml(state.duesDraft != null ? state.duesDraft : rate) + "</div>" +
     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">Residents rent a motor/motorcycle slot for one month or by the day. Set a rate for each. The board can change them at any time.</p>' +
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Monthly rate (₱ / month)<input id="motorRate" type="number" min="0" value="' + escAttr(state.motorDraft != null ? state.motorDraft : (mrate || "")) + '" oninput="state.motorDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate\',\'motorDraft\',\'Monthly parking rate\')">Update monthly</button>' +
@@ -156,6 +158,35 @@ function editUnitArea(unit) {
       logAct("Unit size set, " + unit + ": " + area + " sqm" + (n ? " (" + n + " unpaid monthly charge" + (n === 1 ? "" : "s") + " updated)" : ""), "Units");
       toast(unit + " is now " + area + " sqm" + (rate ? ", monthly dues " + peso(Math.round(area * rate * 100) / 100) : "") + (n ? ". " + n + " unpaid monthly charge" + (n === 1 ? "" : "s") + " updated." : "."));
     }
+  });
+}
+// The price calculator under "Dues settings": what a unit of each size pays at the rate being typed (floor area × rate).
+function duesPreviewHtml(raw) {
+  var rate = parseFloat(raw), units = sortedUnits();
+  if (!(rate > 0)) return '<p class="hint" style="margin:0">Type the price per square meter to see what every unit size will pay. It is worked out automatically (floor area × price).</p>';
+  var groups = {}, none = 0, total = 0;
+  units.forEach(function (r) { var a = Number(r.v.area) || 0; if (!(a > 0)) { none++; return; } groups[a] = (groups[a] || 0) + 1; total += Math.round(a * rate * 100) / 100; });
+  var sizes = Object.keys(groups).map(Number).sort(function (a, b) { return a - b; });
+  var rows = sizes.map(function (a) { return '<tr><td style="font-weight:700">' + a + ' sqm</td><td>' + a + " × " + peso(rate) + '</td><td style="font-weight:700">' + peso(Math.round(a * rate * 100) / 100) + "</td><td style=\"color:var(--muted)\">" + groups[a] + " unit" + (groups[a] === 1 ? "" : "s") + "</td></tr>"; }).join("");
+  return '<div style="border:1px solid var(--border2);border-radius:14px;overflow:hidden"><div style="padding:10px 14px;font-size:13px;font-weight:700;background:var(--soft,rgba(120,115,217,.08))">Price calculator · ' + peso(rate) + ' per sqm</div>' +
+    (rows ? '<div style="max-height:220px;overflow:auto"><table><thead><tr><th>SIZE</th><th>CALCULATION</th><th>MONTHLY DUES</th><th>UNITS</th></tr></thead><tbody>' + rows + "</tbody></table></div>" : '<p class="hint" style="margin:10px 14px">No unit has a floor area yet. Set it with “Edit size” in the table above.</p>') +
+    '<div style="padding:10px 14px;font-size:13px;color:var(--muted)">All units, one month: <b style="color:inherit">' + peso(total) + "</b>" + (none ? " · " + none + " unit" + (none === 1 ? " has" : "s have") + " no size yet" : "") + "</div></div>";
+}
+function duesPreview() { var el = document.getElementById("duesPreview"); if (el) el.innerHTML = duesPreviewHtml(state.duesDraft); }
+// Saves the dues rate per sqm; optionally brings the unpaid monthly dues (billed from floor area) up to the new rate.
+function saveDuesRate() {
+  var n = parseFloat(state.duesDraft);
+  if (!(n > 0)) return toast("Enter an amount above zero.");
+  act(async function () {
+    await put("setting", "dues_rate_sqm", "", { rate: n });
+    var k = 0;
+    if (state.duesRecalc !== false) {
+      var open = list("due").filter(function (r) { return !r.v.paid && Number(r.v.area) > 0 && Number(r.v.rate) > 0 && Number(r.v.rate) !== n; });
+      for (var i = 0; i < open.length; i++) { await put("due", open[i].id, open[i].v.unit, Object.assign({}, open[i].v, { rate: n, amount: Math.round(Number(open[i].v.area) * n * 100) / 100 })); k++; }
+    }
+    logAct("Monthly dues per sqm set to " + peso(n) + (k ? " (" + k + " unpaid monthly charge" + (k === 1 ? "" : "s") + " updated)" : ""), "Finance");
+    state.duesDraft = null;
+    toast("Monthly dues per sqm saved." + (k ? " " + k + " unpaid monthly charge" + (k === 1 ? "" : "s") + " updated to the new rate." : ""));
   });
 }
 function unitDuesCard() {
