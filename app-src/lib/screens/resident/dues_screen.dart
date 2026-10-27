@@ -275,9 +275,11 @@ class _ResDuesState extends State<ResDues> {
             '${peso(d.amount)} was due ${d.dueDate}. Pay it now and send your proof so the office can check it.',
             action: 'Pay ${peso(d.amount)}', onTap: () => _sendProof(context, due: d)));
       } else if (cd.days >= 0 && cd.days <= 2) {
-        items.add(_alert(context, Tone.warn, Icons.schedule_rounded, '${d.note} is ${cd.days == 0 ? 'due today' : 'due in ${cd.days} day${cd.days == 1 ? '' : 's'}'}',
-            '${peso(d.amount)} · ${d.dueDate}',
-            action: 'Pay now', onTap: () => _sendProof(context, due: d)));
+        items.add(_alert(context, cd.days == 0 ? Tone.bad : Tone.warn, Icons.schedule_rounded, '${d.note} is ${cd.days == 0 ? 'due TODAY' : 'due in ${cd.days} day${cd.days == 1 ? '' : 's'}'}',
+            cd.days == 0
+                ? '${peso(d.amount)} · ${d.dueDate}. Please pay within the day and send your proof before it ends, so your dashboard updates. Paid at the office? The office records it right away.'
+                : '${peso(d.amount)} · ${d.dueDate}. Send your proof before the due date so your dashboard updates.',
+            action: cd.days == 0 ? 'Pay and send proof' : 'Pay now', onTap: () => _sendProof(context, due: d)));
       }
     }
     final waiting = todo.where((d) => dueState(d) == 'pending').length;
