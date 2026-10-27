@@ -12,6 +12,9 @@ import '../shared/payment_widgets.dart';
 import 'admin_screens.dart';
 import 'finance_cards.dart';
 
+/// What the reminder says until the office edits it.
+const kReminderDefault = 'Please settle your dues when you can. Thank you!';
+
 class AdminFinance extends StatefulWidget {
   const AdminFinance({super.key});
 
@@ -118,22 +121,30 @@ class _AdminFinanceState extends State<AdminFinance> {
     );
   }
 
-  Future<void> _remindAll() async {
-    final list = app.needReminder;
-    if (list.isEmpty) {
-      msg(context, 'No charge is overdue or due in the next 7 days.');
-      return;
-    }
-    final units = {for (final d in list) d.unit};
-    final ok = await confirmDialog(
+  void _remindAll() {
+    final n7 = app.needReminder();
+    showFormSheet(
       context,
-      'Send reminders?',
-      '${list.length} unpaid charge${list.length == 1 ? '' : 's'} (${units.length} unit${units.length == 1 ? '' : 's'}) are overdue or due within 7 days. Each of those residents will see a reminder under Notifications.',
-      confirm: 'Send reminders',
+      title: 'Send reminders',
+      subtitle:
+          'Right now ${n7.length} unpaid charge${n7.length == 1 ? ' is' : 's are'} overdue or due within 7 days. Change the number of days to include more or fewer. Each resident sees the reminder under Notifications.',
+      fields: [
+        const FieldSpec('days', 'Include charges overdue or due within this many days', type: TextInputType.number, initial: '7'),
+        const FieldSpec('msg', 'Message to the residents (you can edit it)', lines: 3, initial: kReminderDefault),
+      ],
+      submit: 'Send reminders',
+      onSubmit: (v) {
+        final days = int.tryParse((v['days'] as String).trim());
+        if (days == null || days < 0 || days > 365) return 'Enter the number of days, from 0 to 365.';
+        final list = app.needReminder(days);
+        if (list.isEmpty) return 'No unpaid charge is overdue or due within $days day${days == 1 ? '' : 's'}.';
+        final n = app.remindAll(days: days, message: v['msg'] as String);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) msg(context, 'Reminders sent to $n unit${n == 1 ? '' : 's'} (${list.length} charge${list.length == 1 ? '' : 's'}).');
+        });
+        return null;
+      },
     );
-    if (!ok || !mounted) return;
-    final n = app.remindAll();
-    msg(context, 'Reminders sent to $n unit${n == 1 ? '' : 's'}.');
   }
 
   void _editCharge(Due d) {
@@ -537,10 +548,20 @@ class _AdminFinanceState extends State<AdminFinance> {
                   if (!d.paid) ...[
                     IconButton(onPressed: () => _editCharge(d), icon: const Icon(Icons.edit_outlined), tooltip: 'Change the amount'),
                     IconButton(
-                      onPressed: () {
-                        app.remindDue(d);
-                        msg(context, 'Reminder sent to ${d.unit}. They will see it under Notifications.');
-                      },
+                      onPressed: () => showFormSheet(
+                        context,
+                        title: 'Remind ${d.unit}',
+                        subtitle: '${d.note} · ${peso(d.amt)}. The resident sees this under Notifications.',
+                        fields: [FieldSpec('msg', 'Message to the resident (you can edit it)', lines: 3, initial: d.remindMsg.isEmpty ? kReminderDefault : d.remindMsg)],
+                        submit: 'Send reminder',
+                        onSubmit: (v) {
+                          app.remindDue(d, message: v['msg'] as String);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) msg(context, 'Reminder sent to ${d.unit}. They will see it under Notifications.');
+                          });
+                          return null;
+                        },
+                      ),
                       icon: const Icon(Icons.notifications_active_outlined),
                       tooltip: d.remindedOn.isEmpty ? 'Remind this unit' : 'Reminded ${d.remindedOn}. Tap to remind again',
                     ),

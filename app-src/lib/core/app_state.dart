@@ -126,8 +126,11 @@ class Due {
   /// The last day the office sent a reminder for this charge, and how many were sent.
   String remindedOn;
   int reminders;
+
+  /// The message the office wrote for the last reminder (shown to the resident).
+  String remindMsg;
   Due(this.id, this.unit, this.name, this.amount, this.note,
-      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0, this.remindedOn = '', this.reminders = 0});
+      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0, this.remindedOn = '', this.reminders = 0, this.remindMsg = ''});
   num get amt => amount;
 
   /// The day it was billed. Older charges without it use the time stored in their id.
@@ -1111,7 +1114,7 @@ class AppState extends ChangeNotifier {
                 : days == 0
                     ? 'is due today.'
                     : 'is due in $days day${days == 1 ? '' : 's'} (${d.dueDate}).';
-        out.add(['Reminder from the office (${d.remindedOn}): ${d.note} (${peso(d.amt)}) $state', days != null && days < 0 ? 'bad' : 'info']);
+        out.add(['Reminder from the office (${d.remindedOn})${d.remindMsg.isEmpty ? ':' : ': ${d.remindMsg} —'} ${d.note} (${peso(d.amt)}) $state', days != null && days < 0 ? 'bad' : 'info']);
       } else if (days != null && days >= 0 && days <= 3) {
         out.add(['${d.note} is due ${days == 0 ? 'today' : 'in $days day${days == 1 ? '' : 's'}'} (${d.dueDate}).', 'info']);
       }
@@ -1376,31 +1379,33 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: sends a reminder for one unpaid charge. The resident sees it under Notifications.
-  void remindDue(Due d) {
+  void remindDue(Due d, {String message = ''}) {
     if (d.paid) return;
     d.remindedOn = shortDate(DateTime.now());
     d.reminders++;
+    d.remindMsg = message.trim();
     logActivity('Reminder sent, ${d.unit}: ${d.note}', 'Finance');
     _n();
   }
 
   /// Unpaid charges that are overdue, due within 7 days, or have no due date.
-  List<Due> get needReminder => [
+  List<Due> needReminder([int days = 7]) => [
         for (final d in dues)
           if (!d.paid &&
               (d.dueDate.isEmpty ||
                   parseShortDate(d.dueDate) == null ||
-                  parseShortDate(d.dueDate)!.difference(DateTime.now()).inDays < 7))
+                  parseShortDate(d.dueDate)!.difference(DateTime.now()).inDays < days))
             d,
       ];
 
   /// Admin: reminds every unit in [needReminder]. Returns how many units were reminded.
-  int remindAll() {
-    final list = needReminder;
+  int remindAll({int days = 7, String message = ''}) {
+    final list = needReminder(days);
     final units = <String>{};
     for (final d in list) {
       d.remindedOn = shortDate(DateTime.now());
       d.reminders++;
+      d.remindMsg = message.trim();
       units.add(d.unit);
     }
     if (units.isNotEmpty) logActivity('Reminders sent to ${units.length} unit${units.length == 1 ? '' : 's'}', 'Finance');
