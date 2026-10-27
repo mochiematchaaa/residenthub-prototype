@@ -182,10 +182,36 @@ class Due {
   int checkedAt, lateFeeId, balanceOf, lateFor;
   String checkedNo;
   num partOf;
+
+  /// When the last reminder was sent (milliseconds, 0 = only the day is known), and whether the late charge was added by the system.
+  int remindedAt;
+  bool lateFeeAuto;
   Due(this.id, this.unit, this.name, this.amount, this.note,
       {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0, this.remindedOn = '', this.reminders = 0, this.remindMsg = '',
-      this.checkedAt = 0, this.lateFeeId = 0, this.balanceOf = 0, this.lateFor = 0, this.checkedNo = '', this.partOf = 0});
+      this.checkedAt = 0, this.lateFeeId = 0, this.balanceOf = 0, this.lateFor = 0, this.checkedNo = '', this.partOf = 0,
+      this.remindedAt = 0, this.lateFeeAuto = false});
   num get amt => amount;
+
+  /// When the last reminder went out, in milliseconds (0 = never).
+  int get remindedMs => remindedAt > 0 ? remindedAt : (parseShortDate(remindedOn)?.add(const Duration(hours: 9)).millisecondsSinceEpoch ?? 0);
+
+  /// "Reminded Oct 27, 4:30 PM · 2 times", or '' when nobody was reminded.
+  String get remindedLabel {
+    if (remindedMs == 0) return '';
+    final when = remindedAt > 0 ? clockText(DateTime.fromMillisecondsSinceEpoch(remindedAt)) : remindedOn;
+    return 'Reminded $when${reminders > 1 ? ' · $reminders times' : ''}';
+  }
+
+  bool remindedWithin(int hours) => remindedMs > 0 && DateTime.now().millisecondsSinceEpoch - remindedMs < hours * 3600000;
+
+  /// Days since the due date (0 = due today). Null when paid or there is no due date.
+  int? get daysLate {
+    if (paid) return null;
+    final x = parseShortDate(dueDate);
+    if (x == null) return null;
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day).difference(DateTime(x.year, x.month, x.day)).inDays;
+  }
 
   /// The day it was billed. Older charges without it use the time stored in their id.
   String get billed {
@@ -1090,6 +1116,67 @@ class AppState extends ChangeNotifier {
     _n();
   }
 
+  /// Late charge added by the system when a charge is still unpaid [lateFeeDays] days after its due date.
+  bool lateFeeOn = true;
+  int lateFeeDays = 1;
+
+  void setLateFee(bool on, int days, num pct) {
+    lateFeeOn = on;
+    lateFeeDays = days;
+    latePct = pct;
+    logActivity('Automatic late charge ${on ? 'on, $pct% after $days day${days == 1 ? '' : 's'}' : 'turned off'}', 'Settings');
+    _n();
+  }
+
+  /// Adds the late charge to every charge still unpaid after the waiting days. Skips charges the resident already sent a payment for,
+  /// charges the office answered "No" about, and charges that are themselves a late charge or a balance. Returns how many were added.
+  int autoLateFeeCheck() {
+    if (!lateFeeOn || role != Role.admin) return 0;
+    final pend = <String>{for (final p in proofs) if (p.status == 'Pending') '${p.unit}|${p.forText}'};
+    final todo = [
+      for (final d in dues)
+        if (!d.paid &&
+            d.daysLate != null &&
+            d.daysLate! >= lateFeeDays &&
+            d.amount > 0 &&
+            d.lateFeeId == 0 &&
+            d.checkedAt == 0 &&
+            d.lateFor == 0 &&
+            d.balanceOf == 0 &&
+            !d.note.startsWith('Late charge') &&
+            !pend.contains('${d.unit}|${d.note}'))
+          d,
+    ];
+    for (final d in todo) {
+      final amt = (d.amount * latePct).round() / 100;
+      if (amt <= 0) continue;
+      final lid = nextId();
+      dues.add(Due(lid, d.unit, d.name, amt, 'Late charge: ${d.note}',
+          dueDate: shortDate(DateTime.now().add(const Duration(days: 7))), billedOn: shortDate(DateTime.now()), lateFor: d.id));
+      d.lateFeeId = lid;
+      d.lateFeeAuto = true;
+      d.remindedOn = shortDate(DateTime.now());
+      d.remindedAt = DateTime.now().millisecondsSinceEpoch;
+      d.reminders++;
+      d.remindMsg = 'This charge is overdue, so a late charge of ${peso(amt)} was added. Please pay now and send your proof under Dues. If you already paid, send your payment details so it is removed.';
+      logActivity('Late charge added automatically, ${d.unit}: ${d.note} (${peso(amt)})', 'Finance');
+    }
+    if (todo.isNotEmpty) _n();
+    return todo.length;
+  }
+
+  /// A late charge added by the system is taken off again when the resident paid on time.
+  void _voidAutoLateFee(Due d, DateTime? paidDate) {
+    if (d.lateFeeId == 0 || !d.lateFeeAuto || paidDate == null) return;
+    final x = parseShortDate(d.dueDate);
+    if (x == null) return;
+    final lf = dues.where((e) => e.id == d.lateFeeId).firstOrNull;
+    if (lf == null || lf.paid) return;
+    if (DateTime(paidDate.year, paidDate.month, paidDate.day).isAfter(DateTime(x.year, x.month, x.day))) return;
+    dues.remove(lf);
+    logActivity('Late charge removed, ${d.unit}: ${d.note} (paid on time)', 'Finance');
+  }
+
   /// What is wrong (if anything) with a payment the resident sent. Clean ones can be posted automatically.
   ProofCheck proofCheck(PaymentProof p) {
     final why = <String>[];
@@ -1196,6 +1283,7 @@ class AppState extends ChangeNotifier {
     final String forText;
     if (due != null) {
       due.paid = true;
+      _voidAutoLateFee(due, parseShortDate(p.paidOn));
       forText = due.note;
     } else {
       forText = p.forText.isNotEmpty ? p.forText : 'Association dues';
@@ -1689,6 +1777,7 @@ class AppState extends ChangeNotifier {
     );
     final left = ((full - amt) * 100).round() / 100;
     d.paid = true;
+    _voidAutoLateFee(d, when);
     if (left > 0.009) {
       d.amount = amt;
       d.partOf = full;
@@ -1720,6 +1809,7 @@ class AppState extends ChangeNotifier {
     }
     if (notify) {
       d.remindedOn = shortDate(DateTime.now());
+      d.remindedAt = DateTime.now().millisecondsSinceEpoch;
       d.reminders++;
       d.remindMsg = message.trim().isEmpty ? payCheckNoMsg : message.trim();
       notes.add('reminder sent');
@@ -1737,6 +1827,7 @@ class AppState extends ChangeNotifier {
     final units = <String>{};
     for (final x in l) {
       x.due.remindedOn = shortDate(DateTime.now());
+      x.due.remindedAt = DateTime.now().millisecondsSinceEpoch;
       x.due.reminders++;
       x.due.remindMsg = message.trim().isEmpty ? payCheckAsk : message.trim();
       units.add(x.due.unit);
@@ -1750,6 +1841,7 @@ class AppState extends ChangeNotifier {
   void remindDue(Due d, {String message = ''}) {
     if (d.paid) return;
     d.remindedOn = shortDate(DateTime.now());
+    d.remindedAt = DateTime.now().millisecondsSinceEpoch;
     d.reminders++;
     d.remindMsg = message.trim();
     logActivity('Reminder sent, ${d.unit}: ${d.note}', 'Finance');
@@ -1760,6 +1852,7 @@ class AppState extends ChangeNotifier {
   List<Due> needReminder([int days = 7]) => [
         for (final d in dues)
           if (!d.paid &&
+              !d.remindedWithin(24) &&
               (d.dueDate.isEmpty ||
                   parseShortDate(d.dueDate) == null ||
                   parseShortDate(d.dueDate)!.difference(DateTime.now()).inDays < days))
@@ -1772,6 +1865,7 @@ class AppState extends ChangeNotifier {
     final units = <String>{};
     for (final d in list) {
       d.remindedOn = shortDate(DateTime.now());
+      d.remindedAt = DateTime.now().millisecondsSinceEpoch;
       d.reminders++;
       d.remindMsg = message.trim();
       units.add(d.unit);

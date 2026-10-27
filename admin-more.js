@@ -79,12 +79,13 @@ function viewFin() {
   var logHtml = dayLogCard(dues);
   var chargesHtml = '<div class="card fin-charges" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
     '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "paid" ? "active" : "") + '" onclick="set({finFilter:\'paid\',finPage:0})">Paid (' + paidDues.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
-    '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' +
+    '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' + lateWarnHtml(open) +
     tableRows(rows.map(function (r) {
       var d = r.v, od = !d.paid && isOverdue(d);
-      var chip = d.paid ? '<span class="chip good">Paid</span>' : od ? '<span class="chip bad">Overdue</span>' : '<span class="chip warn">Unpaid</span>';
-      return '<tr><td class="nw" style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + (billedOn(r.id, d) ? '<div class="cell-sub">Billed ' + esc(billedOn(r.id, d)) + "</div>" : "") + (d.paid ? '<div class="cell-sub">' + paidCell(paidInfo[r.id], d.paid).replace(/<\/?div[^>]*>/g, " ").replace(/<b>/g, "Paid by <b>") + "</div>" : "") + '</td><td class="nw" style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td class="nw"><b>' + peso(Number(d.amount)) + '</b><div style="margin-top:4px">' + chip + '</div></td><td><div class="row-actions">' +
-        (d.paid ? "" : '<button class="btn primary" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button><button class="btn" onclick="editDue(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" onclick="remindDue(\'' + escAttr(r.id) + '\')">Remind</button>') +
+      var late = d.paid ? null : daysLate(d), chip = d.paid ? '<span class="chip good">Paid</span>' : od ? '<span class="chip bad">⚠ Overdue by ' + late + " day" + (late === 1 ? "" : "s") + "</span>" : late === 0 ? '<span class="chip warn">⚠ Due today</span>' : '<span class="chip warn">Unpaid</span>';
+      var feeChip = d.paid ? "" : d.lateFeeId ? '<span class="chip bad">Late charge added</span>' : /^Late charge/.test(d.note || "") ? '<span class="chip bad">Late charge</span>' : "", remChip = d.paid || !remindedLabel(d) ? "" : '<span class="chip ' + (remindedRecently(d, 24) ? "good" : "") + '">' + esc(remindedLabel(d)) + "</span>";
+      return '<tr' + (od ? ' class="row-late"' : "") + '><td class="nw" style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + (billedOn(r.id, d) ? '<div class="cell-sub">Billed ' + esc(billedOn(r.id, d)) + "</div>" : "") + (feeChip || remChip ? '<div class="cell-sub row-tags">' + feeChip + remChip + "</div>" : "") + (d.paid ? '<div class="cell-sub">' + paidCell(paidInfo[r.id], d.paid).replace(/<\/?div[^>]*>/g, " ").replace(/<b>/g, "Paid by <b>") + "</div>" : "") + '</td><td class="nw" style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td class="nw"><b>' + peso(Number(d.amount)) + '</b><div style="margin-top:4px">' + chip + '</div></td><td><div class="row-actions">' +
+        (d.paid ? "" : '<button class="btn primary" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button><button class="btn" onclick="editDue(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" onclick="remindDue(\'' + escAttr(r.id) + '\')">' + (remindedLabel(d) ? "Remind again" : "Remind") + "</button>") +
         '<button class="btn danger" onclick="deleteDue(\'' + escAttr(r.id) + '\')">Delete</button></div></td></tr>';
     }), ["UNIT", "FOR", "DUE", "AMOUNT", "ACTIONS"], dues.length ? (fq ? "No charge matches your search." : "Nothing unpaid. Everyone is up to date.") : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + (shownDues.length > FIN_PAGE ? pagerHtml(shownDues.length, finPage, FIN_PAGE, "goFinPage") : "") + "</div>";
   var unitsHtml = unitDuesCard();
@@ -94,7 +95,7 @@ function viewFin() {
     '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" ' + (state.duesRecalc === false ? "" : "checked") + ' onchange="state.duesRecalc=this.checked"> When I save a new rate, also update the unpaid monthly dues to it</label>' +
     duesCalcHtml() +
     '<div id="duesPreview">' + duesPreviewHtml(state.duesDraft != null ? state.duesDraft : rate) + "</div>" +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>';
+    lateFeeSettingsHtml() + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>';
   var motorHtml = parkRatesCard();
   var deskHtml = '<div class="card" id="payDesk" style="display:flex;flex-direction:column;gap:10px"><h2>Record payment</h2>' +
     '<p class="hint" style="margin:0">The resident paid at the office or online but did not update the dashboard? Record it here. The charges you tick are marked paid and the resident\'s dues go down right away.</p>' +
@@ -276,6 +277,7 @@ function remindCandidates(days) {
   var today = Date.now();
   return list("due").filter(function (r) {
     if (r.v.paid) return false;
+    if (remindedRecently(r.v, 24)) return false;   // already reminded today: not again
     if (!r.v.dueDate) return true;
     var d = parseShort(r.v.dueDate); return !d || d.getTime() - today < days * 86400000;
   });
@@ -285,11 +287,11 @@ function remindDue(id) {
   var row = getRow("due", id); if (!row) return;
   openForm({
     title: "Remind " + row.value.unit,
-    intro: esc(row.value.note) + " · " + peso(Number(row.value.amount)) + ". The resident sees this under Notifications.",
+    intro: esc(row.value.note) + " · " + peso(Number(row.value.amount)) + ". The resident sees this under Notifications." + (remindedLabel(row.value) ? '<br><b style="color:' + (remindedRecently(row.value, 24) ? "#A02B1D" : "inherit") + '">' + esc(remindedLabel(row.value)) + "." + (remindedRecently(row.value, 24) ? " They were reminded less than a day ago, so you may not need to send another." : "") + "</b>" : ""),
     fields: [{ name: "msg", label: "Message to the resident (you can edit it)", type: "textarea", value: row.value.remindMsg || REMIND_DEFAULT }],
     submit: "Send reminder",
     onSubmit: async function (d) {
-      var v = Object.assign({}, row.value, { remindedOn: shortDate(new Date()), reminders: (Number(row.value.reminders) || 0) + 1, remindMsg: (d.msg || "").trim() });
+      var v = Object.assign({}, row.value, { remindedOn: shortDate(new Date()), remindedAt: Date.now(), reminders: (Number(row.value.reminders) || 0) + 1, remindMsg: (d.msg || "").trim() });
       await put("due", id, v.unit, v);
       logAct("Reminder sent, " + v.unit + ": " + v.note, "Finance");
       toast("Reminder sent to " + v.unit + ". They will see it under Notifications.");
@@ -298,10 +300,10 @@ function remindDue(id) {
 }
 // Reminds every unit with an unpaid charge that is overdue or due soon. The office edits the message and how many days ahead to include.
 function remindAll() {
-  var n7 = remindCandidates(7);
+  var n7 = remindCandidates(7), skipped = list("due").filter(function (r) { return !r.v.paid && remindedRecently(r.v, 24); }).length;
   openForm({
     title: "Send reminders",
-    intro: "Right now " + n7.length + " unpaid charge" + (n7.length === 1 ? " is" : "s are") + " overdue or due within 7 days. Change the number of days to include more or fewer. Each resident sees the reminder under Notifications.",
+    intro: "Right now " + n7.length + " unpaid charge" + (n7.length === 1 ? " is" : "s are") + " overdue or due within 7 days and not reminded in the last 24 hours." + (skipped ? " <b>" + skipped + " already reminded today " + (skipped === 1 ? "is" : "are") + " skipped</b> so nobody gets the same message twice." : "") + " Change the number of days to include more or fewer. Each resident sees the reminder under Notifications.",
     fields: [
       { name: "days", label: "Include charges overdue or due within this many days", type: "number", step: "1", value: 7 },
       { name: "msg", label: "Message to the residents (you can edit it)", type: "textarea", value: REMIND_DEFAULT }
@@ -314,7 +316,7 @@ function remindAll() {
       if (!list2.length) return { error: "No unpaid charge is overdue or due within " + days + " day" + (days === 1 ? "" : "s") + "." };
       var units = {}; list2.forEach(function (r) { units[r.v.unit] = 1; });
       var msg = (d.msg || "").trim(), nu = Object.keys(units).length;
-      for (var i = 0; i < list2.length; i++) await put("due", list2[i].id, list2[i].v.unit, Object.assign({}, list2[i].v, { remindedOn: shortDate(new Date()), reminders: (Number(list2[i].v.reminders) || 0) + 1, remindMsg: msg }));
+      for (var i = 0; i < list2.length; i++) await put("due", list2[i].id, list2[i].v.unit, Object.assign({}, list2[i].v, { remindedOn: shortDate(new Date()), remindedAt: Date.now(), reminders: (Number(list2[i].v.reminders) || 0) + 1, remindMsg: msg }));
       logAct("Reminders sent to " + nu + " unit(s)", "Finance");
       toast("Reminders sent to " + nu + " unit" + (nu === 1 ? "" : "s") + " (" + list2.length + " charge" + (list2.length === 1 ? "" : "s") + ").");
     }
@@ -507,6 +509,7 @@ function recordPayment() {
       var pend = list("proof").filter(function (o) { return o.unit === cur.unit && o.v.status === "Pending" && o.v.forText === cur.note; })[0];
       var method = state.payMethod || (pend && pend.v.method) || PAY_OFFICE, ref = state.payRef || (pend && pend.v.reference !== "—" ? pend.v.reference : "");
       await put("due", ids[k], row.unit, Object.assign({}, cur, { paid: true }));
+      await voidAutoLateFee(cur, when || new Date());
       var r = await issuePayment(cur.unit, cur.name || cur.unit, cur.note, method, ref, cur.amount, "", dateText);
       if (pend) await put("proof", pend.id, pend.unit, Object.assign({}, pend.v, { status: "Confirmed", method: method, reference: ref || "—", receiptNo: r.no, confirmedOn: r.date }));
       else { var qid = nextId(); await put("proof", qid, cur.unit, { id: qid, unit: cur.unit, payer: cur.name || cur.unit, forText: cur.note, method: method, reference: ref || "—", amount: cur.amount, date: r.date, status: "Confirmed", receiptNo: r.no, confirmedOn: r.date, direct: true }); }
@@ -603,6 +606,7 @@ async function postProof(id, auto) {
   var due = named || (other ? null : open[0]);
   if (due) {
     await put("due", due.id, p.unit, Object.assign({}, due, { paid: true }));
+    await voidAutoLateFee(due, parseShort(p.paidOn || ""));
     p.forText = due.note;
   } else if (!p.forText) p.forText = "Association dues";
   await put("proof", id, row.unit, p);

@@ -26,6 +26,8 @@ class _AdminShellState extends State<AdminShell> {
   void _autoPost() {
     final n = app.autoPostCheck();
     if (n > 0 && mounted) msg(context, '$n payment${n == 1 ? ' was' : 's were'} posted automatically.');
+    final late = app.autoLateFeeCheck();
+    if (late > 0 && mounted) msg(context, '$late late charge${late == 1 ? ' was' : 's were'} added automatically. Residents were notified.');
   }
 
   @override
