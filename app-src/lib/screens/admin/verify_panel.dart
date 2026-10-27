@@ -58,8 +58,12 @@ class _VerifyPanelState extends State<VerifyPanel> {
     );
   }
 
+  /// Waiting for more than 2 days.
+  bool _late(PaymentProof p) => DateTime.now().difference(p.sentAt) > const Duration(hours: 48);
+
   Widget _card(BuildContext context, PaymentProof p) {
     final chk = app.proofCheck(p);
+    final isLate = _late(p);
     final due = app.autoPostAt(p).difference(DateTime.now());
     final total = Duration(hours: app.autoPostHours <= 0 ? 24 : app.autoPostHours);
     final ready = !due.isNegative && due.inSeconds > 0 ? 1 - (due.inSeconds / total.inSeconds).clamp(0.0, 1.0) : 1.0;
@@ -71,7 +75,7 @@ class _VerifyPanelState extends State<VerifyPanel> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: t.fg.withValues(alpha: 0.35)),
+        border: Border.all(color: (isLate ? toneOf(context, Tone.bad).fg : t.fg).withValues(alpha: isLate ? 0.7 : 0.35), width: isLate ? 1.5 : 1),
         color: Theme.of(context).colorScheme.surface,
       ),
       child: Column(
@@ -83,7 +87,8 @@ class _VerifyPanelState extends State<VerifyPanel> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${p.unit} · ${p.payer}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                Text('Sent ${clockText(p.sentAt)}', style: TextStyle(color: muted(context), fontSize: 12)),
+                Text('Sent ${clockText(p.sentAt)}${isLate ? ' · waiting over 2 days' : ''}',
+                    style: TextStyle(color: isLate ? toneOf(context, Tone.bad).fg : muted(context), fontSize: 12, fontWeight: isLate ? FontWeight.w800 : FontWeight.w400)),
               ]),
             ),
             Text(peso(p.amount), style: hd(20)),
@@ -117,6 +122,11 @@ class _VerifyPanelState extends State<VerifyPanel> {
             ),
           ]),
           const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final c in chk.checks)
+              Pill('${c.ok == true ? '✓ ' : c.ok == false ? '✕ ' : '• '}${c.label}', tone: c.ok == true ? Tone.good : c.ok == false ? Tone.bad : Tone.info),
+          ]),
+          const SizedBox(height: 10),
           Pill(chk.ok ? 'Matches the charge' : 'Needs a look', tone: tone),
           if (chk.ok && scheduled) ...[
             const SizedBox(height: 10),
@@ -186,6 +196,11 @@ class _VerifyPanelState extends State<VerifyPanel> {
     final clean = widget.proofs.where((p) => app.proofCheck(p).ok).length;
     final flagged = widget.proofs.length - clean;
     final sum = widget.proofs.fold<num>(0, (a, p) => a + p.amount);
+    final sorted = [...widget.proofs]..sort((a, b) {
+        final la = _late(a) ? 0 : 1, lb = _late(b) ? 0 : 1;
+        return la != lb ? la - lb : a.sentAt.compareTo(b.sentAt);
+      });
+    final nLate = sorted.where(_late).length;
     return RCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,7 +240,15 @@ class _VerifyPanelState extends State<VerifyPanel> {
             Pill('$clean matching', tone: Tone.good),
             if (flagged > 0) Pill('$flagged need${flagged == 1 ? 's' : ''} a look', tone: Tone.warn),
           ]),
-          for (final p in widget.proofs) _card(context, p),
+          if (nLate > 0)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: toneOf(context, Tone.bad).bg, borderRadius: BorderRadius.circular(14)),
+              child: Text('$nLate payment${nLate == 1 ? ' has' : 's have'} been waiting more than 2 days. Check ${nLate == 1 ? 'it' : 'them'} first, then verify or reject.',
+                  style: TextStyle(color: toneOf(context, Tone.bad).fg, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            ),
+          for (final p in sorted) _card(context, p),
         ],
       ),
     );

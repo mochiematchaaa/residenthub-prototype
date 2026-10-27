@@ -127,8 +127,17 @@ class ProofCheck {
   final List<String> why;
   final num? expected;
   final Due? due;
-  const ProofCheck(this.why, this.expected, this.due);
+
+  /// One short line per thing the office looks at (amount, reference, charge, photo). ok: true good, false bad, null neutral.
+  final List<CheckItem> checks;
+  const ProofCheck(this.why, this.expected, this.due, [this.checks = const []]);
   bool get ok => why.isEmpty;
+}
+
+class CheckItem {
+  final bool? ok;
+  final String label;
+  const CheckItem(this.ok, this.label);
 }
 
 /// A facility booking (place, day, time, status Pending/Approved/Denied).
@@ -1105,6 +1114,14 @@ class AppState extends ChangeNotifier {
       final diff = (p.amount - expected).abs();
       why.add('Amount sent ${peso(p.amount)} but it should be ${peso(expected)} (${p.amount < expected ? 'short' : 'over'} by ${peso(diff)}).');
     }
+    final checks = <CheckItem>[];
+    if (expected == null) {
+      checks.add(const CheckItem(null, 'No fixed amount'));
+    } else {
+      final amtOk = (p.amount - expected).abs() <= 0.009;
+      checks.add(CheckItem(amtOk, amtOk ? 'Amount matches the charge' : 'Amount does not match'));
+    }
+    final whyBeforeRef = why.length;
     final ref = p.reference.trim();
     if (ref.length < 4 || ref == '—') {
       why.add('No reference number.');
@@ -1117,7 +1134,19 @@ class AppState extends ChangeNotifier {
         why.add('This reference number already has a receipt.');
       }
     }
-    return ProofCheck(why, expected, named);
+    final refOk = why.length == whyBeforeRef;
+    checks.add(CheckItem(refOk, refOk ? 'Reference number is new' : 'Reference number problem'));
+    if (named != null) {
+      checks.add(const CheckItem(true, 'Charge is open'));
+    } else if (isParking) {
+      checks.add(const CheckItem(true, 'Parking charge'));
+    } else if (p.forText == 'Other charge') {
+      checks.add(const CheckItem(null, 'Other charge'));
+    } else {
+      checks.add(const CheckItem(false, 'Charge not found'));
+    }
+    checks.add(p.image.isNotEmpty ? const CheckItem(true, 'Photo attached') : const CheckItem(null, 'No photo'));
+    return ProofCheck(why, expected, named, checks);
   }
 
   /// When a pending payment will be posted by itself.
@@ -1292,8 +1321,21 @@ class AppState extends ChangeNotifier {
                     ? 'is due today.'
                     : 'is due in $days day${days == 1 ? '' : 's'} (${d.dueDate}).';
         out.add(['Reminder from the office (${d.remindedOn})${d.remindMsg.isEmpty ? ':' : ': ${d.remindMsg} —'} ${d.note} (${peso(d.amt)}) $state', days != null && days < 0 ? 'bad' : 'info']);
-      } else if (days != null && days >= 0 && days <= 3) {
-        out.add(['${d.note} is due ${days == 0 ? 'today' : 'in $days day${days == 1 ? '' : 's'}'} (${d.dueDate}).', 'info']);
+      }
+    }
+    // Overdue from the day after the due date, and a heads-up 2 days ahead. Each one has a Pay now action.
+    final todayD = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    var nLate = 0;
+    for (final d in openMine) {
+      final due = parseShortDate(d.dueDate);
+      if (due == null) continue;
+      if (myProofs.any((p) => p.status == 'Pending' && p.forText == d.note)) continue;
+      final days = DateTime(due.year, due.month, due.day).difference(todayD).inDays;
+      if (days < 0 && nLate < 4) {
+        nLate++;
+        out.insert(0, ['Overdue by ${-days} day${days == -1 ? '' : 's'}: ${d.note} (${peso(d.amt)}). Tap to pay and send your proof.', 'bad', '${d.id}']);
+      } else if (days >= 0 && days <= 2) {
+        out.add(['${d.note} is due ${days == 0 ? 'today' : 'in $days day${days == 1 ? '' : 's'}'} (${d.dueDate}). Pay now so it does not turn overdue.', 'warn', '${d.id}']);
       }
     }
     for (final r in myDueRows) {

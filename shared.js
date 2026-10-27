@@ -206,7 +206,7 @@ function bellHtml(){
   return `<div class="bell-wrap">
     <button class="icon-btn" title="Notifications" aria-label="Notifications" onclick="set({bellOpen:!state.bellOpen})">${icon("bell")}${unread?`<span class="badge">${unread}</span>`:""}</button>
     ${state.bellOpen ? `<div class="bell-pop"><div class="bell-head"><b>Notifications</b><button onclick="set({bellSeen:true})">Mark all read</button></div>
-      ${items.length ? items.map(n=>`<button class="bell-item" onclick="set({view:'${n.v}',bellOpen:false,bellSeen:true})"><b>${n.t}</b><small>${n.s}</small></button>`).join("") : "<p>You're all caught up.</p>"}</div>` : ""}
+      ${items.length ? items.map(n=>`<button class="bell-item${n.tone==="bad"?" bad":n.tone==="warn"?" warn":""}" onclick="${n.pay?`bellPay('${String(n.pay).replace(/'/g,"")}')`:`set({view:'${n.v}',bellOpen:false,bellSeen:true})`}"><b>${n.t}</b><small>${n.s}</small></button>`).join("") : "<p>You're all caught up.</p>"}</div>` : ""}
   </div>`;
 }
 

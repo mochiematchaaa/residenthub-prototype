@@ -262,3 +262,42 @@ html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{
 :root:not([data-theme="dark"]){--muted:#495d7e}
 .rec2-av{background:linear-gradient(135deg,#6a58cf,#3f78b5)}
 :root[data-theme="dark"] .usage-sec .num{background:#b9d4ff;color:#0b2a5c}
+
+/* ---- Dues page: notices, how paying works, payment status ---- */
+.dz-alerts{display:flex;flex-direction:column;gap:10px}
+.dz-alert{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:20px;border:1.5px solid;flex-wrap:wrap}
+.dz-alert>div{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dz-alert b{font-size:15px}.dz-alert small{font-size:12.5px;line-height:1.4}
+.dz-alert-ic{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:18px}
+.dz-alert.bad{background:var(--bad-bg);border-color:var(--bad-fg);color:var(--bad-fg)}.dz-alert.bad .dz-alert-ic{background:var(--bad-fg);color:#fff}
+.dz-alert.warn{background:var(--warn-bg);border-color:var(--warn-fg);color:var(--warn-fg)}.dz-alert.warn .dz-alert-ic{background:var(--warn-fg);color:#fff}
+.dz-alert.info{background:var(--info-bg);border-color:var(--info-fg);color:var(--info-fg)}.dz-alert.info .dz-alert-ic{background:var(--info-fg);color:#fff}
+.dz-alert small{color:inherit;opacity:.9}
+.dz-flow{flex:1 1 340px;min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-self:stretch}
+.dz-flow.calm{opacity:.75}
+.dz-fs{display:flex;flex-direction:column;gap:3px;padding:12px;border-radius:16px;background:rgba(255,255,255,.7);border:1px solid var(--border)}
+.dz-fs span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--card);font:800 12px 'Source Sans 3',sans-serif;margin-bottom:2px}
+.dz-fs b{font-size:13.5px;color:var(--ink)}.dz-fs small{font-size:12px;line-height:1.35;color:var(--muted)}
+:root[data-theme="dark"] .dz-fs{background:rgba(255,255,255,.06)}
+.dz-lab select{width:100%;min-height:46px;padding:0 12px;border:1.5px solid var(--field-border);border-radius:14px;background:var(--field);color:var(--ink);font-size:14px}
+.dz-left{gap:16px}
+.pt-card{padding:14px 0;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:10px}
+.pt-card:first-of-type{border-top:0;padding-top:4px}
+.pt-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.pt-top b{font-size:14.5px;display:block}.pt-top small{font-size:12.5px;color:var(--muted)}
+.pt-trail{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pt-trail li{display:flex;gap:8px;align-items:flex-start;padding:10px;border-radius:14px;background:var(--beige);border:1px solid var(--border2)}
+.pt-trail li i{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:800 11px 'Source Sans 3',sans-serif;font-style:normal;background:var(--card);color:var(--muted);border:1.5px solid var(--border)}
+.pt-trail li span b{display:block;font-size:12.5px}.pt-trail li span small{display:block;font-size:11.5px;line-height:1.35;color:var(--muted)}
+.pt-trail li.done{background:var(--good-bg)}.pt-trail li.done i{background:var(--good-fg);color:#fff;border-color:transparent}
+.pt-trail li.now{background:var(--warn-bg)}.pt-trail li.now i{background:var(--warn-fg);color:#fff;border-color:transparent}
+.pt-trail li.bad{background:var(--bad-bg)}.pt-trail li.bad i{background:var(--bad-fg);color:#fff;border-color:transparent}
+.pt-act{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:640px){.pt-trail{grid-template-columns:1fr}}
+.bell-item.bad b{color:var(--bad-fg)}.bell-item.warn b{color:var(--warn-fg)}
+.note.note-bad{border-left:4px solid var(--bad-fg)}.note.note-warn{border-left:4px solid var(--warn-fg)}
+.vp-checks{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.vp-checks .chip{font-size:11.5px;padding:3px 10px;background:var(--beige);color:var(--muted)}
+.vp-checks .chip.good{background:var(--good-bg);color:var(--good-fg)}.vp-checks .chip.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.vp-late{padding:12px 14px;border-radius:14px;background:var(--bad-bg);color:var(--bad-fg);font-size:13px;margin-bottom:10px}
+.vp-item.late{border-color:var(--bad-fg)}

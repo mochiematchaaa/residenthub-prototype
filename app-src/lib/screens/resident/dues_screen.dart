@@ -10,6 +10,42 @@ import '../shared/payment_widgets.dart';
 import 'dues_widgets.dart';
 import 'resident_screens.dart';
 
+/// Opens the pay form: reference number, optional photo, amount. The proof goes to the office to check.
+void sendDueProof(BuildContext context, {Due? due}) {
+  final online = [
+    for (final m in app.enabledPayMethods)
+      if (m.name != AppState.officePay) m.name,
+  ];
+  if (online.isEmpty) {
+    msg(context, 'Online payment options are not set up yet. Please pay at the office.');
+    return;
+  }
+  final amount = due != null ? due.amount : app.myBalance;
+  showFormSheet(
+    context,
+    title: due == null ? 'Send payment proof' : 'Pay ${due.note}',
+    subtitle: 'Enter the reference number from your payment receipt and add a photo of your payment if you have one. It posts to your dues by itself if it matches, or the office verifies it. Paid at the office? Nothing to send; the office records it.',
+    photo: const PhotoSpec('photo', 'Photo of your payment (screenshot or receipt, optional)', hint: 'It helps the office check your payment faster.'),
+    choices: [ChoiceSpec('method', 'Paid through', online, online.first)],
+    fields: [
+      const FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank receipt'),
+      FieldSpec('amount', 'Amount paid (₱)', type: TextInputType.number, initial: amount > 0 ? amount.toStringAsFixed(2) : ''),
+    ],
+    submit: 'Send',
+    onSubmit: (v) {
+      final pic = v['photo'];
+      final err = app.submitProof(v['method'] as String, v['ref'] as String, v['amount'] as String,
+          due: due, image: pic is Uint8List ? proofImageText(pic) : '');
+      if (err == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) msg(context, 'Sent. The administrator will verify your payment.');
+        });
+      }
+      return err;
+    },
+  );
+}
+
 class ResDues extends StatefulWidget {
   const ResDues({super.key});
 
@@ -68,40 +104,7 @@ class _ResDuesState extends State<ResDues> {
     });
   }
 
-  void _sendProof(BuildContext context, {Due? due}) {
-    final online = [
-      for (final m in app.enabledPayMethods)
-        if (m.name != AppState.officePay) m.name,
-    ];
-    if (online.isEmpty) {
-      msg(context, 'Online payment options are not set up yet. Please pay at the office.');
-      return;
-    }
-    final amount = due != null ? due.amount : app.myBalance;
-    showFormSheet(
-      context,
-      title: due == null ? 'Send payment proof' : 'Pay ${due.note}',
-      subtitle: 'Enter the reference number from your payment receipt and add a photo of your payment if you have one. It posts to your dues by itself if it matches, or the office verifies it. Paid at the office? Nothing to send; the office records it.',
-      photo: const PhotoSpec('photo', 'Photo of your payment (screenshot or receipt, optional)', hint: 'It helps the office check your payment faster.'),
-      choices: [ChoiceSpec('method', 'Paid through', online, online.first)],
-      fields: [
-        const FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank receipt'),
-        FieldSpec('amount', 'Amount paid (₱)', type: TextInputType.number, initial: amount > 0 ? amount.toStringAsFixed(2) : ''),
-      ],
-      submit: 'Send',
-      onSubmit: (v) {
-        final pic = v['photo'];
-        final err = app.submitProof(v['method'] as String, v['ref'] as String, v['amount'] as String,
-            due: due, image: pic is Uint8List ? proofImageText(pic) : '');
-        if (err == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) msg(context, 'Sent. The administrator will verify your payment.');
-          });
-        }
-        return err;
-      },
-    );
-  }
+  void _sendProof(BuildContext context, {Due? due}) => sendDueProof(context, due: due);
 
   Widget _hero(BuildContext context, List<Due> all) {
     final paid = all.where((d) => d.paid).length;
@@ -219,6 +222,178 @@ class _ResDuesState extends State<ResDues> {
               width: double.infinity,
               child: OutlinedButton.icon(onPressed: _pop, icon: const Icon(Icons.celebration_rounded), label: const Text('Celebrate')),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _alert(BuildContext context, Tone tone, IconData icon, String title, String sub, {String? action, VoidCallback? onTap}) {
+    final t = toneOf(context, tone);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: t.fg.withValues(alpha: 0.35))),
+      child: Row(
+        children: [
+          Icon(icon, color: t.fg, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: t.fg, fontWeight: FontWeight.w800, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(sub, style: TextStyle(color: t.fg, fontSize: 12.5, height: 1.3)),
+              ],
+            ),
+          ),
+          if (action != null) ...[
+            const SizedBox(width: 8),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 14)),
+              onPressed: onTap,
+              child: Text(action),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Red for overdue charges, amber for charges due within 2 days, blue when a payment is waiting for the office.
+  Widget _alerts(BuildContext context, List<Due> todo) {
+    final items = <Widget>[];
+    var shownLate = 0;
+    for (final d in todo) {
+      final st = dueState(d);
+      if (st == 'pending') continue;
+      final cd = dueCountdown(d);
+      if (cd == null) continue;
+      if (cd.days < 0 && shownLate < 3) {
+        shownLate++;
+        items.add(_alert(context, Tone.bad, Icons.priority_high_rounded, '${cd.text}: ${d.note}',
+            '${peso(d.amount)} was due ${d.dueDate}. Pay it now and send your proof so the office can check it.',
+            action: 'Pay ${peso(d.amount)}', onTap: () => _sendProof(context, due: d)));
+      } else if (cd.days >= 0 && cd.days <= 2) {
+        items.add(_alert(context, Tone.warn, Icons.schedule_rounded, '${d.note} is ${cd.days == 0 ? 'due today' : 'due in ${cd.days} day${cd.days == 1 ? '' : 's'}'}',
+            '${peso(d.amount)} · ${d.dueDate}',
+            action: 'Pay now', onTap: () => _sendProof(context, due: d)));
+      }
+    }
+    final waiting = todo.where((d) => dueState(d) == 'pending').length;
+    if (waiting > 0) {
+      items.add(_alert(context, Tone.info, Icons.hourglass_top_rounded, '$waiting payment${waiting == 1 ? '' : 's'} sent, waiting for the office',
+          'You will see the result under Payment proofs sent below.'));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(children: items);
+  }
+
+  Widget _flow(BuildContext context) {
+    const steps = [
+      ('Pay', 'At the office, or by GCash, Maya or bank.'),
+      ('Send your proof', 'Reference number and a photo of your payment.'),
+      ('The office checks it', 'Posted by itself if it matches, or checked by the office.'),
+      ('Receipt', 'Your dues go down and your receipt appears.'),
+    ];
+    return RCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('How paying works', style: hd(17)),
+          const SizedBox(height: 10),
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(radius: 11, backgroundColor: lavDeep, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text.rich(TextSpan(children: [
+                      TextSpan(text: '${steps[i].$1}. ', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      TextSpan(text: steps[i].$2, style: TextStyle(color: muted(context))),
+                    ]), style: const TextStyle(fontSize: 13, height: 1.35)),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// One step of a payment's status trail. state: done | now | bad | todo.
+  Widget _step(BuildContext context, String label, String sub, String state) {
+    final t = toneOf(context, state == 'done' ? Tone.good : state == 'bad' ? Tone.bad : state == 'now' ? Tone.warn : Tone.info);
+    final cs = Theme.of(context).colorScheme;
+    final dim = state == 'todo';
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: dim ? cs.surfaceContainerHighest.withValues(alpha: 0.5) : t.bg, borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(state == 'done' ? Icons.check_circle_rounded : state == 'bad' ? Icons.cancel_rounded : state == 'now' ? Icons.schedule_rounded : Icons.radio_button_unchecked_rounded,
+                  size: 15, color: dim ? muted(context) : t.fg),
+              const SizedBox(width: 4),
+              Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: dim ? muted(context) : t.fg))),
+            ]),
+            const SizedBox(height: 3),
+            Text(sub, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.3, color: dim ? muted(context) : t.fg)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _proofCard(BuildContext context, PaymentProof p) {
+    final pending = p.status == 'Pending';
+    final rejected = p.status == 'Rejected';
+    final ok = p.status == 'Confirmed';
+    final checkSub = pending
+        ? (app.autoPostOn ? 'Posts by ${clockText(app.autoPostAt(p))}' : 'Waiting for the office')
+        : rejected
+            ? (p.reason.isEmpty ? 'Please check the reference number' : p.reason)
+            : (p.auto ? 'Posted automatically' : 'Verified by the office');
+    final due = rejected ? app.myDues.where((d) => !d.paid && d.note == p.forText).firstOrNull : null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.forText.isEmpty ? '${p.method} · ${peso(p.amount)}' : p.forText, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('${p.method} · Ref. ${p.reference} · ${peso(p.amount)}', style: TextStyle(color: muted(context), fontSize: 12)),
+              ]),
+            ),
+            Pill(ok ? (p.auto ? 'Posted' : 'Verified') : p.status),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            _step(context, 'Sent', p.date, 'done'),
+            _step(context, 'Office check', checkSub, ok ? 'done' : rejected ? 'bad' : 'now'),
+            _step(context, 'Receipt', ok ? p.receiptNo : (rejected ? 'Not issued' : 'After the check'), ok ? 'done' : 'todo'),
+          ]),
+          if (p.image.isNotEmpty || rejected)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(spacing: 8, children: [
+                if (p.image.isNotEmpty) TextButton(onPressed: () => showProofImage(context, p), child: const Text('View my photo')),
+                if (rejected) FilledButton(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 36)),
+                  onPressed: () => _sendProof(context, due: due),
+                  child: const Text('Send again'),
+                ),
+              ]),
+            ),
+          const Divider(height: 14),
         ],
       ),
     );
@@ -374,7 +549,9 @@ class _ResDuesState extends State<ResDues> {
       title: 'Dues & payment',
       subtitle: 'Your monthly charges and outstanding balance.',
       children: [
+        _alerts(context, todo),
         _hero(context, all),
+        if (todo.isNotEmpty) _flow(context),
         _trail(context, all),
         if (app.myUnitRec != null && app.myUnitRec!.area > 0 && app.duesRate > 0)
           RCard(
@@ -487,31 +664,7 @@ class _ResDuesState extends State<ResDues> {
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
                   child: Align(alignment: Alignment.centerLeft, child: Text('Payment proofs sent', style: hd(17))),
                 ),
-                for (final p in app.myProofs)
-                  ListTile(
-                    title: Text('${p.method} · ${peso(p.amount)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text(
-                      'Ref. ${p.reference} · ${p.date}'
-                      '${p.status == 'Rejected' && p.reason.isNotEmpty ? '\nReason: ${p.reason}' : ''}'
-                      '${p.status == 'Pending' && app.autoPostOn ? '\nPosts automatically by ${clockText(app.autoPostAt(p))} if it matches your charge.' : ''}'
-                      '${p.status == 'Confirmed' && p.auto ? '\nPosted automatically. Receipt ${p.receiptNo}.' : ''}',
-                    ),
-                    trailing: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Pill(p.status == 'Confirmed' ? (p.auto ? 'Posted' : 'Verified') : p.status),
-                        if (p.image.isNotEmpty)
-                          InkWell(
-                            onTap: () => showProofImage(context, p),
-                            child: const Padding(
-                              padding: EdgeInsets.only(top: 6),
-                              child: Text('View photo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, decoration: TextDecoration.underline)),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                for (final p in app.myProofs) _proofCard(context, p),
               ],
             ),
           ),
