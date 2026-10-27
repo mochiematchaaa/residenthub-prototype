@@ -51,15 +51,15 @@ function toggleDarkMode(){ set({ darkMode: !state.darkMode }); }
 // 'Good morning / afternoon / evening'.
 function greeting(){
   const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return tr(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
 }
 // Today's date as text, e.g. 'Friday, October 16'.
 function todayLabel(){
-  return new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  return new Date().toLocaleDateString(curLang()==="fil"?"fil-PH":"en-US",{weekday:"long",month:"long",day:"numeric"});
 }
 // One button in the side menu.
 function navBtn(key,label,tag){
-  return `<button class="${state.view===key?"active":""}" onclick="set({view:'${key}',bellOpen:false})">${icon(key)}<span>${label}</span>${tag?`<em class="nav-tag">${tag}</em>`:""}</button>`;
+  return `<button class="${state.view===key?"active":""}" onclick="set({view:'${key}',bellOpen:false})">${icon(key)}<span>${tr(label)}</span>${tag?`<em class="nav-tag">${tag}</em>`:""}</button>`;
 }
 /* Download a table as a .csv file (opens directly in Excel) */
 function exportCSV(filename, headers, rows){

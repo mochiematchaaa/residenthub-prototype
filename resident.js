@@ -136,15 +136,15 @@ function render() {
   var isHome = state.view === "home";
   keepFocus(function () {
     mountApp(app, '<div class="shell"><aside class="side"><div class="side-brand"><img src="logo.jpg" alt=""><span>ResidentHub</span></div>' +
-      '<div class="side-label">General</div><nav>' + navBtn("home", "Home") + navBtn("book", "Book a facility") + navBtn("res", "Reservations") + navBtn("dues", "Dues") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("events", "Events") + "</nav>" +
-      '<div class="side-label">Community</div><nav>' + navBtn("polls", "Polls") + navBtn("directory", "Directory") + navBtn("gr", "Complaints") + navBtn("docs", "Documents") + "</nav>" +
-      '<div class="side-label">Account</div><nav>' + navBtn("rental", "Unit status") + navBtn("settings", "Settings") + "</nav>" +
+      '<div class="side-label">' + tr("General") + '</div><nav>' + navBtn("home", "Home") + navBtn("book", "Book a facility") + navBtn("res", "Reservations") + navBtn("dues", "Dues") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("events", "Events") + "</nav>" +
+      '<div class="side-label">' + tr("Community") + '</div><nav>' + navBtn("polls", "Polls") + navBtn("directory", "Directory") + navBtn("gr", "Complaints") + navBtn("docs", "Documents") + "</nav>" +
+      '<div class="side-label">' + tr("Account") + '</div><nav>' + navBtn("rental", "Unit status") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><div class="side-user"><span class="avatar">' + esc(initials(myName())) + "</span><span><b>" + esc(myName()) + "</b><small>" + esc(myUnit()) + "</small></span></div>" +
-      '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>Log out</span></button></div></aside>" +
+      '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>" + tr("Log out") + "</span></button></div></aside>" +
       '<main><div class="topline">' + searchBox("Search events, polls, documents, contacts...") +
       '<div class="top-actions"><button class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode" onclick="toggleDarkMode()">' + icon(state.darkMode ? "sun" : "moon") + "</button>" + bellHtml() + "</div></div>" +
       '<div class="body ' + (isHome ? "with-aside" : "") + '"><div class="col">' + emergencyBanner() +
-      '<div class="pagehead"><p class="kicker">' + todayLabel() + "</p><h1>" + titles()[0] + "</h1><p>" + titles()[1] + "</p></div>" + view() + "</div>" + (isHome ? homeAside() : "") + "</div></main></div>");
+      '<div class="pagehead"><p class="kicker">' + todayLabel() + "</p><h1>" + tr(titles()[0]) + "</h1><p>" + tr(titles()[1]) + "</p></div>" + view() + "</div>" + (isHome ? homeAside() : "") + "</div></main></div>");
   });
 }
 
@@ -799,12 +799,7 @@ function saveUnitUsage() {
    Settings
    ========================================================================== */
 function viewSettings() {
-  var p = me();
-  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Profile</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">To change your name, email, mobile number or unit, ask the administration office.</p>' +
-    '<div class="kv"><span>Full name</span><b>' + esc(p.name || "—") + "</b><span>Email</span><b>" + esc(p.email) + "</b><span>Mobile</span><b>" + esc(p.phone || "Not added") + "</b><span>Unit</span><b>" + esc(p.unit || "—") + "</b></div></div>" +
-    '<div class="card"><h2 style="font-size:19px;margin-bottom:4px">Security</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">Change the password used to sign in to this account.</p><button class="btn primary" onclick="changePasswordForm()">Change password</button></div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Appearance</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">Currently in ' + (state.darkMode ? "dark" : "light") + ' mode.</p><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + "</button></div>" +
-    '<div class="card"><h2 style="font-size:19px;margin-bottom:4px">Where you\'re signed in</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">You are signed in on this device. If you used a shared computer or lost a phone, sign out everywhere.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="signOut()">Log out here</button><button class="btn" style="color:#A02B1D" onclick="signOut(true)">Log out on all devices</button></div></div></div></div>';
+  return acctView();   // account.js: all settings, profile, password, devices, language
 }
 // Popup form to change my password.
 function changePasswordForm() {
@@ -818,7 +813,7 @@ function changePasswordForm() {
       if (chk.error) return { error: "Your current password is not correct." };
       var u = await sb.auth.updateUser({ password: d.pw });
       if (u.error) return { error: u.error.message };
-      toast("Password changed.");
+      acctMarkPw(); toast("Password changed.");
     }
   });
 }
