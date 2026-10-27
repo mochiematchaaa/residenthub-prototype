@@ -124,7 +124,7 @@ String _chartXml(RChart c, RTable t, String sheet, int headRow, int r0, int r1) 
   final cats = [for (final r in t.rows) r.first.toString()];
   final q = "'${sheet.replaceAll("'", "''")}'";
   final catRef = '$q!\$A\$$r0:\$A\$$r1';
-  final fmt = '#,##0;;';
+  const fmt = '#,##0;;';
   final ser = StringBuffer();
   for (var i = 0; i < c.valueCols.length; i++) {
     final vc = c.valueCols[i];

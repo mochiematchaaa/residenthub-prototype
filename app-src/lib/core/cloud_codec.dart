@@ -614,7 +614,7 @@ void importRows(AppState a, Iterable<CRow> all) {
   a.motorRateDay = _num(st['motor_rate_daily'] ?? const {}, 'rate');
   a.duesRate = _num(st['dues_rate_sqm'] ?? const {}, 'rate');
   final ap = st['autopost'];
-  if (ap is Map) {
+  if (ap != null) {
     a.autoPostOn = ap['on'] != false;
     final h = _num(ap, 'hours').toInt();
     a.autoPostHours = h > 0 ? h : 24;
