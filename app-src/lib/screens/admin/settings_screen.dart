@@ -108,7 +108,7 @@ class _AdminSettingsState extends State<AdminSettings> {
                 Text('Late charge', style: hd(18)),
                 const SizedBox(height: 4),
                 Text(
-                  'When a charge is still unpaid after its due date, a late charge is added by itself, so an overdue charge never just sits there. It is skipped if the resident already sent their payment, and it is taken off again if they turn out to have paid on time.',
+                  'When a charge is still unpaid after its due date, a late charge is added by itself, so an overdue charge never just sits there. It is added during the first week of being overdue (older ones are handled with “Did they pay?”), skipped if the resident already sent their payment, and taken off again if they turn out to have paid on time.',
                   style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
                 ),
                 SwitchListTile(
