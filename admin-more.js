@@ -545,7 +545,7 @@ function verifyPanel(proofs) {
     return '<article class="vp-item' + (chk.ok ? "" : " review") + (it.late ? " late" : "") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + (it.late ? ' <span class="chip bad">Waiting over 2 days</span>' : "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
       (recip ? " · " + esc(recip.email) : "") + '</small></div><div class="vp-amt">' + peso(Number(p.amount) || 0) + "<small>amount sent</small></div></div>" +
       '<div class="vp-grid"><div><label>Paying for</label><b>' + esc(p.forText || "—") + '</b></div><div><label>Charge amount</label>' + match + '</div><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div>' +
-      '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div>" +
+      '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Date paid</label><b>' + esc(p.paidOn || "Not given") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div>" +
       '<div class="vp-photo"><label>Photo of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(it.r.id) + '\')" title="Open the photo"><img alt="Payment photo" src="' + escAttr(p.image) + '"><span>View photo</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" + checksHtml + status +
       '<div class="vp-actions"><button class="btn" onclick="openHistory(\'' + escAttr(p.unit) + '\')">Unit history</button><span style="flex:1"></span><button class="btn" onclick="rejectProof(\'' + escAttr(it.r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(it.r.id) + '\')">' + (it.auto ? "Post now" : "Verify &amp; post") + "</button></div></article>";
   }).join("") : '<div class="vp-empty"><b>Nothing waiting.</b><span>When a resident sends payment details they appear here, and post by themselves after ' + cfg.hours + ' hours if everything matches.</span></div>';
@@ -582,6 +582,11 @@ function proofCheck(r) {
     { ok: named || parking ? true : (p.forText === "Other charge" ? null : false), label: named || parking ? "Charge is open" : p.forText === "Other charge" ? "Other charge" : "Charge not found" },
     { ok: p.image ? true : null, label: p.image ? "Photo attached" : "No photo" }
   ];
+  var dueD = named ? parseShort(named.v.dueDate || "") : null, paidD = parseShort(p.paidOn || "");
+  if (paidD) {
+    var late = dueD ? Math.round((new Date(paidD.getFullYear(), paidD.getMonth(), paidD.getDate()) - new Date(dueD.getFullYear(), dueD.getMonth(), dueD.getDate())) / 86400000) : null;
+    checks.push(late == null ? { ok: null, label: "Paid on " + p.paidOn } : late <= 0 ? { ok: true, label: "Paid on time (" + p.paidOn + ")" } : { ok: null, label: "Paid " + late + " day" + (late === 1 ? "" : "s") + " after the due date" });
+  } else checks.push({ ok: null, label: "No payment date given" });
   return { why: why, due: named || null, expected: expected, ok: why.length === 0, checks: checks };
 }
 // Posts a payment: marks the charge paid, issues the receipt, closes the submission. auto = posted by the system after the waiting time.

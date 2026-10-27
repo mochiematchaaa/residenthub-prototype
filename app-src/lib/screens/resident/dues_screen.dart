@@ -21,21 +21,23 @@ void sendDueProof(BuildContext context, {Due? due}) {
     return;
   }
   final amount = due != null ? due.amount : app.myBalance;
+  final dueLine = due == null ? '' : 'Charge: ${due.note} · ${peso(due.amount)} · ${due.dueDate.isEmpty ? 'due upon receipt' : 'due ${due.dueDate}'}.\n';
   showFormSheet(
     context,
     title: due == null ? 'Send payment proof' : 'Pay ${due.note}',
-    subtitle: 'Enter the reference number from your payment receipt and add a photo of your payment if you have one. It posts to your dues by itself if it matches, or the office verifies it. Paid at the office? Nothing to send; the office records it.',
+    subtitle: '${dueLine}Enter the reference number from your payment receipt and add a photo of your payment if you have one. It posts to your dues by itself if it matches, or the office verifies it. Paid at the office? Nothing to send; the office records it.',
     photo: const PhotoSpec('photo', 'Photo of your payment (screenshot or receipt, optional)', hint: 'It helps the office check your payment faster.'),
     choices: [ChoiceSpec('method', 'Paid through', online, online.first)],
     fields: [
       const FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank receipt'),
       FieldSpec('amount', 'Amount paid (₱)', type: TextInputType.number, initial: amount > 0 ? amount.toStringAsFixed(2) : ''),
+      FieldSpec('paid', 'Date you paid', hint: 'Like ${shortDate(DateTime.now())}', initial: shortDate(DateTime.now())),
     ],
     submit: 'Send',
     onSubmit: (v) {
       final pic = v['photo'];
       final err = app.submitProof(v['method'] as String, v['ref'] as String, v['amount'] as String,
-          due: due, image: pic is Uint8List ? proofImageText(pic) : '');
+          due: due, image: pic is Uint8List ? proofImageText(pic) : '', paidOn: v['paid'] as String);
       if (err == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) msg(context, 'Sent. The administrator will verify your payment.');
@@ -43,6 +45,54 @@ void sendDueProof(BuildContext context, {Due? due}) {
       }
       return err;
     },
+  );
+}
+
+/// The "I have paid" button: first pick which of your own unpaid charges it was for (amount and due date shown), then send the proof.
+void payAChargeSheet(BuildContext context) {
+  final open = [
+    for (final d in app.myDues)
+      if (!d.paid && !app.myProofs.any((p) => p.status == 'Pending' && p.forText == d.note)) d,
+  ];
+  if (open.isEmpty) {
+    msg(context, 'You have no unpaid charges to pay right now.');
+    return;
+  }
+  if (open.length == 1) {
+    sendDueProof(context, due: open.first);
+    return;
+  }
+  showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    builder: (ctx) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('What did you pay for?', style: hd(22)),
+          const SizedBox(height: 4),
+          Text('Pick one of your unpaid charges.', style: TextStyle(color: muted(ctx))),
+          const SizedBox(height: 8),
+          for (final d in open)
+            Builder(builder: (_) {
+              final cd = dueCountdown(d);
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(d.note, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('${peso(d.amount)} · ${d.dueDate.isEmpty ? 'due upon receipt' : 'due ${d.dueDate}'}${cd != null && cd.days < 0 ? ' · ${cd.text}' : ''}'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  sendDueProof(context, due: d);
+                },
+              );
+            }),
+        ],
+      ),
+    ),
   );
 }
 
@@ -372,7 +422,7 @@ class _ResDuesState extends State<ResDues> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(p.forText.isEmpty ? '${p.method} · ${peso(p.amount)}' : p.forText, style: const TextStyle(fontWeight: FontWeight.w800)),
-                Text('${p.method} · Ref. ${p.reference} · ${peso(p.amount)}', style: TextStyle(color: muted(context), fontSize: 12)),
+                Text('${p.method} · Ref. ${p.reference} · ${peso(p.amount)}${p.paidOn.isEmpty ? '' : ' · paid ${p.paidOn}'}', style: TextStyle(color: muted(context), fontSize: 12)),
               ]),
             ),
             Pill(ok ? (p.auto ? 'Posted' : 'Verified') : p.status),
@@ -649,7 +699,7 @@ class _ResDuesState extends State<ResDues> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _sendProof(context),
+                  onPressed: () => payAChargeSheet(context),
                   icon: const Icon(Icons.send_rounded),
                   label: const Text('I have paid - send reference no.'),
                 ),
