@@ -469,19 +469,7 @@ List<CRow> _demoRows() {
       });
     }
   }
-  // A special assessment is billed to every occupied unit, not only one.
-  for (final u in occ) {
-    final sid = tid();
-    r('due', sid, u.label, {
-      'id': sid,
-      'unit': u.label,
-      'name': u.house,
-      'amount': 800,
-      'billedOn': _sd(_off(-1)),
-      'note': 'Special assessment - elevator repair',
-      'dueDate': _sd(_off(9)),
-    });
-  }
+  // The elevator repair is paid by the corporation (it is in Expenses), so residents are not billed for it.
 
   // ---- expenses (administrator only), six months
   var rc = 4100;

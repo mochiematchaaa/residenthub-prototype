@@ -1900,6 +1900,7 @@ class AppState extends ChangeNotifier {
     final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter a valid amount.';
     final newNote = (note ?? oldNote).trim();
+    final sameAmt = same.every((x) => (x.amount - d.amount).abs() < 0.005);
     if (newNote.isEmpty) return 'Add a short description.';
     var due = d.dueDate;
     if (dueRaw != null) {
@@ -1916,7 +1917,7 @@ class AppState extends ChangeNotifier {
       for (final p in proofs.where((p) => p.status == 'Pending' && p.unit == x.unit && p.forText == oldNote)) {
         p.forText = newNote;
       }
-      x.amount = a;
+      if (!(allUnits && !sameAmt && (a - old).abs() < 0.005)) x.amount = a;   // different amounts per unit: keep each unit's own unless a new one was typed
       x.note = newNote;
       x.dueDate = due;
     }

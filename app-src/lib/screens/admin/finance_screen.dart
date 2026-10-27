@@ -116,6 +116,88 @@ class _AdminFinanceState extends State<AdminFinance> {
     );
   }
 
+  /// One line for each kind of charge (same description), so a whole kind can be changed or removed in one go.
+  Widget _chargeTypes(BuildContext context) {
+    final groups = <String, List<Due>>{};
+    for (final d in app.dues) {
+      groups.putIfAbsent(d.note, () => []).add(d);
+    }
+    final rows = [
+      for (final e in groups.entries)
+        if (e.value.any((d) => !d.paid)) e,
+    ]..sort((a, b) => b.value.where((d) => !d.paid).length.compareTo(a.value.where((d) => !d.paid).length));
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return RCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const IconBadge(Icons.tune_rounded, accent: true),
+            const SizedBox(width: 12),
+            Expanded(child: Text('All charges, edit as a whole', style: hd(17))),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+              'One line for each kind of charge. "Edit all" changes the description, amount or due date for every unit\'s unpaid charge of that kind at once. Paid charges are never touched. To change just one unit, use the pencil on its row below.',
+              style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
+          const SizedBox(height: 8),
+          for (final e in rows)
+            Builder(builder: (context) {
+              final unpaid = e.value.where((d) => !d.paid).toList();
+              final amts = {for (final d in unpaid) d.amt};
+              final dues = {for (final d in unpaid) d.dueDate.isEmpty ? 'On receipt' : d.dueDate};
+              return Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(e.key, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${{for (final d in e.value) d.unit}.length} units · ${unpaid.length} unpaid${e.value.length > unpaid.length ? ' · ${e.value.length - unpaid.length} paid' : ''}\n'
+                      '${amts.length == 1 ? peso(amts.first) : 'Different amounts (${amts.length})'} · ${dues.length == 1 ? 'due ${dues.first}' : 'different due dates (${dues.length})'}',
+                      style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, children: [
+                      FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 36)), onPressed: () => _editCharge(unpaid.first, all: true), child: const Text('Edit all')),
+                      OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 36)), onPressed: () => _removeAll(e.key), child: const Text('Remove unpaid')),
+                    ]),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  void _removeAll(String note) {
+    final n = app.dues.where((d) => !d.paid && d.note == note).length;
+    if (n == 0) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove “$note”?'),
+        content: Text('This removes $n unpaid charge${n == 1 ? '' : 's'} from the residents\' dues. Paid ones stay.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              app.editCharge(app.dues.firstWhere((d) => !d.paid && d.note == note), '', remove: true);
+              Navigator.pop(ctx);
+              if (mounted) msg(context, 'Removed $n unpaid charge${n == 1 ? '' : 's'}.');
+            },
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _remindAll() {
     final n7 = app.needReminder();
     final skipped = app.dues.where((d) => !d.paid && d.remindedWithin(24)).length;
@@ -143,20 +225,20 @@ class _AdminFinanceState extends State<AdminFinance> {
     );
   }
 
-  void _editCharge(Due d) {
+  void _editCharge(Due d, {bool all = false}) {
     final same = app.dues.where((x) => !x.paid && x.note == d.note).length;
     const one = 'This unit only', rm = 'Remove it from all units (unpaid ones)';
     final many = 'All units: $same unpaid charge${same == 1 ? '' : 's'} named this';
     showFormSheet(
       context,
       title: 'Change charge',
-      subtitle: '${d.unit}${d.area > 0 && d.rate > 0 ? '\nWorked out as ${d.area} sqm × ${peso(d.rate)} = ${peso(d.area * d.rate)}.' : ''}\nChange the description, amount or due date. Pick "All units" to change every unit\'s unpaid charge with this description in one go. Paid ones are never touched.',
+      subtitle: '${d.unit}${d.area > 0 && d.rate > 0 ? '\nWorked out as ${d.area} sqm × ${peso(d.rate)} = ${peso(d.area * d.rate)}.' : ''}\nChange the description, amount or due date. Pick "All units" to change every unit\'s unpaid charge with this description in one go. Paid ones are never touched.${same > 1 && app.dues.where((x) => !x.paid && x.note == d.note).any((x) => (x.amount - d.amount).abs() > 0.005) ? '\nThese units pay different amounts. Leave the amount as it is to keep each unit\'s own amount; type a new amount only if everyone should pay that same amount.' : ''}',
       fields: [
         FieldSpec('note', 'Description', initial: d.note),
         FieldSpec('amount', 'Amount (₱)', type: const TextInputType.numberWithOptions(decimal: true), initial: d.amt.toString()),
         FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 30, 2026', initial: d.dueDate),
       ],
-      choices: [ChoiceSpec('scope', 'Apply to', same > 1 ? [one, many, rm] : [one, rm], one)],
+      choices: [ChoiceSpec('scope', 'Apply to', same > 1 ? [one, many, rm] : [one, rm], all && same > 1 ? many : one)],
       submit: 'Save',
       onSubmit: (v) {
         final scope = v['scope'] as String;
@@ -365,6 +447,7 @@ class _AdminFinanceState extends State<AdminFinance> {
         ],
         if (tab == 'Charges') ...[
           const ImportBar(['charges', 'payments']),
+          _chargeTypes(context),
           RCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

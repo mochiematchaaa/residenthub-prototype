@@ -168,12 +168,7 @@
         R("due", xid, u.label, { id: xid, unit: u.label, name: u.house, amount: 300, note: "Motor parking rental", dueDate: sd(dayOff(1 + Math.floor(hi / 6) % 5)) });
       }
     });
-    /* a special assessment is billed to every occupied unit, not only one */
-    U.forEach(function (u) {
-      if (u.status !== "Occupied") return;
-      var sid = tid();
-      R("due", sid, u.label, { id: sid, unit: u.label, name: byUnit[u.label].name, amount: 800, note: "Special assessment - elevator repair", dueDate: sd(dayOff(9)) });
-    });
+    /* The elevator repair is paid by the corporation (see Expenses), so residents are not billed for it. */
 
     /* ---------- expenses (administrator only), six months ---------- */
     var rc = 4100;
@@ -473,10 +468,9 @@
     });
     return old;
   }
-  /* One-time tidy of data saved earlier: the parking sticker fee and the parking rental are one thing ("Motor parking rental"), and the
-     elevator special assessment that only Unit 3B had is billed to every unit that has a household. */
+  /* One-time tidy of data saved earlier: the parking sticker fee and the parking rental are one thing ("Motor parking rental"). */
   function fixup(x) {
-    if (x.fix16) return x;
+    if (x.fix16) return fix17(x);
     x.fix16 = true;
     var recs = x.records || [], OLD = "Parking sticker fee", NEW = "Motor parking rental";
     recs.forEach(function (r) {
@@ -484,14 +478,19 @@
       if (r.kind === "due" && v.note === OLD) v.note = NEW;
       if ((r.kind === "proof" || r.kind === "payment") && v.forText === OLD) v.forText = NEW;
     });
-    var EL = "Special assessment - elevator repair", sa = recs.filter(function (r) { return r.kind === "due" && r.value && r.value.note === EL; });
-    if (sa.length === 1) {
-      var base = sa[0].value, seq = 0;
-      recs.filter(function (r) { return r.kind === "unit" && r.value && r.value.status === "Occupied" && r.id !== sa[0].unit; }).forEach(function (u) {
-        var id = Date.now() + (++seq);
-        recs.push({ kind: "due", id: String(id), unit: u.id, value: { id: id, unit: u.id, name: u.value.name, amount: base.amount, note: EL, dueDate: base.dueDate, billedOn: base.billedOn || "" } });
-      });
-    }
+    try { localStorage.setItem(KEY, JSON.stringify(x)); } catch (e) { }
+    return fix17(x);
+  }
+  /* The elevator repair is not something residents pay: the corporation pays it (it is in Expenses). Unpaid resident charges for it are removed. */
+  function fix17(x) {
+    if (x.fix17) return x;
+    x.fix17 = true;
+    var EL = "Special assessment - elevator repair";
+    x.records = (x.records || []).filter(function (r) {
+      if (r.kind === "due" && r.value && r.value.note === EL && !r.value.paid) return false;
+      if (r.kind === "proof" && r.value && r.value.forText === EL && r.value.status === "Pending") return false;
+      return true;
+    });
     try { localStorage.setItem(KEY, JSON.stringify(x)); } catch (e) { }
     return x;
   }
