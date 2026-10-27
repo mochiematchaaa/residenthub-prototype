@@ -89,6 +89,17 @@ class Unit {
       {this.statusNote = '', this.statusDate = '', this.usageStatus = '', this.usageRemark = '', this.area = 0, this.dueDay = 0, Map<String, String>? usageInfo})
       : usageInfo = usageInfo ?? {};
 
+  /// The household record the office keeps (shown to the resident on their dashboard).
+  String email = '', moveIn = '', members = '', pets = '', vehicles = '';
+  String emergencyName = '', emergencyRelation = '', emergencyPhone = '';
+
+  /// Shown to the resident / kept private for the office.
+  String noteResident = '', noteOffice = '', profileBy = '';
+  int residents = 0;
+
+  /// When the office last saved the record (milliseconds, 0 = never).
+  int profileUpdated = 0;
+
   /// Short-term rentals and home businesses need the administrator's approval.
   bool get needsApproval => usage == 'shortterm' || usage == 'business';
 }
@@ -516,6 +527,7 @@ class AppState extends ChangeNotifier {
     dues.clear();
     motorRate = 0;
     motorRateDay = 0;
+    parkSizesSaved = [];
     duesRate = 0;
     parking.clear();
     slots.clear();
@@ -1009,8 +1021,10 @@ class AppState extends ChangeNotifier {
     if (named != null) {
       expected = named.amt;
     } else if (isParking) {
-      if (motorRate > 0) {
-        expected = motorRate;
+      final req = p.slot.isEmpty ? null : parking.where((r) => r.unit == p.unit && r.slot == p.slot).firstOrNull;
+      final mr = (req != null && req.amount > 0) ? req.amount : parkRatesFor(p.slot.isEmpty ? 'Regular' : slotSize(p.slot)).month;
+      if (mr > 0) {
+        expected = mr;
       } else {
         why.add('The parking rate is not set, so the amount cannot be checked.');
       }
@@ -1167,6 +1181,10 @@ class AppState extends ChangeNotifier {
 
   List<List<String>> get myNotifs {
     final out = <List<String>>[];
+    final rec = myUnitRec;
+    if (rec != null && rec.profileUpdated > 0 && DateTime.now().millisecondsSinceEpoch - rec.profileUpdated < 7 * 86400000) {
+      out.add(['The office updated your household record on ${shortDate(DateTime.fromMillisecondsSinceEpoch(rec.profileUpdated))}. You can see it on your dashboard.', 'info']);
+    }
     for (final b in myBookings) {
       if (b.status == 'Approved') {
         out.add(['Your ${b.place} booking (${b.when}) was approved.', 'good']);
@@ -1602,8 +1620,74 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  /// What a rental costs: the monthly rate, or the daily rate times [days].
-  num parkAmount(String plan, int days) => plan == 'day' ? motorRateDay * (days < 1 ? 1 : days) : motorRate;
+  /// The rates the office saved for each slot size. Empty until they are saved.
+  List<ParkSize> parkSizesSaved = [];
+
+  /// Every slot size with its rates. Until the office sets them they come from the single rates.
+  List<ParkSize> get parkSizes => parkSizesSaved.isNotEmpty
+      ? parkSizesSaved
+      : [for (final z in kParkSizeDefaults) ParkSize(z.$1, z.$2, (motorRate * z.$3 / 10).round() * 10, (motorRateDay * z.$3).round())];
+
+  /// The rates of a size name (Regular when the name is unknown).
+  ParkSize parkRatesFor(String size) {
+    final all = parkSizes;
+    return all.where((z) => z.name == size).firstOrNull ?? all.where((z) => z.name == 'Regular').firstOrNull ?? all.first;
+  }
+
+  /// The size of a slot by its name.
+  String slotSize(String id) => slots.where((s) => s.id == id).firstOrNull?.size ?? 'Regular';
+
+  /// Admin: saves the rates of every slot size. The Regular size also keeps the old single rates in step.
+  String? setParkSizes(List<ParkSize> list) {
+    for (final z in list) {
+      if (z.month <= 0) return 'Enter a monthly rate for the ${z.name} slot.';
+    }
+    parkSizesSaved = list;
+    final reg = list.where((z) => z.name == 'Regular').firstOrNull;
+    if (reg != null) {
+      motorRate = reg.month;
+      motorRateDay = reg.day;
+    }
+    logActivity('Parking rates by slot size saved', 'Finance');
+    _n();
+    return null;
+  }
+
+  /// Admin: changes the size of a slot. The next resident pays the rate of this size.
+  void setSlotSize(ParkingSlot s, String size) {
+    s.size = size;
+    logActivity('Parking slot ${s.id} set to $size', 'Parking');
+    _n();
+  }
+
+  /// What a rental costs: the monthly rate, or the daily rate times [days], for a slot [size].
+  num parkAmount(String plan, int days, {String size = 'Regular'}) {
+    final r = parkRatesFor(size);
+    return plan == 'day' ? r.day * (days < 1 ? 1 : days) : r.month;
+  }
+
+  /// Admin: saves the household record of a unit. The resident sees it on their dashboard.
+  void saveRecord(Unit u, Map<String, String> v, {int residents = 0}) {
+    String t(String k) => (v[k] ?? '').trim();
+    u.name = t('name').isEmpty ? '—' : t('name');
+    u.type = t('type').isEmpty ? u.type : t('type');
+    u.contact = t('contact').isEmpty ? '—' : t('contact');
+    u.email = t('email');
+    u.moveIn = t('moveIn');
+    u.members = t('members');
+    u.pets = t('pets');
+    u.vehicles = t('vehicles');
+    u.emergencyName = t('emergencyName');
+    u.emergencyRelation = t('emergencyRelation');
+    u.emergencyPhone = t('emergencyPhone');
+    u.noteResident = t('noteResident');
+    u.noteOffice = t('noteOffice');
+    u.residents = residents;
+    u.profileUpdated = DateTime.now().millisecondsSinceEpoch;
+    u.profileBy = adminName;
+    logActivity('Resident record updated, ${u.unit}', 'Units');
+    _n();
+  }
 
   /// Writes a rental on a slot: who has it, the plan, the dates and the charge.
   void _stamp(ParkingSlot s, String unit, String plan, int days, num amount) {
@@ -1684,10 +1768,10 @@ class AppState extends ChangeNotifier {
     final s = slots.where((x) => x.id == id).firstOrNull;
     if (s == null || s.used || heldSlots.containsKey(id)) return 'That slot was just taken. Please pick another.';
     final daily = plan == 'day';
-    if (daily && motorRateDay <= 0) return 'Daily rental is not available yet.';
+    if (daily && parkRatesFor(s.size).day <= 0) return 'Daily rental is not available yet.';
     if (daily && (days < 1 || days > 365)) return 'Enter 1 to 365 days.';
     final d = daily ? days : 0;
-    parking.add(ParkingReq(myUnit, myHousehold, slot: id, amount: parkAmount(plan, d), plan: daily ? 'day' : 'month', days: d));
+    parking.add(ParkingReq(myUnit, myHousehold, slot: id, amount: parkAmount(plan, d, size: s.size), plan: daily ? 'day' : 'month', days: d));
     logActivity('Motor parking slot $id reserved (${parkPlanText(daily ? 'day' : 'month', d)}), $myUnit', 'Parking');
     _n();
     return null;
@@ -1722,7 +1806,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: adds [raw] more motor parking slots (M-01, M-02, ...). New names never reuse a name that is taken.
-  String? addSlots(String raw) {
+  String? addSlots(String raw, {String size = 'Regular'}) {
     final n = int.tryParse(raw.trim());
     if (n == null || n < 1 || n > 200) return 'Enter how many slots to add (1 to 200).';
     final taken = {for (final s in slots) s.id};
@@ -1736,7 +1820,7 @@ class AppState extends ChangeNotifier {
       top++;
       final id = 'M-${top.toString().padLeft(2, '0')}';
       if (taken.add(id)) {
-        slots.add(ParkingSlot(id));
+        slots.add(ParkingSlot(id)..size = size);
         added++;
       }
     }
@@ -1753,7 +1837,7 @@ class AppState extends ChangeNotifier {
     if (name == s.id) return null;
     if (slots.any((x) => x != s && x.id.toLowerCase() == name.toLowerCase())) return '$name already exists.';
     final i = slots.indexOf(s);
-    final renamed = ParkingSlot(name, s.unit, s.plan, s.from, s.until, s.amount);
+    final renamed = ParkingSlot(name, s.unit, s.plan, s.from, s.until, s.amount)..size = s.size;
     slots[i] = renamed;
     slots.sort((a, b) => naturalCompare(a.id, b.id));
     logActivity('Parking slot ${s.id} renamed to $name', 'Parking');

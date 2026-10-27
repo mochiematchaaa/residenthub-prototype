@@ -41,14 +41,15 @@ class ResParking extends StatelessWidget {
   const ResParking({super.key, this.tab = false});
 
   void _reserve(BuildContext context, ParkingSlot s) {
-    final monthLabel = 'Monthly (1 month)${app.motorRate > 0 ? ' · ${peso(app.motorRate)}' : ''}';
-    final dayLabel = 'Daily · ${peso(app.motorRateDay)} per day';
-    final hasDaily = app.motorRateDay > 0;
-    final options = [if (app.motorRate > 0 || !hasDaily) monthLabel, if (hasDaily) dayLabel];
+    final rates = app.parkRatesFor(s.size);
+    final monthLabel = 'Monthly (1 month)${rates.month > 0 ? ' · ${peso(rates.month)}' : ''}';
+    final dayLabel = 'Daily · ${peso(rates.day)} per day';
+    final hasDaily = rates.day > 0;
+    final options = [if (rates.month > 0 || !hasDaily) monthLabel, if (hasDaily) dayLabel];
     showFormSheet(
       context,
-      title: 'Reserve ${s.id}',
-      subtitle: 'Choose how long you will rent it. The slot is held for you. Pay the rental and send the payment details, then the office approves it.',
+      title: 'Reserve ${s.id} · ${s.size} slot',
+      subtitle: 'This is a ${s.size.toLowerCase()} slot${rates.sqm > 0 ? ' (${rates.sqm} sqm)' : ''}, so the price is set for that size. Choose how long you will rent it. The slot is held for you. Pay the rental and send the payment details, then the office approves it.',
       choices: [ChoiceSpec('plan', 'Rental', options, options.first)],
       fields: [
         if (hasDaily) FieldSpec('days', 'Number of days', type: TextInputType.number, initial: '1', onlyWhenKey: 'plan', onlyWhenValue: dayLabel),
@@ -103,8 +104,6 @@ class ResParking extends StatelessWidget {
         final held = app.heldSlots;
         final canPick = mine == null && req == null && app.slots.isNotEmpty;
         final cs = Theme.of(context).colorScheme;
-        final rate = app.motorRate;
-        final rateDay = app.motorRateDay;
         final kids = <Widget>[
           PastelCard(
             color: mine != null ? Pastel.mint : (req != null ? Pastel.butter : Pastel.sky),
@@ -194,7 +193,7 @@ class ResParking extends StatelessWidget {
                   Text(
                     app.slots.isEmpty
                         ? 'The office has not set up the parking slots yet. You can still send a request.'
-                        : 'Tap a free slot on the map to reserve it.${rate > 0 || rateDay > 0 ? ' Rent it ${rate > 0 ? 'by the month (${peso(rate)})' : ''}${rate > 0 && rateDay > 0 ? ' or ' : ''}${rateDay > 0 ? 'by the day (${peso(rateDay)})' : ''}, paid before the office approves.' : ''}',
+                        : 'Tap a free slot on the map to reserve it. The rental depends on the size of the slot (see the price list below). You pay before the office approves it.',
                     style: const TextStyle(color: inkSoft, height: 1.4),
                   ),
                   if (app.slots.isEmpty) ...[
@@ -257,6 +256,12 @@ class ResParking extends StatelessWidget {
                                 children: [
                                   Text(s.id, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: isMine ? Colors.white : t.fg)),
                                   Text(label, style: TextStyle(fontSize: 10.5, color: isMine ? lav : t.fg)),
+                                  Text(
+                                    !s.used && holder == null && app.parkRatesFor(s.size).month > 0 ? '${s.size} · ${peso(app.parkRatesFor(s.size).month)}' : s.size,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(fontSize: 9, color: (isMine ? lav : t.fg).withValues(alpha: 0.75)),
+                                  ),
                                 ],
                               ),
                             ),
@@ -267,6 +272,25 @@ class ResParking extends StatelessWidget {
                 ],
               ),
             ),
+          RCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rental price by slot size', style: hd(18)),
+                const SizedBox(height: 4),
+                Text('A bigger slot costs more. Each slot on the map shows its size.', style: TextStyle(color: muted(context), fontSize: 12.5)),
+                for (final z in app.parkSizes) ...[
+                  const Divider(height: 18),
+                  Row(
+                    children: [
+                      Expanded(child: Text('${z.name}${z.sqm > 0 ? ' · ${z.sqm} sqm' : ''}', style: const TextStyle(fontWeight: FontWeight.w700))),
+                      Text('${z.month > 0 ? '${peso(z.month)} / month' : '—'}${z.day > 0 ? ' · ${peso(z.day)} / day' : ''}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
           RCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

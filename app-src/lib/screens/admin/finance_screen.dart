@@ -12,6 +12,8 @@ import '../shared/payment_widgets.dart';
 import 'admin_screens.dart';
 import 'finance_cards.dart';
 import 'verify_panel.dart';
+import 'parking_rates_card.dart';
+import 'price_calculator.dart';
 
 /// What the reminder says until the office edits it.
 const kReminderDefault = 'Please settle your dues when you can. Thank you!';
@@ -390,6 +392,17 @@ class _AdminFinanceState extends State<AdminFinance> {
                   onChanged: (v) => setState(() => recalcOnSave = v ?? true),
                   title: const Text('When I save a new rate, also update the unpaid monthly dues to it', style: TextStyle(fontSize: 13)),
                 ),
+                PriceCalculator(
+                  monthlyRate: () {
+                    final d = double.tryParse(duesRate.text.trim().replaceAll(',', ''));
+                    return d != null && d > 0 ? d : app.duesRate.toDouble();
+                  },
+                  onUseRate: (v) {
+                    setState(() => duesRate.text = v.toStringAsFixed(2));
+                    msg(context, 'Rate of ${peso(v)} per sqm per month is ready. Tap Save to keep it.');
+                  },
+                ),
+                const SizedBox(height: 12),
                 _pricePreview(context),
                 const SizedBox(height: 10),
                 SizedBox(
@@ -591,82 +604,29 @@ class _AdminFinanceState extends State<AdminFinance> {
               ],
             ),
           ),
+          const ParkingRatesCard(),
+          if (app.parking.isNotEmpty)
           RCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  const IconBadge(Icons.two_wheeler_rounded, accent: true),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('Motor parking rental', style: hd(17))),
-                ]),
-                const SizedBox(height: 8),
-                Text("Residents rent a motor/motorcycle slot for one month or by the day. Set a rate for each. The board can adjust them as needed.",
-                    style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: rate,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Monthly rate (₱)'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    FilledButton(
-                      onPressed: () {
-                        final err = app.setRate(rate.text);
-                        msg(context, err ?? 'Monthly parking rate updated to ${peso(app.motorRate)}/month.');
-                      },
-                      child: const Text('Update'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text('Current monthly rate: ${peso(app.motorRate)}/month', style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: rateDay,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Daily rate (₱ per day)'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    FilledButton(
-                      onPressed: () {
-                        final err = app.setDailyRate(rateDay.text);
-                        msg(context, err ?? 'Daily parking rate updated to ${peso(app.motorRateDay)}/day.');
-                      },
-                      child: const Text('Update'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(app.motorRateDay > 0 ? 'Current daily rate: ${peso(app.motorRateDay)}/day' : 'Daily rate not set (the daily option is hidden)', style: const TextStyle(fontWeight: FontWeight.w700)),
-                if (app.parking.isNotEmpty) ...[
-                  const Divider(height: 24),
-                  Text('Slot requests', style: TextStyle(color: muted(context), fontWeight: FontWeight.w700)),
-                  for (final p in app.parking)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${p.unit} · ${p.name}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: app.slotOf(p.unit) == null ? null : Text('Slot ${app.slotOf(p.unit)!.id}'),
-                      trailing: p.confirmed
-                          ? const Pill('Confirmed')
-                          : FilledButton(
-                              style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
-                              onPressed: () {
-                                final err = app.assignRequest(p);
-                                if (err != null) msg(context, err);
-                              },
-                              child: const Text('Confirm'),
-                            ),
-                    ),
-                ],
+                Text('Slot requests', style: TextStyle(color: muted(context), fontWeight: FontWeight.w700)),
+                for (final p in app.parking)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${p.unit} · ${p.name}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: app.slotOf(p.unit) == null ? null : Text('Slot ${app.slotOf(p.unit)!.id}'),
+                    trailing: p.confirmed
+                        ? const Pill('Confirmed')
+                        : FilledButton(
+                            style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
+                            onPressed: () {
+                              final err = app.assignRequest(p);
+                              if (err != null) msg(context, err);
+                            },
+                            child: const Text('Confirm'),
+                          ),
+                  ),
               ],
             ),
           ),
@@ -705,7 +665,7 @@ class _AdminFinanceState extends State<AdminFinance> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Price calculator · ${peso(rate)} per sqm', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+          Text('Dues by unit size · ${peso(rate)} per sqm per month', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
           const SizedBox(height: 6),
           if (t.rows.isEmpty) Text('No unit has a floor area yet. Set it with "Edit size" in Unit dues and payments.', style: TextStyle(color: muted(context), fontSize: 12.5)),
           for (final r in t.rows)
@@ -716,12 +676,18 @@ class _AdminFinanceState extends State<AdminFinance> {
                   Expanded(child: Text('${r.$1} sqm × ${peso(rate)}', style: const TextStyle(fontSize: 13))),
                   Text('${r.$2} unit${r.$2 == 1 ? '' : 's'}', style: TextStyle(color: muted(context), fontSize: 12)),
                   const SizedBox(width: 12),
-                  Text(peso(r.$3), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${peso(r.$3)} / month', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                      Text('${peso((r.$3 * 12 / 365 * 100).round() / 100)} / day · ${peso((r.$3 * 12 * 100).round() / 100)} / year', style: TextStyle(color: muted(context), fontSize: 11)),
+                    ],
+                  ),
                 ],
               ),
             ),
           const Divider(height: 16),
-          Text('All units, one month: ${peso(t.total)}${t.noSize > 0 ? ' · ${t.noSize} unit${t.noSize == 1 ? ' has' : 's have'} no size yet' : ''}', style: TextStyle(color: muted(context), fontSize: 12.5)),
+          Text('All units: ${peso(t.total)} per month · ${peso((t.total * 12 * 100).round() / 100)} per year · ${peso((t.total * 12 / 365 * 100).round() / 100)} per day${t.noSize > 0 ? ' · ${t.noSize} unit${t.noSize == 1 ? ' has' : 's have'} no size yet' : ''}', style: TextStyle(color: muted(context), fontSize: 12.5)),
         ],
       ),
     );

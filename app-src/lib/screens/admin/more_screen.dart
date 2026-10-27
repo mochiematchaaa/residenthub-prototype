@@ -87,7 +87,7 @@ class AdminMore extends StatelessWidget {
               ),
             ),
           NavTile(icon: Icons.bar_chart_rounded, title: 'Reports', subtitle: 'Collections, units, concerns, bookings', onTap: () => go(context, const AdminReports())),
-          NavTile(icon: Icons.manage_search_rounded, title: 'Unit history', subtitle: 'Everything on record for one unit, with Excel export', onTap: () => go(context, const UnitHistoryScreen())),
+          NavTile(icon: Icons.manage_search_rounded, title: 'Resident profiles', subtitle: 'Each unit\'s resident record and full history, with Excel export', onTap: () => go(context, const UnitHistoryScreen())),
           NavTile(icon: Icons.history_rounded, title: 'Activity log', subtitle: '${app.activityLog.length} recorded', onTap: () => go(context, const AdminActivity())),
         ]),
         NavGroup(label: 'Money and files', children: [

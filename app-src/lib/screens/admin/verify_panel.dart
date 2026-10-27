@@ -144,7 +144,7 @@ class _VerifyPanelState extends State<VerifyPanel> {
               TextButton.icon(
                 onPressed: () => go(context, UnitHistoryScreen(unit: p.unit)),
                 icon: const Icon(Icons.history_rounded, size: 18),
-                label: const Text('Unit history'),
+                label: const Text('Resident profile'),
               ),
               TextButton(onPressed: () => widget.onReject(p), child: const Text('Reject')),
               FilledButton(

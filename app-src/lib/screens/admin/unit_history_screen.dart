@@ -1,4 +1,4 @@
-// ADMIN page: Unit history. Everything on record for one unit or resident in one view, with an Excel export.
+// ADMIN page: Resident profiles. The household record of each unit (editable, shown on the resident's dashboard) plus everything on record for it, with an Excel export.
 
 import 'package:flutter/material.dart';
 
@@ -51,8 +51,8 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
     final s = q.trim().toLowerCase();
     final list = [for (final u in app.units) if (s.isEmpty || '${u.unit} ${u.name} ${u.contact}'.toLowerCase().contains(s)) u];
     return SubPage(
-      title: 'Unit history',
-      subtitle: 'Pick a unit to see everything on record for it: charges, payments, requests, bookings and office actions.',
+      title: 'Resident profiles',
+      subtitle: 'Pick a unit to view or edit its resident record, and to see its charges, payments, requests, bookings and office actions.',
       children: [
         TextField(
           onChanged: (v) => setState(() => q = v),
@@ -93,6 +93,110 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
         const SizedBox(height: 4),
         Text(value, style: hd(17, color: t?.fg)),
       ]),
+    );
+  }
+
+  Widget _recField(BuildContext context, String k, String v, {String empty = 'Not on file'}) {
+    final has = v.trim().isNotEmpty;
+    return SizedBox(
+      width: 150,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(k.toUpperCase(), style: TextStyle(color: muted(context), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.7)),
+        const SizedBox(height: 2),
+        Text(has ? v : empty, style: TextStyle(fontWeight: has ? FontWeight.w700 : FontWeight.w500, fontSize: 13, color: has ? null : muted(context), height: 1.3)),
+      ]),
+    );
+  }
+
+  /// The household record: view it here, edit it, and the resident sees it on their dashboard.
+  Widget _recordCard(BuildContext context, Unit u) {
+    final emer = [u.emergencyName, if (u.emergencyRelation.isNotEmpty) '(${u.emergencyRelation})', u.emergencyPhone].where((x) => x.isNotEmpty).join(' ');
+    final upd = u.profileUpdated > 0 ? shortDate(DateTime.fromMillisecondsSinceEpoch(u.profileUpdated)) : '';
+    Widget head(String t) => Padding(
+          padding: const EdgeInsets.only(top: 14, bottom: 8),
+          child: Text(t, style: hd(14)),
+        );
+    return RCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Resident record', style: hd(17)),
+              Text(
+                upd.isEmpty ? 'Not edited by the office yet' : 'Last updated $upd${u.profileBy.isEmpty ? '' : ' by ${u.profileBy}'}',
+                style: TextStyle(color: muted(context), fontSize: 12),
+              ),
+            ]),
+          ),
+          FilledButton.tonalIcon(onPressed: () => _editRecord(context, u), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit record')),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text('Whatever you save here shows on this resident\'s dashboard.', style: TextStyle(color: muted(context), fontSize: 12)),
+        ),
+        head('Resident'),
+        Wrap(spacing: 14, runSpacing: 12, children: [
+          _recField(context, 'Name', u.name == '—' ? '' : u.name),
+          _recField(context, 'Occupancy', u.type),
+          _recField(context, 'Mobile', u.contact == '—' ? '' : u.contact),
+          _recField(context, 'Email', u.email),
+          _recField(context, 'Moved in', u.moveIn.isEmpty ? '' : isoShort(u.moveIn)),
+        ]),
+        head('Household'),
+        Wrap(spacing: 14, runSpacing: 12, children: [
+          _recField(context, 'People living here', u.residents > 0 ? '${u.residents}' : ''),
+          _recField(context, 'Household members', u.members),
+          _recField(context, 'Pets', u.pets, empty: 'None on file'),
+        ]),
+        head('Emergency contact'),
+        _recField(context, 'Contact person', emer),
+        head('Vehicles and notes'),
+        Wrap(spacing: 14, runSpacing: 12, children: [
+          _recField(context, 'Vehicles', u.vehicles, empty: 'None on file'),
+          _recField(context, 'Note shown to resident', u.noteResident, empty: 'None'),
+          _recField(context, 'Private office note', u.noteOffice, empty: 'None'),
+        ]),
+      ]),
+    );
+  }
+
+  void _editRecord(BuildContext context, Unit u) {
+    showFormSheet(
+      context,
+      title: 'Edit record, ${u.unit}',
+      subtitle: 'Saved details show on the resident\'s dashboard. The private office note does not.',
+      choices: [
+        ChoiceSpec('type', 'Occupancy', const ['Owner', 'Tenant'], u.type == 'Tenant' ? 'Tenant' : 'Owner'),
+      ],
+      fields: [
+        FieldSpec('name', 'Full name', initial: u.name == '—' ? '' : u.name),
+        FieldSpec('contact', 'Mobile number', type: TextInputType.phone, initial: u.contact == '—' ? '' : u.contact),
+        FieldSpec('email', 'Email', type: TextInputType.emailAddress, initial: u.email),
+        FieldSpec('moveIn', 'Moved in (yyyy-mm-dd)', hint: 'e.g. 2022-03-15', initial: u.moveIn),
+        FieldSpec('residents', 'People living here', type: TextInputType.number, initial: u.residents > 0 ? '${u.residents}' : ''),
+        FieldSpec('members', 'Household members', hint: 'One per line', lines: 3, initial: u.members),
+        FieldSpec('pets', 'Pets', hint: 'e.g. 1 dog', initial: u.pets),
+        FieldSpec('emergencyName', 'Emergency contact name', initial: u.emergencyName),
+        FieldSpec('emergencyRelation', 'Relationship', initial: u.emergencyRelation),
+        FieldSpec('emergencyPhone', 'Emergency contact number', type: TextInputType.phone, initial: u.emergencyPhone),
+        FieldSpec('vehicles', 'Vehicles', hint: 'One per line, e.g. Honda Beat ABC 123', lines: 3, initial: u.vehicles),
+        FieldSpec('noteResident', 'Note shown to the resident', lines: 2, initial: u.noteResident),
+        FieldSpec('noteOffice', 'Private office note (not shown)', lines: 2, initial: u.noteOffice),
+      ],
+      submit: 'Save record',
+      onSubmit: (v) {
+        final mi = (v['moveIn'] ?? '').toString().trim();
+        if (mi.isNotEmpty && DateTime.tryParse(mi) == null) return 'Write the move-in date like 2022-03-15.';
+        final raw = (v['residents'] ?? '').toString().trim();
+        var n = 0;
+        if (raw.isNotEmpty) {
+          final p = int.tryParse(raw);
+          if (p == null || p < 0 || p > 99) return 'People living here must be a number from 0 to 99.';
+          n = p;
+        }
+        app.saveRecord(u, {for (final e in v.entries) e.key: (e.value ?? '').toString()}, residents: n);
+        return null;
+      },
     );
   }
 
@@ -186,7 +290,7 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
       builder: (context, _) {
         final s = unitSummary(unit);
         if (s == null) {
-          return SubPage(title: 'Unit history', subtitle: 'That unit is no longer on record.', children: const []);
+          return SubPage(title: 'Resident profiles', subtitle: 'That unit is no longer on record.', children: const []);
         }
         final cat = histCat(filter);
         final all = unitEvents(unit);
@@ -197,7 +301,7 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
         final u = s.unit;
         return SubPage(
           title: u.unit,
-          subtitle: 'Unit and resident history',
+          subtitle: 'Resident profile and history',
           actions: [
             IconButton(
               tooltip: 'Export to Excel',
@@ -235,6 +339,7 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
                 ),
               ]),
             ),
+            _recordCard(context, u),
             Wrap(spacing: 10, runSpacing: 10, children: [
               _tile(context, 'Balance', peso(s.dues.balance), tone: s.dues.balance > 0 ? Tone.warn : Tone.good),
               _tile(context, 'Total paid', peso(s.dues.paid)),
