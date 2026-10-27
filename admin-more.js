@@ -522,14 +522,16 @@ function recordPayment() {
 function verifyPanel(proofs) {
   var cfg = autoPostCfg(), now = Date.now(), items = proofs.map(function (r) {
     var chk = proofCheck(r), sent = proofSentAt(r.v), at = sent + cfg.hours * 3600000;
-    return { r: r, chk: chk, sent: sent, at: at, auto: cfg.on && chk.ok };
-  }).sort(function (a, b) { return (b.auto - a.auto) || (a.at - b.at); });
+    return { r: r, chk: chk, sent: sent, at: at, auto: cfg.on && chk.ok, late: now - sent > 48 * 3600000 };
+  }).sort(function (a, b) { return (b.late - a.late) || (b.auto - a.auto) || (a.at - b.at); });
+  var nLate = items.filter(function (i) { return i.late; }).length;
   var nAuto = items.filter(function (i) { return i.auto; }).length, nReview = items.filter(function (i) { return !i.chk.ok; }).length;
   var total = items.reduce(function (s, i) { return s + (Number(i.r.v.amount) || 0); }, 0);
   var head = '<div class="vp-head"><div><h2>Payments to verify</h2><p class="hint" style="margin:4px 0 0">Payments residents say they made. Clean ones post by themselves; anything that does not match waits for you.</p></div>' +
     '<div class="vp-auto-badge ' + (cfg.on ? "on" : "off") + '"><span class="vp-dot"></span><div><b>' + (cfg.on ? "Automatic posting is on" : "Automatic posting is off") + "</b><small>" +
     (cfg.on ? "Clean payments post " + cfg.hours + " hours after they are sent" : "Every payment waits for you") + '</small></div><button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">Change</button></div></div>';
   var stats = '<div class="vp-stats"><div><b>' + items.length + '</b><span>Waiting</span></div><div class="good"><b>' + nAuto + '</b><span>Will post by themselves</span></div><div class="' + (nReview ? "warn" : "") + '"><b>' + nReview + '</b><span>Need your review</span></div><div><b>' + peso(total) + "</b><span>Total amount</span></div></div>";
+  var lateBanner = nLate ? '<div class="vp-late"><b>' + nLate + " payment" + (nLate === 1 ? " has" : "s have") + ' been waiting more than 2 days.</b> Check ' + (nLate === 1 ? "it" : "them") + " first, then verify or reject.</div>" : "";
   var body = items.length ? items.map(function (it) {
     var p = it.r.v, u = unitRec(p.unit) || {}, chk = it.chk, due = chk.due ? chk.due.v : null, bal = balanceFor(p.unit);
     var left = it.at - now, span = cfg.hours * 3600000, pct = Math.max(4, Math.min(100, Math.round((1 - left / span) * 100)));
@@ -539,14 +541,15 @@ function verifyPanel(proofs) {
     else if (cfg.on) status = '<div class="vp-status auto"><div class="vp-line"><span>' + (left <= 0 ? "Posting now" : "Posts automatically in <b>" + waitText(left) + "</b>") + ' <small>(' + clockText(it.at) + ')</small></span><span class="vp-ok">✓ Amount, reference and charge all match</span></div><div class="vp-bar"><i style="width:' + pct + '%"></i></div></div>';
     else status = '<div class="vp-status"><div class="vp-note">Automatic posting is off. Verify it to post the payment.</div></div>';
     var recip = accountOfUnit(p.unit);
-    return '<article class="vp-item' + (chk.ok ? "" : " review") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
+    var checksHtml = '<div class="vp-checks">' + chk.checks.map(function (c) { return '<span class="chip ' + (c.ok === true ? "good" : c.ok === false ? "bad" : "") + '">' + (c.ok === true ? "✓ " : c.ok === false ? "✕ " : "• ") + esc(c.label) + "</span>"; }).join("") + "</div>";
+    return '<article class="vp-item' + (chk.ok ? "" : " review") + (it.late ? " late" : "") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + (it.late ? ' <span class="chip bad">Waiting over 2 days</span>' : "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
       (recip ? " · " + esc(recip.email) : "") + '</small></div><div class="vp-amt">' + peso(Number(p.amount) || 0) + "<small>amount sent</small></div></div>" +
       '<div class="vp-grid"><div><label>Paying for</label><b>' + esc(p.forText || "—") + '</b></div><div><label>Charge amount</label>' + match + '</div><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div>' +
       '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div>" +
-      '<div class="vp-photo"><label>Photo of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(it.r.id) + '\')" title="Open the photo"><img alt="Payment photo" src="' + escAttr(p.image) + '"><span>View photo</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" + status +
+      '<div class="vp-photo"><label>Photo of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(it.r.id) + '\')" title="Open the photo"><img alt="Payment photo" src="' + escAttr(p.image) + '"><span>View photo</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" + checksHtml + status +
       '<div class="vp-actions"><button class="btn" onclick="openHistory(\'' + escAttr(p.unit) + '\')">Unit history</button><span style="flex:1"></span><button class="btn" onclick="rejectProof(\'' + escAttr(it.r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(it.r.id) + '\')">' + (it.auto ? "Post now" : "Verify &amp; post") + "</button></div></article>";
   }).join("") : '<div class="vp-empty"><b>Nothing waiting.</b><span>When a resident sends payment details they appear here, and post by themselves after ' + cfg.hours + ' hours if everything matches.</span></div>';
-  return '<div class="card vp">' + head + stats + '<div class="vp-list">' + body + "</div></div>";
+  return '<div class="card vp">' + head + stats + '<div class="vp-list">' + lateBanner + body + "</div></div>";
 }
 /* ---------- checking and posting resident payments ---------- */
 // What is wrong (if anything) with a payment the resident sent. ok = nothing wrong, so it can be posted automatically.
@@ -572,7 +575,14 @@ function proofCheck(r) {
     if (dup) why.push("The same reference number was also sent by " + dup.v.unit + ".");
     else if (list("payment").some(function (o) { return String(o.v.reference).toLowerCase() === ref.toLowerCase() && o.v.method === p.method; })) why.push("This reference number already has a receipt.");
   }
-  return { why: why, due: named || null, expected: expected, ok: why.length === 0 };
+  var refOk = !why.some(function (w) { return /reference/i.test(w); });
+  var checks = [
+    { ok: expected == null ? null : Math.abs(amount - expected) <= 0.009, label: expected == null ? "No fixed amount" : "Amount matches the charge" },
+    { ok: refOk, label: refOk ? "Reference number is new" : "Reference number problem" },
+    { ok: named || parking ? true : (p.forText === "Other charge" ? null : false), label: named || parking ? "Charge is open" : p.forText === "Other charge" ? "Other charge" : "Charge not found" },
+    { ok: p.image ? true : null, label: p.image ? "Photo attached" : "No photo" }
+  ];
+  return { why: why, due: named || null, expected: expected, ok: why.length === 0, checks: checks };
 }
 // Posts a payment: marks the charge paid, issues the receipt, closes the submission. auto = posted by the system after the waiting time.
 async function postProof(id, auto) {
