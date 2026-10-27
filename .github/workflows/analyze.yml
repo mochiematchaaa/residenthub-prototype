@@ -6,6 +6,9 @@ on:
     branches-ignore: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -39,3 +42,18 @@ jobs:
           name: sample-xlsx
           path: app-src/build/samples/
           if-no-files-found: ignore
+      - name: Keep the sample files on a branch for checking
+        if: always()
+        run: |
+          if [ -d app-src/build/samples ]; then
+            d=$(mktemp -d)
+            cp app-src/build/samples/*.xlsx "$d"/
+            git config user.name "mochiematchaaa"
+            git config user.email "mochiematchaaa@users.noreply.github.com"
+            git checkout --orphan xlsx-samples
+            git rm -rf . -q || true
+            cp "$d"/*.xlsx .
+            git add *.xlsx
+            git commit -qm "sample xlsx"
+            git push -f origin xlsx-samples
+          fi
