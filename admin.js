@@ -64,7 +64,7 @@ function titles() {
     parking: ["Parking", "Motor parking slots, who has one, and requests waiting for approval."],
     log: ["Activity log", "A record of what the administrators did, newest first."],
     history: ["Resident profiles", "The record of every unit and resident: details, household, dues, payments, requests and history. Edit a record and the resident sees it on their dashboard."],
-    settings: ["Settings", "Billing defaults, the resident directory and your preferences."],
+    settings: ["Settings", "Billing defaults, account and security, access and payments."],
     profile: ["My profile", "Your administrator account, recent activity and shortcuts."]
   }[state.view] || ["", ""];
 }
@@ -93,18 +93,18 @@ function render() {
     mountApp(app, '<div class="shell">' +
       '<aside class="side">' +
       '<div class="side-brand"><img src="logo.jpg" alt=""><span>ResidentHub</span></div>' +
-      '<div class="side-label">General</div><nav>' + navBtn("home", "Dashboard") + navBtn("units", "Units") + navBtn("fac", "Facility") + navBtn("ann", "Announcements") + navBtn("polls", "Polls") + "</nav>" +
-      '<div class="side-label">Tools</div><nav>' + navBtn("fin", "Finance") +
-      '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>Expenses</span></button>" +
+      '<div class="side-label">' + tr("General") + '</div><nav>' + navBtn("home", "Dashboard") + navBtn("units", "Units") + navBtn("fac", "Facility") + navBtn("ann", "Announcements") + navBtn("polls", "Polls") + "</nav>" +
+      '<div class="side-label">' + tr("Tools") + '</div><nav>' + navBtn("fin", "Finance") +
+      '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>" + tr("Expenses") + "</span></button>" +
       navBtn("history", "Resident profiles") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
-      '<div class="side-label">Admin</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
+      '<div class="side-label">' + tr("Admin") + '</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + esc(initials(adminName())) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
-      '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>Log out</span></button></div></aside>" +
+      '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>" + tr("Log out") + "</span></button></div></aside>" +
       "<main>" +
       '<div class="topline">' + searchBox("Search units, residents, announcements, polls...") +
       '<div class="top-actions"><button class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode" onclick="toggleDarkMode()">' + icon(state.darkMode ? "sun" : "moon") + "</button>" + bellHtml() + "</div></div>" +
       '<div class="body ' + (isHome ? "with-aside" : "") + '"><div class="col">' +
-      '<div class="pagehead"><p class="kicker">' + todayLabel() + "</p><h1>" + titles()[0] + "</h1><p>" + titles()[1] + "</p></div>" +
+      '<div class="pagehead"><p class="kicker">' + todayLabel() + "</p><h1>" + tr(titles()[0]) + "</h1><p>" + tr(titles()[1]) + "</p></div>" +
       view() + "</div>" + (isHome ? homeAside() : "") + "</div></main></div>");
   });
 }

@@ -1306,9 +1306,9 @@ function directory() { var d = setting("directory"); return { contacts: d.contac
 // PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (automatic posting).
 function viewSettings() {
   var tab = state.setTab || "general";
-  var tabs = [["general", "General"], ["access", "Access"], ["payments", "Payments"]];
+  var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at seguridad")], ["access", "Access"], ["payments", "Payments"]];
   var bar = '<div class="filters" role="tablist" style="margin-bottom:16px">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({setTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
-  return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : viewSettingsGeneral());
+  return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : tab === "account" ? acctView() : viewSettingsGeneral());
 }
 // Settings > Payments: automatic posting of the payments residents send.
 function paymentSettings() {
@@ -1326,7 +1326,7 @@ function viewSettingsGeneral() {
   var d = directory();
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Billing</h2><p class="hint" style="margin:0">Monthly dues: <b>' + (setting("dues_rate_sqm").rate ? peso(setting("dues_rate_sqm").rate) + " per sqm" : "not set") + "</b> · Motor parking: <b>" + (setting("motor_rate").rate ? peso(setting("motor_rate").rate) : "not set") + '</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\'})">Open Finance</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Your preferences</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn" onclick="changePasswordForm()">Change password</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div></div></div>' +
+    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Your preferences</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn primary" onclick="set({setTab:\'account\',acctTab:\'overview\'})">Account &amp; security</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div></div></div>' +
     '<div style="display:flex;flex-direction:column;gap:16px"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
     (d.contacts.map(function (c, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(c.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(c.note || "") + " · " + esc(c.tel || "") + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'contacts\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No contacts yet.</p>') + "</div>" +
     '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>House rules</h2><button class="btn primary" onclick="ruleForm()">+ Add</button></div>' +
@@ -1360,7 +1360,7 @@ function changePasswordForm() {
       if (chk.error) return { error: "Your current password is not correct." };
       var u = await sb.auth.updateUser({ password: d.pw });
       if (u.error) return { error: u.error.message };
-      toast("Password changed.");
+      acctMarkPw(); toast("Password changed.");
     }
   });
 }
@@ -1368,7 +1368,7 @@ function changePasswordForm() {
 function viewProfile() {
   var p = DB.profile, mine = newest(list("activity")).slice(0, 5);
   return '<div class="profile-grid"><div class="profile-col"><div class="card"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span class="avatar big">' + esc(initials(adminName())) + "</span><div><h2>" + esc(adminName()) + '</h2><p style="margin:2px 0 8px;color:var(--muted)">Administrator · City Residences Condominium Corporation</p><span class="chip good">Verified admin</span></div></div></div>' +
-    '<div class="card"><h2>Personal information</h2><div class="kv" style="margin-top:10px"><span>Full name</span><b>' + esc(p.name || "—") + "</b><span>Role</span><b>Administrator</b><span>Email</span><b>" + esc(p.email) + "</b><span>Phone</span><b>" + esc(p.phone || "Not added yet") + '</b></div><div style="margin-top:12px"><button class="btn" onclick="changePasswordForm()">Change password</button></div></div>' +
+    '<div class="card"><h2>Personal information</h2><div class="kv" style="margin-top:10px"><span>Full name</span><b>' + esc(p.name || "—") + "</b><span>Role</span><b>Administrator</b><span>Email</span><b>" + esc(p.email) + "</b><span>Phone</span><b>" + esc(p.phone || "Not added yet") + '</b></div><div style="margin-top:12px"><button class="btn" onclick="changePasswordForm()">Change password</button> <button class="btn" onclick="set({view:\'settings\',setTab:\'account\',acctTab:\'devices\'})">Manage devices</button></div></div>' +
     '<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center"><h2>Recent activity</h2><button class="btn" onclick="set({view:\'log\'})">Full log</button></div><div class="tl-list">' +
     (mine.map(function (a) { return '<div class="tl-row"><span class="tl-dot"></span><div><b>' + esc(a.v.title) + "</b><small>" + new Date(Number(a.v.at)).toLocaleString() + "</small></div></div>"; }).join("") || '<p class="empty">Nothing yet.</p>') + "</div></div></div>" +
     '<aside class="profile-col"><div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Quick links</h2><button class="btn" onclick="set({view:\'ann\'})">Announcements</button><button class="btn" onclick="set({view:\'req\'})">Complaints &amp; files</button><button class="btn" onclick="set({view:\'fin\'})">Finance</button><button class="btn" onclick="set({view:\'settings\'})">Settings</button></div></aside></div>';
