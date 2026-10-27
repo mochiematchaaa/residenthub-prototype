@@ -3,7 +3,7 @@
 var state = {
   authed: false, view: "home", darkMode: false, bellOpen: false, bellSeen: false,
   facIdx: 0, pick: null, bookDay: "", calMonth: "", eventFilter: "all", pollFilter: "open",
-  payFor: "", payAmt: "", payMethod: "", payRef: "",
+  payFor: "", payAmt: "", payMethod: "", payRef: "", payImg: "",
   usage: "", usageInfo: {}, usageInfoFor: "", usageMsg: ""
 };
 try { state.darkMode = localStorage.getItem("rh_dark") === "1"; } catch (e) { /* storage blocked */ }
@@ -139,7 +139,7 @@ function render() {
       '<div class="side-label">' + tr("General") + '</div><nav>' + navBtn("home", "Home") + navBtn("book", "Book a facility") + navBtn("res", "Reservations") + navBtn("dues", "Dues") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("events", "Events") + "</nav>" +
       '<div class="side-label">' + tr("Community") + '</div><nav>' + navBtn("polls", "Polls") + navBtn("directory", "Directory") + navBtn("gr", "Complaints") + navBtn("docs", "Documents") + "</nav>" +
       '<div class="side-label">' + tr("Account") + '</div><nav>' + navBtn("rental", "Unit status") + navBtn("settings", "Settings") + "</nav>" +
-      '<div class="side-foot"><div class="side-user"><span class="avatar">' + esc(initials(myName())) + "</span><span><b>" + esc(myName()) + "</b><small>" + esc(myUnit()) + "</small></span></div>" +
+      '<div class="side-foot"><div class="side-user"><span class="avatar">' + avatarInner(myPhoto(), myName()) + "</span><span><b>" + esc(myName()) + "</b><small>" + esc(myUnit()) + "</small></span></div>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>" + tr("Log out") + "</span></button></div></aside>" +
       '<main><div class="topline">' + searchBox("Search events, polls, documents, contacts...") +
       '<div class="top-actions"><button class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode" onclick="toggleDarkMode()">' + icon(state.darkMode ? "sun" : "moon") + "</button>" + bellHtml() + "</div></div>" +
@@ -202,7 +202,7 @@ function viewHome() {
   return '<div class="sc-grid">' +
     summaryCard("yellow", "Dues", [[bal ? peso(bal) : "None", "Balance", "dues"], [open.length, "Open items", "dues"]], "cross", '<p class="sc-note">' + (next ? "Next due " + esc(next.v.dueDate || "on receipt") : "All dues settled") + "</p>") +
     summaryCard("pink", "Next reservation", [[nb ? esc(nb.v.place) : "None", nb ? esc(nb.v.status) : "Book a facility", nb ? "res" : "book"]], "heart", '<p class="sc-note">' + (nb ? esc(nb.v.when) : "No upcoming reservation") + "</p>") +
-    summaryCard("green", "My unit", [[esc(unitNo), "Unit"], [esc(usageLabel(u.usage || "owner")), "Usage", "rental"]], "triangle", '<div class="avatar-stack"><span class="av">' + esc(initials(myName())) + "</span></div>") +
+    summaryCard("green", "My unit", [[esc(unitNo), "Unit"], [esc(usageLabel(u.usage || "owner")), "Usage", "rental"]], "triangle", '<div class="avatar-stack"><span class="av">' + avatarInner(myPhoto(), myName()) + "</span></div>") +
     summaryCard("blue", "Community", [[toVote, "Polls to vote on", "polls"], [going, "Events going", "events"]], "burst") + "</div>" +
     myRecordCard() +
     '<div class="pills-row">' + quick.map(function (q) { return '<button onclick="set({view:\'' + q[1] + '\'})">' + q[0] + "</button>"; }).join("") + "</div>" +
@@ -372,10 +372,10 @@ function dueCountdown(d) {
 /* one entry per charge, plus the parking reservation that is waiting to be paid */
 function dueItems() {
   var proofs = myProofs(), items = myDues().map(function (r) {
-    var d = r.v, pending = proofs.some(function (p) { return p.v.status === "Pending" && p.v.forText === d.note; });
+    var d = r.v, pend = proofs.filter(function (p) { return p.v.status === "Pending" && p.v.forText === d.note; })[0], pending = !!pend;
     var conf = proofs.filter(function (p) { return p.v.status === "Confirmed" && p.v.forText === d.note; })[0];
     var st = d.paid ? "paid" : isOverdue(d) ? "overdue" : pending ? "pending" : "open";
-    return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, billed: billedOn(r.id, d), receipt: conf ? conf.id : "", mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
+    return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, billed: billedOn(r.id, d), receipt: conf ? conf.id : "", sent: pend ? proofSentAt(pend.v) : 0, mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
   });
   var prq = getRow("request", myUnit());
   if (prq && prq.value.slot && prq.value.amount && !prq.value.confirmed) {
@@ -389,12 +389,13 @@ function dueCardHtml(it) {
   var cd = it.st === "open" || it.st === "overdue" ? dueCountdown(it.d) : null;
   var tone = it.st === "paid" ? "good" : it.st === "overdue" ? "bad" : it.st === "pending" ? "warn" : "info";
   var ic = it.park ? DZ_ICON.park : it.st === "paid" ? DZ_ICON.paid : it.st === "overdue" ? DZ_ICON.bad : it.st === "pending" ? DZ_ICON.wait : DZ_ICON.open;
-  var label = it.st === "paid" ? "Paid" : it.st === "overdue" ? "Overdue" : it.st === "pending" ? "Waiting for the office" : "To pay";
+  var label = it.st === "paid" ? "Paid" : it.st === "overdue" ? "Overdue" : it.st === "pending" ? "Payment sent" : "To pay";
+  var wait = it.st === "pending" && it.sent ? (autoPostCfg().on ? "Posts to your dues by " + clockText(it.sent + autoPostCfg().hours * 3600000) + " at the latest" : "Waiting for the office to verify it") : "";
   var act = it.st === "paid" ? (it.receipt ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(it.receipt) + '\')">Receipt</button>' : "")
     : it.st === "pending" ? ""
     : '<button class="btn primary dz-mini" onclick="payThis(\'' + escAttr(it.id) + '\')">Pay ' + peso(it.amount).replace(/\.00$/, "") + "</button>";
   return '<div class="dz-item ' + tone + (state.dzFlash === it.id ? " flash" : "") + '" data-due="' + escAttr(it.id) + '"><span class="dz-ic ' + tone + '">' + ic + '</span><div class="dz-main"><b>' + esc(it.title) + '</b><div class="dz-sub"><span class="chip ' + (tone === "info" ? "info" : tone) + '">' + label + "</span>" +
-    (it.due ? '<span class="dz-date">' + esc(it.due) + "</span>" : "") + (it.billed ? '<span class="dz-date" title="The day the office billed this charge">Billed ' + esc(it.billed) + "</span>" : "") + (cd ? '<span class="dz-cd ' + cd.tone + '">' + esc(cd.text) + "</span>" : "") + '</div></div><div class="dz-end"><div class="dz-amt">' + peso(it.amount) + "</div>" + act + "</div></div>";
+    (it.due ? '<span class="dz-date">' + esc(it.due) + "</span>" : "") + (it.billed ? '<span class="dz-date" title="The day the office billed this charge">Billed ' + esc(it.billed) + "</span>" : "") + (cd ? '<span class="dz-cd ' + cd.tone + '">' + esc(cd.text) + "</span>" : "") + '</div>' + (wait ? '<small class="dz-wait">' + esc(wait) + "</small>" : "") + '</div><div class="dz-end"><div class="dz-amt">' + peso(it.amount) + "</div>" + act + "</div></div>";
 }
 // PAGE: Dues and payments.
 // "Your monthly dues": how the unit's dues are worked out, and what it has been billed, has paid and still owes.
@@ -503,19 +504,29 @@ function choosePayFor(v) {
 function payFormHtml() {
   var open = myOpenDues(), methods = payMethods().filter(function (m) { return m.enabled; });
   if (!methods.length) methods = [{ name: PAY_OFFICE, details: "Pay at the administration office." }];
-  if (!state.payMethod || !methods.some(function (m) { return m.name === state.payMethod; })) state.payMethod = methods[0].name;
-  var cur = methods.filter(function (m) { return m.name === state.payMethod; })[0], step = !state.payFor ? 1 : 2;
+  if (!state.payMethod || !methods.some(function (m) { return m.name === state.payMethod; })) state.payMethod = (methods.filter(function (m) { return m.name !== PAY_OFFICE; })[0] || methods[0]).name;
+  var cur = methods.filter(function (m) { return m.name === state.payMethod; })[0], step = !state.payFor ? 1 : 2, walkIn = state.payMethod === PAY_OFFICE;
   var pulse = state.payPulse; state.payPulse = false;
   return '<div class="card dz-pay' + (pulse ? " pulse" : "") + '" id="payPanel"><h2 style="font-size:19px;margin:0">I have paid</h2>' +
-    '<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5">Three quick steps. The office checks your reference and issues your receipt.</p>' +
+    '<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5">Paid online? Send the details here, with a photo of your payment if you have one. Paid at the office? Nothing to send; the office records it.</p>' +
     '<div class="dz-step"><span class="n ' + (state.payFor ? "ok" : "") + '">' + (state.payFor ? "✓" : "1") + '</span><div><label class="dz-lab">What did you pay for?<select onchange="choosePayFor(this.value)"><option value="">Choose…</option>' + open.map(function (r) { return '<option value="' + escAttr(r.id) + '" ' + (state.payFor === r.id ? "selected" : "") + ">" + esc(r.v.note) + "</option>"; }).join("") +
     '<option value="parking" ' + (state.payFor === "parking" ? "selected" : "") + '>Motor parking rental</option><option value="other" ' + (state.payFor === "other" ? "selected" : "") + ">Other charge</option></select></label></div></div>" +
     '<div class="dz-step"><span class="n ok">2</span><div><div class="dz-lab">How did you pay?</div><div class="dz-methods">' + methods.map(function (m) {
       return '<button type="button" class="dz-method ' + (state.payMethod === m.name ? "on" : "") + '" onclick="pickMethod(\'' + escAttr(m.name) + '\')">' + esc(m.name) + "</button>";
     }).join("") + '</div><div class="dz-how"><b>' + esc(cur.name) + '</b><span>' + esc(cur.details || "") + "</span></div></div></div>" +
+    (walkIn ? '<div class="dz-step"><span class="n ok">3</span><div class="dz-walk"><b>Nothing to send for a walk-in payment</b><span>Pay at the counter. The office records it, issues your receipt and your dues go down on this page. If you paid online (GCash, Maya or bank), choose that method above and add a photo of your payment.</span></div></div>' :
     '<div class="dz-step"><span class="n ' + (state.payFor && state.payRef.trim().length >= 4 ? "ok" : "") + '">3</span><div style="display:flex;flex-direction:column;gap:10px;width:100%"><label class="dz-lab">Amount paid (₱)<input id="payAmt" type="number" min="0.01" step="0.01" placeholder="e.g. 450" value="' + escAttr(state.payAmt) + '" oninput="state.payAmt=this.value"></label>' +
-    '<label class="dz-lab">Reference number<input id="payRef" type="text" placeholder="Number on your receipt or transaction" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label></div></div>' +
-    '<button class="btn primary dz-send" onclick="submitPaymentProof()">Send payment details</button></div>';
+    '<label class="dz-lab">Reference number<input id="payRef" type="text" placeholder="Number on your receipt or transaction" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label>' +
+    '<div class="dz-lab">Photo of your payment <small style="font-weight:400;color:var(--muted)">(screenshot or receipt, optional)</small>' +
+    (state.payImg ? '<div class="dz-photo"><img alt="Your payment photo" src="' + escAttr(state.payImg) + '" onclick="viewImage(state.payImg,\'Your payment photo\')"><div><button class="btn dz-mini" type="button" onclick="payPickImage()">Change</button> <button class="btn dz-mini" type="button" onclick="state.payImg=\'\';render()">Remove</button></div></div>'
+      : '<button class="btn dz-addphoto" type="button" onclick="payPickImage()">+ Add a photo of your payment</button>') +
+    '<small style="display:block;margin-top:4px;color:var(--muted);font-weight:400">It helps the office check your payment faster.</small></div></div></div>') +
+    (walkIn ? "" : '<button class="btn primary dz-send" onclick="submitPaymentProof()">Send payment details</button>') + "</div>";
+}
+// Chooses the photo of an online payment (shrunk so it fits).
+async function payPickImage() {
+  var d = await pickImage(1000, 0.72);
+  if (d) { state.payImg = d; render(); }
 }
 // The instructions on how to pay.
 function howToPayHtml() {
@@ -526,6 +537,7 @@ function howToPayHtml() {
 }
 // Sends the payment proof (the admin verifies it).
 function submitPaymentProof() {
+  if (state.payMethod === PAY_OFFICE) return toast("Walk-in payments are recorded by the office. There is nothing to send.");
   var amount = parseFloat(state.payAmt), ref = state.payRef.trim();
   if (!state.payFor) return toast("Choose what the payment is for.");
   if (!(amount > 0)) return toast("Enter the amount you paid.");
@@ -536,11 +548,12 @@ function submitPaymentProof() {
   act(async function () {
     var id = nextId();
     var proofRec = { id: id, unit: myUnit(), payer: myHousehold(), forText: forText, method: state.payMethod, reference: ref, amount: amount, date: shortDate(new Date()), at: Date.now(), status: "Pending" };
+    if (state.payImg) proofRec.image = state.payImg;
     var prq = getRow("request", myUnit());
     if (forText === PARK_FOR && prq && prq.value.slot) proofRec.slot = prq.value.slot;
     await put("proof", id, myUnit(), proofRec);
     logAct("Payment reference sent, " + myUnit(), "Finance");
-    state.payFor = ""; state.payAmt = ""; state.payRef = "";
+    state.payFor = ""; state.payAmt = ""; state.payRef = ""; state.payImg = "";
     var ap = autoPostCfg();
     toast(ap.on ? "Payment details sent. It will be posted to your dues automatically by " + clockText(Date.now() + ap.hours * 3600000) + ", and your receipt will appear here." : "Payment details sent. The office will verify them and your receipt will appear here.");
   });
@@ -550,7 +563,7 @@ function myPaymentsHtml() {
   var l = myProofs();
   return '<div class="card"><h2 style="font-size:17px;margin-bottom:8px">My payments</h2>' + (l.length ? l.map(function (r) {
     var p = r.v;
-    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b style="font-size:14px">' + esc(p.forText || "") + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + "</div>" + (p.receiptNo ? '<div style="font-size:12.5px;color:var(--muted)">Receipt ' + esc(p.receiptNo) + "</div>" : "") + (p.status === "Rejected" && p.reason ? '<div style="font-size:12.5px;color:#b3261e">Reason: ' + esc(p.reason) + "</div>" : "") +
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b style="font-size:14px">' + esc(p.forText || "") + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + "</div>" + (p.receiptNo ? '<div style="font-size:12.5px;color:var(--muted)">Receipt ' + esc(p.receiptNo) + "</div>" : "") + (p.image ? '<div><button class="btn dz-mini" type="button" style="margin-top:4px" onclick="viewProofImage(\'' + escAttr(r.id) + '\')">View my photo</button></div>' : "") + (p.status === "Rejected" && p.reason ? '<div style="font-size:12.5px;color:#b3261e">Reason: ' + esc(p.reason) + "</div>" : "") +
       (p.status === "Pending" && autoPostCfg().on ? '<div style="font-size:12.5px;color:var(--muted)">Posts automatically by ' + esc(clockText(proofSentAt(p) + autoPostCfg().hours * 3600000)) + "</div>" : "") + (p.auto ? '<div style="font-size:12.5px;color:var(--muted)">Posted automatically ' + esc(p.confirmedOn || "") + "</div>" : "") +
       '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="chip ' + chipFor(p.status) + '">' + esc(statusText(p.status)) + "</span>" + (p.status === "Confirmed" ? '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Receipt</button>' : "") + "</div></div>";
   }).join("") : '<p style="margin:0;font-size:13px;color:var(--muted)">No payments sent yet. After you pay, send the details above.</p>') + "</div>";

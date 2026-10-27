@@ -123,7 +123,7 @@ function viewFin() {
   if (!tabDefs.some(function (t) { return t[0] === tab; })) tab = "overview";
   var tabBar = '<div class="filters fin-tabs" role="tablist" style="margin-bottom:16px">' + tabDefs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({finTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
   var chargesBar = '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><span class="hint" style="margin:0 auto 0 0">Bill every unit for the month, remind residents, or add a single charge.</span><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button></div>';
-  var body = tab === "overview" ? statsHtml + '<div style="margin-top:16px">' + verifyHtml + "</div>" + '<div style="margin-top:16px">' + summaryHtml + "</div>"
+  var body = tab === "overview" ? statsHtml + (payCheckList().length ? '<div style="margin-top:16px">' + payCheckPanel(0) + "</div>" : "") + '<div style="margin-top:16px">' + verifyHtml + "</div>" + '<div style="margin-top:16px">' + summaryHtml + "</div>"
     : tab === "charges" ? chargesBar + chargesHtml
     : tab === "pay" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + deskHtml + '</div><aside class="fin-side">' + receiptsHtml + "</aside></div>"
     : tab === "daily" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + logHtml + '</div><aside class="fin-side">' + dailyExpHtml + "</aside></div>"
@@ -542,7 +542,8 @@ function verifyPanel(proofs) {
     return '<article class="vp-item' + (chk.ok ? "" : " review") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
       (recip ? " · " + esc(recip.email) : "") + '</small></div><div class="vp-amt">' + peso(Number(p.amount) || 0) + "<small>amount sent</small></div></div>" +
       '<div class="vp-grid"><div><label>Paying for</label><b>' + esc(p.forText || "—") + '</b></div><div><label>Charge amount</label>' + match + '</div><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div>' +
-      '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div></div>" + status +
+      '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div>" +
+      '<div class="vp-photo"><label>Photo of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(it.r.id) + '\')" title="Open the photo"><img alt="Payment photo" src="' + escAttr(p.image) + '"><span>View photo</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" + status +
       '<div class="vp-actions"><button class="btn" onclick="openHistory(\'' + escAttr(p.unit) + '\')">Unit history</button><span style="flex:1"></span><button class="btn" onclick="rejectProof(\'' + escAttr(it.r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(it.r.id) + '\')">' + (it.auto ? "Post now" : "Verify &amp; post") + "</button></div></article>";
   }).join("") : '<div class="vp-empty"><b>Nothing waiting.</b><span>When a resident sends payment details they appear here, and post by themselves after ' + cfg.hours + ' hours if everything matches.</span></div>';
   return '<div class="card vp">' + head + stats + '<div class="vp-list">' + body + "</div></div>";
@@ -1367,7 +1368,7 @@ function changePasswordForm() {
 // PAGE: My profile.
 function viewProfile() {
   var p = DB.profile, mine = newest(list("activity")).slice(0, 5);
-  return '<div class="profile-grid"><div class="profile-col"><div class="card"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span class="avatar big">' + esc(initials(adminName())) + "</span><div><h2>" + esc(adminName()) + '</h2><p style="margin:2px 0 8px;color:var(--muted)">Administrator · City Residences Condominium Corporation</p><span class="chip good">Verified admin</span></div></div></div>' +
+  return '<div class="profile-grid"><div class="profile-col"><div class="card"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><span class="avatar big">' + avatarInner(myPhoto(), adminName()) + "</span><div><h2>" + esc(adminName()) + '</h2><p style="margin:2px 0 8px;color:var(--muted)">Administrator · City Residences Condominium Corporation</p><span class="chip good">Verified admin</span></div></div></div>' +
     '<div class="card"><h2>Personal information</h2><div class="kv" style="margin-top:10px"><span>Full name</span><b>' + esc(p.name || "—") + "</b><span>Role</span><b>Administrator</b><span>Email</span><b>" + esc(p.email) + "</b><span>Phone</span><b>" + esc(p.phone || "Not added yet") + '</b></div><div style="margin-top:12px"><button class="btn" onclick="changePasswordForm()">Change password</button> <button class="btn" onclick="set({view:\'settings\',setTab:\'account\',acctTab:\'devices\'})">Manage devices</button></div></div>' +
     '<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center"><h2>Recent activity</h2><button class="btn" onclick="set({view:\'log\'})">Full log</button></div><div class="tl-list">' +
     (mine.map(function (a) { return '<div class="tl-row"><span class="tl-dot"></span><div><b>' + esc(a.v.title) + "</b><small>" + new Date(Number(a.v.at)).toLocaleString() + "</small></div></div>"; }).join("") || '<p class="empty">Nothing yet.</p>') + "</div></div></div>" +
@@ -1394,6 +1395,8 @@ function bellItems() {
   var c = counts(), l = [];
   if (c.bookings) l.push({ t: c.bookings + " booking request" + (c.bookings > 1 ? "s" : "") + " to review", s: "Facility", v: "fac" });
   if (c.proofs) l.push({ t: c.proofs + " payment" + (c.proofs > 1 ? "s" : "") + " to verify", s: "Finance", v: "fin" });
+  var pcn = typeof payCheckList === "function" ? payCheckList().length : 0;
+  if (pcn) l.push({ t: pcn + " charge" + (pcn > 1 ? "s" : "") + " to check: did they pay?", s: "Finance", v: "fin" });
   if (c.unpaid) l.push({ t: c.unpaid + " unpaid charge" + (c.unpaid > 1 ? "s" : ""), s: "Finance", v: "fin" });
   if (c.grievances) l.push({ t: c.grievances + " open complaint" + (c.grievances > 1 ? "s" : ""), s: "Complaints", v: "req" });
   if (c.rentals) l.push({ t: c.rentals + " unit status to review", s: "Unit status", v: "rentals" });
