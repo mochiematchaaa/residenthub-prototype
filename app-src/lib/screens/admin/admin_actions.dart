@@ -45,6 +45,7 @@ void adminJump(BuildContext context, int target) {
 void showAdminAttention(BuildContext context) {
   final items = [
     [Icons.event_note_outlined, '${app.pendingBookings} booking request(s) to review', 2],
+    [Icons.help_outline_rounded, '${app.payCheckList.length} charge(s) to check: did they pay?', 3],
     [Icons.payments_outlined, '${app.unpaidCount} unit(s) with unpaid dues', 3],
     [Icons.home_work_outlined, '${app.newStatusUpdates} new rental update(s)', 12],
     [Icons.two_wheeler_outlined, '${app.pendingParking} parking request(s)', 15],

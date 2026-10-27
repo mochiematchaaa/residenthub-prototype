@@ -374,7 +374,7 @@ function dueItems() {
   var proofs = myProofs(), items = myDues().map(function (r) {
     var d = r.v, pend = proofs.filter(function (p) { return p.v.status === "Pending" && p.v.forText === d.note; })[0], pending = !!pend;
     var conf = proofs.filter(function (p) { return p.v.status === "Confirmed" && p.v.forText === d.note; })[0];
-    var st = d.paid ? "paid" : isOverdue(d) ? "overdue" : pending ? "pending" : "open";
+    var st = d.paid ? "paid" : pending ? "pending" : isOverdue(d) ? "overdue" : "open";
     return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, billed: billedOn(r.id, d), receipt: conf ? conf.id : "", sent: pend ? proofSentAt(pend.v) : 0, mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
   });
   var prq = getRow("request", myUnit());

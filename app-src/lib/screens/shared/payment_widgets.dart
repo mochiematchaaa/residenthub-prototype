@@ -1,5 +1,8 @@
 // Receipt list and the export buttons, used by both admin and resident.
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
@@ -102,4 +105,46 @@ class HistoryExportButtons extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The bytes of a payment photo kept as a "data:image/...;base64,..." text (null when it cannot be read).
+Uint8List? proofImageBytes(String dataUrl) {
+  if (dataUrl.isEmpty) return null;
+  try {
+    final i = dataUrl.indexOf(',');
+    return base64Decode(i >= 0 ? dataUrl.substring(i + 1) : dataUrl);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Turns a picture into the text kept with a payment (so the website can show it too).
+String proofImageText(Uint8List bytes) {
+  final jpeg = bytes.length > 2 && bytes[0] == 0xFF && bytes[1] == 0xD8;
+  return 'data:image/${jpeg ? 'jpeg' : 'png'};base64,${base64Encode(bytes)}';
+}
+
+/// Opens the photo attached to a payment, full size.
+void showProofImage(BuildContext context, PaymentProof p) {
+  final b = proofImageBytes(p.image);
+  if (b == null) return;
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+            child: Row(children: [
+              Expanded(child: Text('Payment photo · ${p.unit}', style: const TextStyle(fontWeight: FontWeight.w800))),
+              IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded)),
+            ]),
+          ),
+          Flexible(child: InteractiveViewer(child: Image.memory(b, fit: BoxFit.contain))),
+        ],
+      ),
+    ),
+  );
 }

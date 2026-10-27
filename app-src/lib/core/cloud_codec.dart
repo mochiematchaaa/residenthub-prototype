@@ -184,6 +184,12 @@ Map<String, dynamic> _dueJson(Due d) => {
       if (d.remindedOn.isNotEmpty) 'remindedOn': d.remindedOn,
       if (d.reminders > 0) 'reminders': d.reminders,
       if (d.remindMsg.isNotEmpty) 'remindMsg': d.remindMsg,
+      if (d.checkedAt > 0) 'checkedAt': d.checkedAt,
+      if (d.checkedNo.isNotEmpty) 'checkedNo': d.checkedNo,
+      if (d.lateFeeId > 0) 'lateFeeId': d.lateFeeId,
+      if (d.balanceOf > 0) 'balanceOf': d.balanceOf,
+      if (d.lateFor > 0) 'lateFor': d.lateFor,
+      if (d.partOf > 0) 'partOf': d.partOf,
       'paid': d.paid,
     };
 
@@ -197,7 +203,13 @@ Due? _dueFrom(Map<String, dynamic> j) {
       rate: _num(j, 'rate'),
       remindedOn: _s(j, 'remindedOn'),
       reminders: _i(j, 'reminders'),
-      remindMsg: _s(j, 'remindMsg'));
+      remindMsg: _s(j, 'remindMsg'),
+      checkedAt: _i(j, 'checkedAt'),
+      checkedNo: _s(j, 'checkedNo'),
+      lateFeeId: _i(j, 'lateFeeId'),
+      balanceOf: _i(j, 'balanceOf'),
+      lateFor: _i(j, 'lateFor'),
+      partOf: _num(j, 'partOf'));
 }
 
 Map<String, dynamic> _grievanceJson(Grievance g) =>
@@ -515,6 +527,7 @@ List<CRow> exportRows(AppState a) {
   add('setting', 'dues_rate_sqm', '', {'rate': a.duesRate});
   add('setting', 'poll_categories', '', {'list': a.pollCats});
   add('setting', 'autopost', '', {'on': a.autoPostOn, 'hours': a.autoPostHours});
+  add('setting', 'paycheck', '', {'pct': a.latePct});
   add('setting', 'paymethods', '', {
     'list': [
       for (final m in a.payMethods) {'name': m.name, 'details': m.details, 'enabled': m.enabled}
@@ -662,6 +675,8 @@ void importRows(AppState a, Iterable<CRow> all) {
     final h = _num(ap, 'hours').toInt();
     a.autoPostHours = h > 0 ? h : 24;
   }
+  final pc = st['paycheck'];
+  if (pc != null && _num(pc, 'pct') > 0) a.latePct = _num(pc, 'pct');
   final pm = st['paymethods']?['list'];
   for (final m in a.payMethods) {
     m.enabled = m.name == AppState.officePay;

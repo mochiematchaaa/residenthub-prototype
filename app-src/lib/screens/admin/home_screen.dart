@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
 import 'admin_screens.dart';
+import 'pay_check.dart';
 
 /// Administrator dashboard (tab 1).
 class AdminHome extends StatelessWidget {
@@ -15,7 +16,7 @@ class AdminHome extends StatelessWidget {
     final recent = app.announcements.take(3).toList();
     final upcoming = app.upcomingBookings;
     final settled = app.dues.length - app.unpaidCount;
-    final attentionTotal = app.unpaidCount + app.pendingBookings + app.newStatusUpdates;
+    final attentionTotal = app.unpaidCount + app.pendingBookings + app.newStatusUpdates + app.payCheckList.length;
 
     return TabPage(
       header: AppHeader(
@@ -44,6 +45,9 @@ class AdminHome extends StatelessWidget {
             ],
           ),
         ),
+
+        // --- charges that may already be paid: "Did they pay?"
+        PayCheckCard(limit: 3, onOpenAll: () => adminJump(context, 3)),
 
         // --- overview
         DashSection(

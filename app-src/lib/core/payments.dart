@@ -57,6 +57,9 @@ class PaymentProof {
   final int at;
   bool auto;
 
+  /// A photo of the online payment the resident attached (a "data:image/..." text, so the website shows it too). Empty = none.
+  final String image;
+
   /// When the details were sent. Older records only have a date, so 9 AM of that day is used.
   DateTime get sentAt {
     if (at > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(at);
@@ -77,7 +80,8 @@ class PaymentProof {
       this.direct = false,
       this.slot = '',
       this.at = 0,
-      this.auto = false});
+      this.auto = false,
+      this.image = ''});
 
   /// Shared with the website through the live database (same field names).
   Map<String, dynamic> toJson() => {
@@ -97,6 +101,7 @@ class PaymentProof {
         if (direct) 'direct': true,
         if (slot.isNotEmpty) 'slot': slot,
         if (at > 0) 'at': at,
+        if (image.isNotEmpty) 'image': image,
         if (auto) 'auto': true,
         if (auto) 'confirmedBy': 'Automatic posting',
       };
@@ -125,6 +130,7 @@ class PaymentProof {
       slot: s('slot'),
       at: j['at'] is num ? (j['at'] as num).toInt() : 0,
       auto: j['auto'] == true,
+      image: s('image'),
     );
   }
 }
