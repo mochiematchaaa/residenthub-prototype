@@ -67,8 +67,8 @@ function viewFin() {
   var deskPending = state.payUnit ? list("proof").filter(function (o) { return o.unit === state.payUnit && o.v.status === "Pending"; }).length : 0;
   var methods = payMethods();
   var rate = setting("dues_rate_sqm").rate, mrate = setting("motor_rate").rate, drate = setting("motor_rate_daily").rate;
-  return '<div class="grid cols-4">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value">' + esc(s[1]) + "</div></div>"; }).join("") + "</div>" +
-    '<div class="card" style="margin-top:16px"><h2>Payments to verify</h2><p class="hint">Residents pay at the office, by bank, GCash or Maya, then send the amount, method and reference number. Check them against your records, then verify to issue a receipt. If the details are wrong, reject them and give the reason.</p>' +
+  var statsHtml = '<div class="grid cols-4">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value">' + esc(s[1]) + "</div></div>"; }).join("") + "</div>";
+  var verifyHtml = '<div class="card"><h2>Payments to verify</h2><p class="hint">Residents pay at the office, by bank, GCash or Maya, then send the amount, method and reference number. Check them against your records, then verify to issue a receipt. If the details are wrong, reject them and give the reason.</p>' +
     (proofs.length ? proofs.map(function (r) {
       var p = r.v;
       // the same reference number and method already used by another submission (any unit) is flagged
@@ -76,17 +76,16 @@ function viewFin() {
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b>' + esc(p.unit) + " · " + esc(p.payer) + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.forText || "") + " · " + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + " · " + esc(p.date) +
         (dup ? ' <span class="chip warn" title="This reference number was already submitted">Duplicate reference · also sent by ' + esc(dup.v.unit) + "</span>" : "") +
         '</div></div><div style="display:flex;gap:8px"><button class="btn" onclick="rejectProof(\'' + escAttr(r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(r.id) + '\')">Verify</button></div></div>';
-    }).join("") : '<p class="hint" style="margin:6px 0 0">Nothing waiting. New submissions from residents appear here right away.</p>') + "</div>" +
-    '<div class="fin-grid"><div class="fin-main">' +
-    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Collection summary</h2><p class="hint" style="margin:4px 0 0">' +
+    }).join("") : '<p class="hint" style="margin:6px 0 0">Nothing waiting. New submissions from residents appear here right away.</p>') + "</div>";
+  var summaryHtml = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Collection summary</h2><p class="hint" style="margin:4px 0 0">' +
       (state.finView === "month" ? "Money collected each month of " + year + ", in pesos." : "Money collected each day of " + LONG_MONTHS[selMon] + " " + selYear + ", in pesos.") + '</p></div>' +
       '<div class="filters" style="padding:0"><button class="' + (state.finView !== "month" ? "active" : "") + '" onclick="set({finView:\'day\'})">Daily</button><button class="' + (state.finView === "month" ? "active" : "") + '" onclick="set({finView:\'month\'})">Monthly</button></div></div>' +
       (state.finView === "month" ? "" :
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px"><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(-1)" aria-label="Previous month">&#8249;</button><b style="min-width:130px;text-align:center">' + LONG_MONTHS[selMon] + " " + selYear + '</b><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(1)" aria-label="Next month"' + (selKey >= thisMonthKey() ? " disabled" : "") + '>&#8250;</button>' +
         '<span style="font-size:13px;color:var(--muted)">Collected today: <b style="color:var(--ink,inherit)">' + peso(todayTotal) + "</b> &middot; This month: <b>" + peso(selTotal) + "</b></span></div>") +
-      (state.finView === "month" ? barChart(perMonth, "₱") : dailyChart(perDay)) + "</div>" +
-    dayLogCard(dues) +
-    '<div class="card fin-charges" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
+      (state.finView === "month" ? barChart(perMonth, "₱") : dailyChart(perDay)) + "</div>";
+  var logHtml = dayLogCard(dues);
+  var chargesHtml = '<div class="card fin-charges" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
     '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "paid" ? "active" : "") + '" onclick="set({finFilter:\'paid\',finPage:0})">Paid (' + paidDues.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
     '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' +
     tableRows(rows.map(function (r) {
@@ -95,20 +94,20 @@ function viewFin() {
       return '<tr><td class="nw" style="font-weight:700">' + esc(d.unit) + "</td><td>" + esc(d.note) + (billedOn(r.id, d) ? '<div class="cell-sub">Billed ' + esc(billedOn(r.id, d)) + "</div>" : "") + (d.paid ? '<div class="cell-sub">' + paidCell(paidInfo[r.id], d.paid).replace(/<\/?div[^>]*>/g, " ").replace(/<b>/g, "Paid by <b>") + "</div>" : "") + '</td><td class="nw" style="color:var(--muted)">' + esc(d.dueDate || "On receipt") + '</td><td class="nw"><b>' + peso(Number(d.amount)) + '</b><div style="margin-top:4px">' + chip + '</div></td><td><div class="row-actions">' +
         (d.paid ? "" : '<button class="btn primary" onclick="chooseDue(\'' + escAttr(r.id) + '\')">Collect</button><button class="btn" onclick="editDue(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" onclick="remindDue(\'' + escAttr(r.id) + '\')">Remind</button>') +
         '<button class="btn danger" onclick="deleteDue(\'' + escAttr(r.id) + '\')">Delete</button></div></td></tr>';
-    }), ["UNIT", "FOR", "DUE", "AMOUNT", "ACTIONS"], dues.length ? (fq ? "No charge matches your search." : "Nothing unpaid. Everyone is up to date.") : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + (shownDues.length > FIN_PAGE ? pagerHtml(shownDues.length, finPage, FIN_PAGE, "goFinPage") : "") + "</div>" +
-    unitDuesCard() +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Dues settings</h2><p class="hint" style="margin:0">Dues are charged <b>per square meter</b>. Each unit pays its floor area × this rate every month, so “Bill monthly dues” works out every unit\'s amount by itself. Set a unit\'s floor area under Units. You can still change the amount of one unit\'s charge with “Edit”.</p>' +
+    }), ["UNIT", "FOR", "DUE", "AMOUNT", "ACTIONS"], dues.length ? (fq ? "No charge matches your search." : "Nothing unpaid. Everyone is up to date.") : "No charges yet. Use “Bill monthly dues” or “Add charge”.") + (shownDues.length > FIN_PAGE ? pagerHtml(shownDues.length, finPage, FIN_PAGE, "goFinPage") : "") + "</div>";
+  var unitsHtml = unitDuesCard();
+  var duesSetHtml = '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Dues settings</h2><p class="hint" style="margin:0">Dues are charged <b>per square meter</b>. Each unit pays its floor area × this rate every month, so “Bill monthly dues” works out every unit\'s amount by itself. Set a unit\'s floor area under Units. You can still change the amount of one unit\'s charge with “Edit”.</p>' +
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:200px">Monthly dues per sqm (₱)<input id="duesRate" type="number" min="0" step="0.01" value="' + escAttr(state.duesDraft != null ? state.duesDraft : (rate || "")) + '" oninput="state.duesDraft=this.value;duesPreview()"></label><button class="btn primary" onclick="saveDuesRate()">Save rate</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (rate ? peso(rate) + " per sqm" : "not set yet") + '</b></span></div>' +
     '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" ' + (state.duesRecalc === false ? "" : "checked") + ' onchange="state.duesRecalc=this.checked"> When I save a new rate, also update the unpaid monthly dues to it</label>' +
     '<div id="duesPreview">' + duesPreviewHtml(state.duesDraft != null ? state.duesDraft : rate) + "</div>" +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">Residents rent a motor/motorcycle slot for one month or by the day. Set a rate for each. The board can change them at any time.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>';
+  var motorHtml = '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">Residents rent a motor/motorcycle slot for one month or by the day. Set a rate for each. The board can change them at any time.</p>' +
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Monthly rate (₱ / month)<input id="motorRate" type="number" min="0" value="' + escAttr(state.motorDraft != null ? state.motorDraft : (mrate || "")) + '" oninput="state.motorDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate\',\'motorDraft\',\'Monthly parking rate\')">Update monthly</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (mrate ? peso(mrate) + "/month" : "not set yet") + "</b></span></div>" +
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Daily rate (₱ / day)<input id="motorRateDay" type="number" min="0" value="' + escAttr(state.dailyDraft != null ? state.dailyDraft : (drate || "")) + '" oninput="state.dailyDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate_daily\',\'dailyDraft\',\'Daily parking rate\')">Update daily</button>' +
-    '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (drate ? peso(drate) + "/day" : "not set yet (daily option hidden)") + "</b></span></div></div></div>" +
-    '<aside class="fin-side"><div class="card" id="payDesk" style="display:flex;flex-direction:column;gap:10px"><h2>Record payment</h2>' +
+    '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (drate ? peso(drate) + "/day" : "not set yet (daily option hidden)") + "</b></span></div></div>";
+  var deskHtml = '<div class="card" id="payDesk" style="display:flex;flex-direction:column;gap:10px"><h2>Record payment</h2>' +
     '<p class="hint" style="margin:0">The resident paid at the office or online but did not update the dashboard? Record it here. The charges you tick are marked paid and the resident\'s dues go down right away.</p>' +
     '<label class="fl">Resident / unit<select onchange="choosePayUnit(this.value)"><option value="">Select a unit with unpaid charges</option>' + deskUnitIds.map(function (id) {
       return '<option value="' + escAttr(id) + '" ' + (state.payUnit === id ? "selected" : "") + ">" + esc(id) + (deskUnits[id] ? " — " + esc(deskUnits[id]) : "") + "</option>";
@@ -122,14 +121,26 @@ function viewFin() {
     '<label class="fl">Reference no. (optional)<input id="payRef" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label>' +
     '<label class="fl">Date paid<input type="date" id="payDate" max="' + dayKey(new Date()) + '" value="' + escAttr(state.payDate || dayKey(new Date())) + '" onchange="state.payDate=this.value"></label>' +
     '<div class="kv" style="font-size:13px">' + (state.payUnit ? "<span>Charges ticked</span><b>" + state.payDues.length + "</b><span>Total received</span><b>" + peso(deskTotal) + "</b>" : '<span style="grid-column:1/-1">Choose a unit to begin.</span>') + "</div>" +
-    '<button class="btn primary" onclick="recordPayment()">Record payment &amp; update dues</button></div>' +
-    dailyExpensesCard() +
-    '<div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Receipts</h2>' +
+    '<button class="btn primary" onclick="recordPayment()">Record payment &amp; update dues</button></div>';
+  var dailyExpHtml = dailyExpensesCard();
+  var receiptsHtml = '<div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Receipts</h2>' +
     (pays.slice(0, 6).map(function (r) {
       var p = r.v;
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border2)"><span style="font-size:13px"><b>' + esc(p.receiptNo) + "</b> · " + esc(p.unit) + " · " + peso(Number(p.amount)) + '<br><span style="color:var(--muted);font-size:12px">' + esc(p.method || "") + " · " + esc(p.date || "") + '</span></span><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'payment\',\'' + escAttr(r.id) + '\')">Receipt</button></div>';
     }).join("") || '<p class="hint" style="margin:0">No payments recorded yet.</p>') +
-    '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div></aside></div>';
+    '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div>';
+  var tab = state.finTab || "overview";
+  var tabDefs = [["overview", "Overview" + (proofs.length ? " (" + proofs.length + " to verify)" : "")], ["charges", "Charges (" + open.length + " unpaid)"], ["pay", "Record payment"], ["daily", "Daily log"], ["units", "Unit dues"], ["settings", "Settings"]];
+  if (!tabDefs.some(function (t) { return t[0] === tab; })) tab = "overview";
+  var tabBar = '<div class="filters fin-tabs" role="tablist" style="margin-bottom:16px">' + tabDefs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({finTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
+  var chargesBar = '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><span class="hint" style="margin:0 auto 0 0">Bill every unit for the month, remind residents, or add a single charge.</span><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button></div>';
+  var body = tab === "overview" ? statsHtml + '<div style="margin-top:16px">' + verifyHtml + "</div>" + '<div style="margin-top:16px">' + summaryHtml + "</div>"
+    : tab === "charges" ? chargesBar + chargesHtml
+    : tab === "pay" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + deskHtml + '</div><aside class="fin-side">' + receiptsHtml + "</aside></div>"
+    : tab === "daily" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + logHtml + '</div><aside class="fin-side">' + dailyExpHtml + "</aside></div>"
+    : tab === "units" ? unitsHtml
+    : '<div class="fin-main">' + duesSetHtml + motorHtml + "</div>";
+  return tabBar + body;
 }
 // "Unit dues and payments": every unit's floor area, monthly dues (area x rate), billed, paid and balance, all computed from the records.
 // Change a unit's floor area right from the Finance table. The monthly dues follow it automatically (area × rate per sqm).
@@ -523,6 +534,8 @@ function exportDues() {
    ========================================================================== */
 function expTotal(e) { return Number(e.qty || 1) * Number(e.unitPrice || 0); }
 // PAGE: Expenses.
+var EXP_PAGE = 10;
+function goExpPage(n) { state.expPage = Math.max(0, n); render(); }
 function viewExpenses() {
   var now = new Date();
   if (!state.expMonth) state.expMonth = now.getFullYear() + "-" + pad(now.getMonth() + 1);
@@ -532,16 +545,17 @@ function viewExpenses() {
     .sort(function (a, b) { return String(b.v.date).localeCompare(String(a.v.date)); });
   var total = inMonth.reduce(function (s, r) { return s + expTotal(r.v); }, 0);
   var dayTotal = all.filter(function (r) { return r.v.date === state.expDay; }).reduce(function (s, r) { return s + expTotal(r.v); }, 0);
-  var rows = inMonth.map(function (r) {
+  var expPages = Math.max(1, Math.ceil(inMonth.length / EXP_PAGE)), expPage = Math.min(Math.max(0, state.expPage || 0), expPages - 1);
+  var rows = inMonth.slice(expPage * EXP_PAGE, (expPage + 1) * EXP_PAGE).map(function (r) {
     var e = r.v;
     return "<tr><td>" + esc(e.date) + '</td><td><b>' + esc(e.item) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(e.payee || "") + (e.receiptNo ? " · OR " + esc(e.receiptNo) : "") + "</div></td><td>" + esc(e.category) + "</td><td>" + esc(e.area || "") + '</td><td style="font-weight:700">' + peso(expTotal(e)) +
       '</td><td><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="expenseForm(\'' + escAttr(r.id) + '\')">Edit</button> <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteExpense(\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
   });
-  return '<div class="expense-toolbar"><label>Report month <input id="expMonth" type="month" value="' + escAttr(state.expMonth) + '" onchange="set({expMonth:this.value})"></label>' +
+  return '<div class="expense-toolbar"><label>Report month <input id="expMonth" type="month" value="' + escAttr(state.expMonth) + '" onchange="set({expMonth:this.value,expPage:0})"></label>' +
     '<button class="btn primary" onclick="expenseForm(null)">+ Add purchase</button><button class="btn" onclick="exportExpenses()" ' + (inMonth.length ? "" : "disabled") + ">Export month CSV</button></div>" +
     '<div class="expense-stats grid cols-3" style="margin-bottom:16px"><div class="card"><div class="stat-label">Monthly expenses</div><div class="stat-value">' + peso(total) + '</div><p class="hint" style="margin:6px 0 0">' + inMonth.length + " purchase" + (inMonth.length === 1 ? "" : "s") + " in " + esc(state.expMonth) + "</p></div>" +
     '<div class="card"><label class="stat-label" for="expDay">Daily expenses</label><input id="expDay" type="date" value="' + escAttr(state.expDay) + '" onchange="set({expDay:this.value})"><div class="stat-value">' + peso(dayTotal) + "</div></div></div>" +
-    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["DATE", "ITEM", "CATEGORY", "FOR", "TOTAL", ""], "No purchases recorded for this month.") + "</div>";
+    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["DATE", "ITEM", "CATEGORY", "FOR", "TOTAL", ""], "No purchases recorded for this month.") + (inMonth.length > EXP_PAGE ? pagerHtml(inMonth.length, expPage, EXP_PAGE, "goExpPage") : "") + "</div>";
 }
 // Popup form to add or edit an expense.
 function expenseForm(id, day) {
