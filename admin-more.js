@@ -336,21 +336,36 @@ function unitDuesCard() {
 function editDue(id) {
   var row = getRow("due", id);
   if (!row || row.value.paid) return toast("Only an unpaid charge can be edited.");
-  var c = row.value;
+  var c = row.value, same = list("due").filter(function (r) { return !r.v.paid && r.v.note === c.note; }), SCOPE1 = "This unit only", SCOPEN = "All units: " + same.length + " unpaid charge" + (same.length === 1 ? "" : "s") + " named this", SCOPEX = "Remove it from all units (unpaid ones)";
   openForm({
     title: "Edit charge · " + c.unit,
-    intro: (c.note || "") + (c.area && c.rate ? ". Worked out as " + c.area + " sqm × " + peso(c.rate) + " = " + peso(c.area * c.rate) + ". Changing the amount affects this unit only." : ". Changing the amount affects this unit only."),
-    fields: [{ name: "amount", label: "Amount (₱)", type: "number", step: "0.01", value: c.amount }, { name: "due", label: "Due date (optional)", value: c.dueDate || "", placeholder: "e.g. Oct 30, 2026" }],
+    intro: (c.area && c.rate ? "Worked out as " + c.area + " sqm × " + peso(c.rate) + " = " + peso(c.area * c.rate) + ". " : "") + "Change the description, amount or due date. Pick <b>" + esc(SCOPEN.split(":")[0]) + "</b> to change every unit's unpaid charge with this description in one go (paid ones are never touched).",
+    fields: [{ name: "note", label: "Description", value: c.note || "" }, { name: "amount", label: "Amount (₱)", type: "number", step: "0.01", value: c.amount }, { name: "due", label: "Due date (optional)", value: c.dueDate || "", placeholder: "e.g. Oct 30, 2026" },
+      { name: "scope", label: "Apply to", type: "select", options: same.length > 1 ? [SCOPE1, SCOPEN, SCOPEX] : [SCOPE1, SCOPEX], value: SCOPE1 }],
     onSubmit: async function (d) {
-      var a = parseFloat(d.amount);
-      if (!(a > 0)) return { error: "Enter a valid amount." };
-      var due = c.dueDate || "";
-      if (d.due) { var p = parseShort(d.due); if (!p) return { error: 'Enter the due date like "Oct 15, 2026".' }; due = shortDate(p); } else due = "";
       var cur = getRow("due", id);
       if (!cur || cur.value.paid) return { error: "This charge was already paid." };
-      await put("due", id, cur.unit, Object.assign({}, cur.value, { amount: a, dueDate: due, edited: true }));
-      logAct("Charge edited, " + c.unit + ": " + peso(Number(c.amount)) + " to " + peso(a), "Finance");
-      toast("Charge updated.");
+      if (d.scope === SCOPEX) {
+        var gone = list("due").filter(function (r) { return !r.v.paid && r.v.note === c.note; });
+        for (var g = 0; g < gone.length; g++) await del("due", gone[g].id);
+        logAct("Charge removed from " + gone.length + " unit(s): " + c.note, "Finance");
+        return toast("Removed " + gone.length + " unpaid charge" + (gone.length === 1 ? "" : "s") + ". Paid ones were kept.");
+      }
+      var a = parseFloat(d.amount), note = String(d.note || "").trim();
+      if (!note) return { error: "Add a short description." };
+      if (!(a > 0)) return { error: "Enter a valid amount." };
+      var due = "";
+      if (d.due) { var p = parseShort(d.due); if (!p) return { error: 'Enter the due date like "Oct 15, 2026".' }; due = shortDate(p); }
+      var targets = d.scope === SCOPE1 ? [cur] : list("due").filter(function (r) { return !r.v.paid && r.v.note === c.note; }).map(function (r) { return { id: r.id, unit: r.unit, value: r.v }; });
+      for (var i = 0; i < targets.length; i++) {
+        var t = targets[i];
+        await put("due", t.id, t.unit, Object.assign({}, t.value, { note: note, amount: a, dueDate: due, edited: true }));
+        // a payment already sent for the old description follows the new one
+        var pend = list("proof").filter(function (o) { return o.v.status === "Pending" && o.unit === t.unit && o.v.forText === c.note; });
+        for (var k = 0; k < pend.length; k++) await put("proof", pend[k].id, pend[k].unit, Object.assign({}, pend[k].v, { forText: note }));
+      }
+      logAct("Charge edited, " + (targets.length > 1 ? targets.length + " units" : c.unit) + ": " + c.note + (note !== c.note ? " → " + note : "") + " " + peso(Number(c.amount)) + " to " + peso(a), "Finance");
+      toast(targets.length > 1 ? "Updated " + targets.length + " charges." : "Charge updated.");
     }
   });
 }
@@ -719,12 +734,14 @@ function billDues() {
   });
 }
 // Popup form to add a special charge.
+var ALL_UNITS = "All units";
 function chargeForm() {
   var units = unitNames();
   if (!units.length) return toast("Add a unit first.");
   openForm({
     title: "Add charge",
-    fields: [{ name: "unit", label: "Unit", type: "select", options: units }, { name: "amount", label: "Amount (₱)", type: "number", step: "0.01" },
+    intro: "Choose one unit, or <b>All units</b> to bill everyone at once, for example a special assessment.",
+    fields: [{ name: "unit", label: "Unit", type: "select", options: [ALL_UNITS].concat(units) }, { name: "amount", label: "Amount (₱) for each unit", type: "number", step: "0.01" },
       { name: "note", label: "Description", placeholder: "e.g. Facility damage fee" }, { name: "due", label: "Due date (optional)", placeholder: "e.g. Oct 30, 2026" }],
     onSubmit: async function (d) {
       var a = parseFloat(d.amount);
@@ -732,9 +749,14 @@ function chargeForm() {
       if (!d.note) return { error: "Add a short description, e.g. Facility damage fee." };
       var due = "";
       if (d.due) { var p = parseShort(d.due); if (!p) return { error: 'Enter the due date like "Oct 15, 2026".' }; due = shortDate(p); }
-      var id = nextId(), u = unitRec(d.unit) || {};
-      await put("due", id, d.unit, { id: id, unit: d.unit, name: u.name && u.name !== "—" ? u.name : "", amount: a, note: d.note, dueDate: due, billedOn: shortDate(new Date()) });
-      logAct("Charge added, " + d.unit + ": " + d.note, "Finance");
+      var targets = d.unit === ALL_UNITS ? sortedUnits().filter(function (r) { return r.v.status === "Occupied" || (r.v.name && r.v.name !== "—"); }).map(function (r) { return r.id; }) : [d.unit];
+      if (!targets.length) return { error: "No unit has a household yet." };
+      for (var i = 0; i < targets.length; i++) {
+        var id = nextId(), u = unitRec(targets[i]) || {};
+        await put("due", id, targets[i], { id: id, unit: targets[i], name: u.name && u.name !== "—" ? u.name : "", amount: a, note: d.note, dueDate: due, billedOn: shortDate(new Date()) });
+      }
+      logAct("Charge added, " + (targets.length > 1 ? "all units (" + targets.length + ")" : targets[0]) + ": " + d.note, "Finance");
+      if (targets.length > 1) toast("Charge added to " + targets.length + " units.");
     }
   });
 }

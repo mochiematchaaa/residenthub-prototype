@@ -464,21 +464,24 @@ List<CRow> _demoRows() {
         'name': u.house,
         'amount': 300,
         'billedOn': _sd(_off(-(hi % 4))),
-        'note': 'Parking sticker fee',
+        'note': 'Motor parking rental',
         'dueDate': _sd(_off(5 + hi % 6)),
       });
     }
   }
-  final sid = tid();
-  r('due', sid, 'Unit 3B', {
-    'id': sid,
-    'unit': 'Unit 3B',
-    'name': byUnit['Unit 3B']!['name'],
-    'amount': 800,
-    'billedOn': _sd(_off(-1)),
-    'note': 'Special assessment - elevator repair',
-    'dueDate': _sd(_off(9)),
-  });
+  // A special assessment is billed to every occupied unit, not only one.
+  for (final u in occ) {
+    final sid = tid();
+    r('due', sid, u.label, {
+      'id': sid,
+      'unit': u.label,
+      'name': u.house,
+      'amount': 800,
+      'billedOn': _sd(_off(-1)),
+      'note': 'Special assessment - elevator repair',
+      'dueDate': _sd(_off(9)),
+    });
+  }
 
   // ---- expenses (administrator only), six months
   var rc = 4100;
