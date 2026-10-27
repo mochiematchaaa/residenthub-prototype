@@ -543,6 +543,29 @@ class AppState extends ChangeNotifier {
     _n();
   }
 
+  /// Admin: sets a unit's floor area. When [recalc] is true the unit's unpaid monthly dues are worked out again
+  /// with the new size (area × the current rate per sqm). Returns an error text, or null.
+  String? setUnitArea(Unit u, String raw, {bool recalc = true}) {
+    final a = double.tryParse(raw.trim().replaceAll(',', ''));
+    if (a == null || a <= 0) return 'Enter the floor area in square meters, e.g. 45.';
+    u.area = a;
+    var n = 0;
+    if (recalc && duesRate > 0) {
+      for (final d in dues.where((d) => d.unit == u.unit && !d.paid && d.area > 0 && d.rate > 0)) {
+        d.area = a;
+        d.rate = duesRate;
+        d.amount = (a * duesRate * 100).round() / 100;
+        n++;
+      }
+    }
+    lastRecalcCount = n;
+    logActivity('Unit size set, ${u.unit}: $a sqm${n > 0 ? ' ($n unpaid monthly charge${n == 1 ? '' : 's'} updated)' : ''}', 'Units');
+    _n();
+    return null;
+  }
+
+  int lastRecalcCount = 0;
+
   /// Admin: removes a unit that has no account. Returns an error message or null.
   String? removeUnit(Unit u) {
     if (trusted.any((a) => a.unit == u.unit && a.role == 'Resident')) {

@@ -372,6 +372,33 @@ class _UnitDuesCardState extends State<UnitDuesCard> {
   static const _size = 10;
   int page = 0;
 
+  void _editSize(Unit u) {
+    showFormSheet(
+      context,
+      title: 'Unit size · ${u.unit}',
+      subtitle: 'Each unit pays by its floor area, so bigger units pay more. Monthly dues = floor area × ${app.duesRate > 0 ? '${peso(app.duesRate)} per sqm' : 'the rate per sqm (set it first)'}.',
+      fields: [
+        FieldSpec('area', 'Floor area (sqm)', type: const TextInputType.numberWithOptions(decimal: true), hint: 'e.g. 45', initial: u.area <= 0 ? '' : u.area.toString()),
+      ],
+      choices: const [
+        ChoiceSpec('recalc', 'Charges not paid yet', ['Recalculate the unpaid monthly dues', 'Keep them as billed'], 'Recalculate the unpaid monthly dues'),
+      ],
+      submit: 'Save size',
+      onSubmit: (v) {
+        final err = app.setUnitArea(u, v['area'] as String, recalc: (v['recalc'] as String).startsWith('Recalculate'));
+        if (err == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              final n = app.lastRecalcCount;
+              msg(context, '${u.unit} is now ${u.area} sqm${app.duesRate > 0 ? ', monthly dues ${peso(app.unitDues(u).monthly)}' : ''}${n > 0 ? '. $n unpaid monthly charge${n == 1 ? '' : 's'} updated.' : '.'}');
+            }
+          });
+        }
+        return err;
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final units = app.units;
@@ -405,6 +432,12 @@ class _UnitDuesCardState extends State<UnitDuesCard> {
               children: [
                 Expanded(child: Text('${r.$1.unit}${r.$1.name == '—' ? '' : ' · ${r.$1.name}'}', style: const TextStyle(fontWeight: FontWeight.w700))),
                 if (r.$1.area <= 0) const Pill('No area', tone: Tone.warn) else Text('${r.$1.area} sqm', style: TextStyle(color: muted(context), fontWeight: FontWeight.w600)),
+                const SizedBox(width: 4),
+                TextButton(
+                  style: TextButton.styleFrom(minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                  onPressed: () => _editSize(r.$1),
+                  child: Text(r.$1.area <= 0 ? 'Set size' : 'Edit size'),
+                ),
               ],
             ),
             const SizedBox(height: 4),
