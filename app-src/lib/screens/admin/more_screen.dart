@@ -97,7 +97,7 @@ class AdminMore extends StatelessWidget {
         ]),
         NavGroup(label: 'Administration', children: [
           NavTile(icon: Icons.contacts_outlined, title: 'Directory and house rules', subtitle: '${directoryContacts.length} contacts · ${houseRules.length} rules', onTap: () => go(context, const AdminDirectory())),
-          NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Profile, access, payments, password', onTap: () => go(context, const AdminSettings())),
+          NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Account and security, access, payments', onTap: () => go(context, const AdminSettings())),
         ]),
         OutlinedButton.icon(
           onPressed: () async {

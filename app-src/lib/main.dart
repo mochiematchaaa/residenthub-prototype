@@ -93,9 +93,10 @@ class ResidentHubApp extends StatelessWidget {
               ),
             );
           },
+          // The language is part of the key, so the screens are rebuilt in the new language.
           home: AnimatedSwitcher(
             duration: const Duration(milliseconds: 350),
-            child: home,
+            child: KeyedSubtree(key: ValueKey('${home.key}-${app.lang}'), child: home),
           ),
         );
       },

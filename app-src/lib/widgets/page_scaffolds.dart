@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../core/core.dart';
 import 'backdrop.dart';
 import 'common.dart';
 import 'pastel.dart';
@@ -62,10 +63,10 @@ class TabPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title ?? '', style: hd(28)),
+                      Text(tr(title ?? ''), style: hd(28)),
                       if (subtitle != null) ...[
                         const SizedBox(height: 4),
-                        Text(subtitle!, style: TextStyle(color: muted(context), fontSize: 13.5, height: 1.35)),
+                        Text(tr(subtitle!), style: TextStyle(color: muted(context), fontSize: 13.5, height: 1.35)),
                       ],
                     ],
                   ),
@@ -112,7 +113,7 @@ class SubPage extends StatelessWidget {
           padding: const EdgeInsets.only(left: 20),
           child: Center(child: CircleBtn(Icons.arrow_back_rounded, onTap: () => Navigator.of(context).maybePop(), tooltip: 'Back')),
         ),
-        title: Text(title),
+        title: Text(tr(title)),
         actions: [
           ...actions,
           const SizedBox(width: 20),
@@ -126,7 +127,7 @@ class SubPage extends StatelessWidget {
             if (subtitle != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Text(subtitle!, style: TextStyle(color: muted(context), height: 1.4)),
+                child: Text(tr(subtitle!), style: TextStyle(color: muted(context), height: 1.4)),
               ),
             for (var i = 0; i < children.length; i++)
               Reveal(

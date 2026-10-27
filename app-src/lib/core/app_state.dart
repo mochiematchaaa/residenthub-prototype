@@ -275,7 +275,11 @@ class SessionInfo {
   final int id;
   final String device, location, when;
   final bool current;
-  SessionInfo(this.id, this.device, this.location, this.when, this.current);
+
+  /// 'computer', 'phone' or 'tablet' (decides the icon). [sample] marks demo entries of the prototype.
+  final String kind;
+  final bool sample;
+  SessionInfo(this.id, this.device, this.location, this.when, this.current, {this.kind = 'computer', this.sample = false});
 }
 
 /// A resident's request for a parking slot.
@@ -345,6 +349,40 @@ class AppState extends ChangeNotifier {
 
   /// Called by the sync after it has changed the data.
   void changed() => _n();
+
+  /// Language of the menus and titles: 'en' or 'fil' (see core/i18n.dart).
+  String lang = 'en';
+  void setLang(String code) {
+    lang = code == 'fil' ? 'fil' : 'en';
+    _n();
+  }
+
+  /// Settings > Devices: the alert for a new sign-in, and when the password was last changed here.
+  bool newDeviceAlert = true;
+  DateTime? passwordChangedAt;
+  void setNewDeviceAlert(bool v) {
+    newDeviceAlert = v;
+    _n();
+  }
+
+  /// Signs out one of the other devices (this device is signed out with session.signOut()).
+  void signOutSession(int id) {
+    sessions = [for (final s in sessions) if (s.id != id || s.current) s];
+    _n();
+  }
+
+  /// Signs out every device except this one.
+  void signOutOtherSessions() {
+    sessions = [for (final s in sessions) if (s.current) s];
+    _n();
+  }
+
+  /// Called after the password was changed from Settings.
+  void passwordChangedNow({bool signOutOthers = false}) {
+    passwordChangedAt = DateTime.now();
+    if (signOutOthers) sessions = [for (final s in sessions) if (s.current) s];
+    _n();
+  }
 
   /// Switches dark mode.
   void toggleDark() {
@@ -432,6 +470,13 @@ class AppState extends ChangeNotifier {
     };
   }
 
+  static String _deviceKind() => kIsWeb
+      ? 'computer'
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.android || TargetPlatform.iOS => 'phone',
+          _ => 'computer',
+        };
+
   static String _clock(DateTime t) {
     final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
     return '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour >= 12 ? 'PM' : 'AM'}';
@@ -461,7 +506,14 @@ class AppState extends ChangeNotifier {
     } else {
       me = ResidentUser(name.trim().isEmpty ? email : name.trim(), unit, email, phone);
     }
-    sessions = [SessionInfo(1, _deviceLabel(), 'Signed in at ${_clock(DateTime.now())}', 'Active now', true)];
+    sessions = [
+      SessionInfo(1, _deviceLabel(), 'Signed in at ${_clock(DateTime.now())}', 'Active now', true, kind: _deviceKind()),
+      // The prototype has no real list of sessions, so two sample devices let you try the buttons.
+      if (const bool.fromEnvironment('PROTOTYPE', defaultValue: true)) ...[
+        SessionInfo(2, 'Android phone · Chrome', 'Quezon City', '2 days ago', false, kind: 'phone', sample: true),
+        SessionInfo(3, 'iPad · Safari', 'Quezon City', '9 days ago', false, kind: 'tablet', sample: true),
+      ],
+    ];
     resTab = 0;
     adminTab = 0;
     booting = false;
@@ -504,6 +556,8 @@ class AppState extends ChangeNotifier {
     role = null;
     me = null;
     userId = '';
+    sessions = [];
+    passwordChangedAt = null;
     mustChangePassword = false;
     contactVerified = true;
     resTab = 0;
