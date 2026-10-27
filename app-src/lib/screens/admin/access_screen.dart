@@ -7,6 +7,7 @@ import '../../services/session.dart';
 import '../../widgets/widgets.dart';
 import '../shared/import_sheet.dart';
 import '../shared/notify_sheet.dart';
+import 'unit_history_screen.dart';
 
 class AdminAccess extends StatefulWidget {
   const AdminAccess({super.key});
@@ -66,6 +67,20 @@ class _AdminAccessState extends State<AdminAccess> {
             ),
             _ContactSummary(),
             RCard(
+              child: Row(children: [
+                const IconBadge(Icons.badge_outlined, accent: true),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Looking for resident records?', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text('This list only controls who can sign in. Each unit\'s household record lives under Resident profiles.', style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.3)),
+                    const SizedBox(height: 6),
+                    TextButton(onPressed: () => go(context, const UnitHistoryScreen()), child: const Text('Open Resident profiles')),
+                  ]),
+                ),
+              ]),
+            ),
+            RCard(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
@@ -121,6 +136,17 @@ class _AdminAccessState extends State<AdminAccess> {
                       ),
                       _HistoryDropdown(t),
                       const SizedBox(height: 10),
+                      if (t.unit.isNotEmpty) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => go(context, UnitHistoryScreen(unit: t.unit)),
+                            icon: const Icon(Icons.badge_outlined),
+                            label: const Text('Profile'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(

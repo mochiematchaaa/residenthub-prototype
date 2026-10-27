@@ -96,5 +96,5 @@ List<SearchItem> adminSearchItems(BuildContext context) => [
       SearchItem('Finance documents', 'Client records, payments, receipts', Icons.lock_outline_rounded, () => go(context, const AdminFinanceDocs())),
       SearchItem('Community documents', 'Rules, forms, notices, minutes', Icons.folder_copy_outlined, () => go(context, const AdminDocs())),
       SearchItem('Manage access', 'Settings: accounts, suspend, revoke', Icons.admin_panel_settings_outlined, () => go(context, const AdminAccess())),
-      SearchItem('Unit history', 'Everything on record for one unit, Excel export', Icons.manage_search_rounded, () => go(context, const UnitHistoryScreen())),
+      SearchItem('Resident profiles', 'Each unit\'s resident record and history, Excel export', Icons.manage_search_rounded, () => go(context, const UnitHistoryScreen())),
     ];

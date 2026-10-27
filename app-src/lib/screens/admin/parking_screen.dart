@@ -21,6 +21,25 @@ class AdminParking extends StatelessWidget {
     );
   }
 
+  /// Changes the size of a slot. The size decides the price for the next resident.
+  void _size(BuildContext context, ParkingSlot s) {
+    final labels = {
+      for (final z in app.parkSizes) '${z.name} · ${z.sqm > 0 ? '${z.sqm} sqm · ' : ''}${peso(z.month)}/month': z.name,
+    };
+    final current = labels.entries.firstWhere((e) => e.value == s.size, orElse: () => labels.entries.first).key;
+    showFormSheet(
+      context,
+      title: 'Size of ${s.id}',
+      subtitle: 'The rental price follows the size. ${s.used ? 'The current resident keeps the amount they already pay.' : 'The next resident pays the rate of this size.'}',
+      choices: [ChoiceSpec('size', 'Slot size', labels.keys.toList(), current)],
+      submit: 'Save',
+      onSubmit: (v) {
+        app.setSlotSize(s, labels[v['size']] ?? 'Regular');
+        return null;
+      },
+    );
+  }
+
   void _assign(BuildContext context, ParkingSlot s) {
     final unitsList = [for (final u in app.units) if (app.slotOf(u.unit) == null) u.unit];
     if (unitsList.isEmpty) {
@@ -79,6 +98,13 @@ class AdminParking extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Text(s.used ? '${s.id} · ${s.unit}' : '${s.id} · Free', style: hd(20)),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              child: Text(
+                '${s.size} slot · ${peso(app.parkRatesFor(s.size).month)}/month${app.parkRatesFor(s.size).day > 0 ? ' · ${peso(app.parkRatesFor(s.size).day)}/day' : ''}',
+                style: TextStyle(color: muted(context), fontSize: 12.5),
+              ),
+            ),
             if (s.used)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
@@ -103,6 +129,15 @@ class AdminParking extends StatelessWidget {
                   _assign(context, s);
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.straighten_rounded),
+              title: Text('Size: ${s.size}'),
+              subtitle: const Text('Change the slot size and its price'),
+              onTap: () {
+                Navigator.pop(sheet);
+                _size(context, s);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Rename'),
@@ -188,7 +223,7 @@ class AdminParking extends StatelessWidget {
           Text('${p.unit} · ${p.name}', style: const TextStyle(fontWeight: FontWeight.w700)),
           Text(
             p.slot.isNotEmpty
-                ? 'Slot ${p.slot}${p.amount > 0 ? ' · ${peso(p.amount)}' : ''} · ${parkPlanText(p.plan, p.days)}'
+                ? 'Slot ${p.slot} (${app.slotSize(p.slot)})${p.amount > 0 ? ' · ${peso(p.amount)}' : ''} · ${parkPlanText(p.plan, p.days)}'
                 : (app.freeSlot == null ? 'No free slot right now' : 'Next free slot: ${app.freeSlot!.id}'),
             style: TextStyle(color: muted(context), fontSize: 12.5),
           ),
@@ -220,7 +255,7 @@ class AdminParking extends StatelessWidget {
                 ['In use', '${app.slotsUsed}'],
                 ['Free', '$free'],
                 ['Waiting', '${waiting.length}'],
-                ['Monthly', peso(app.motorRate)],
+                ['Monthly income', peso(app.slots.where((x) => x.used && !x.daily && !x.ended).fold<num>(0, (t, x) => t + (x.amount > 0 ? x.amount : app.parkRatesFor(x.size).month)))],
               ]),
             ),
             Text('Requests', style: hd(18)),
@@ -242,9 +277,10 @@ class AdminParking extends StatelessWidget {
                     context,
                     title: 'Add parking slots',
                     subtitle: app.slots.isEmpty ? 'How many motor parking slots does the building have?' : 'You have ${app.slots.length} slots. How many more should be added?',
+                    choices: [ChoiceSpec('size', 'Slot size', [for (final z in app.parkSizes) z.name], 'Regular')],
                     fields: const [FieldSpec('n', 'Number of slots', type: TextInputType.number, hint: 'e.g. 24')],
                     submit: 'Add slots',
-                    onSubmit: (v) => app.addSlots(v['n'] as String),
+                    onSubmit: (v) => app.addSlots(v['n'] as String, size: v['size'] as String),
                   ),
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Add slots'),
@@ -279,6 +315,7 @@ class AdminParking extends StatelessWidget {
                             Text(s.id, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: t.fg)),
                             Text(s.used ? s.unit.replaceFirst('Unit ', '') : (held != null ? 'Held ${held.replaceFirst('Unit ', '')}' : 'Free'),
                                 maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: t.fg)),
+                            Text(s.size, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9.5, color: t.fg.withValues(alpha: 0.7))),
                           ],
                         ),
                       ),
@@ -302,7 +339,7 @@ class AdminParking extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('${s.unit} · ${s.id}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  Text('${s.unit} · ${s.id} (${s.size})${s.amount > 0 ? ' · ${peso(s.amount)}' : ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
                                   Text(
                                     s.until.isEmpty ? '${s.daily ? 'Daily' : 'Monthly'} · no end date' : '${s.daily ? 'Daily' : 'Monthly'} · ${isoShort(s.from)} – ${isoShort(s.until)}',
                                     style: TextStyle(color: muted(context), fontSize: 12.5),
@@ -325,7 +362,7 @@ class AdminParking extends StatelessWidget {
               ),
             RCard(
               child: Text(
-                'Change the monthly and daily rates under Finance. Residents reserve a slot from their Parking page.',
+                'The price depends on the size of the slot: ${[for (final z in app.parkSizes) '${z.name} ${peso(z.month)}/month'].join(' · ')}. Change the rates under Finance > Settings. Residents reserve a slot from their Parking page.',
                 style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
               ),
             ),

@@ -121,6 +121,16 @@ class Poll {
   bool get resultsHidden => open && showResults == 'closed';
 }
 
+/// A slot size with its own rental rates: [sqm] is the floor area of the slot, [month] and [day] are the prices.
+class ParkSize {
+  final String name;
+  final num sqm, month, day;
+  const ParkSize(this.name, this.sqm, this.month, this.day);
+}
+
+/// Name, size in sqm and price factor used until the office sets the rates for each size.
+const kParkSizeDefaults = [('Small', 2.0, 0.7), ('Regular', 3.0, 1.0), ('Large', 4.5, 1.5)];
+
 /// One motor parking slot. [unit] is empty when the slot is free.
 class ParkingSlot {
   final String id;
@@ -130,6 +140,9 @@ class ParkingSlot {
   /// yyyy-mm-dd, [amount] is what was charged. Slots given before plans existed have no dates.
   String plan, from, until;
   num amount;
+
+  /// Small, Regular or Large. The rental price depends on it (see ParkSize).
+  String size = 'Regular';
   ParkingSlot(this.id, [this.unit = '', this.plan = 'month', this.from = '', this.until = '', this.amount = 0]);
   bool get used => unit.isNotEmpty;
   bool get daily => plan == 'day';

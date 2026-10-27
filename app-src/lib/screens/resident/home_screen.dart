@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import 'my_record_card.dart';
 import 'resident_screens.dart';
 
 /// Resident dashboard (tab 1).
@@ -122,6 +123,9 @@ class ResHome extends StatelessWidget {
             ),
           ),
         ),
+
+        // --- household record kept by the office
+        const MyRecordCard(),
 
         // --- quick access tiles
         DashSection(

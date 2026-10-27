@@ -526,12 +526,11 @@ class _ResDuesState extends State<ResDues> {
               const SizedBox(height: 10),
               Text.rich(
                 TextSpan(children: [
-                  const TextSpan(text: 'Rent a motor/motorcycle parking slot for '),
-                  TextSpan(text: app.motorRate > 0 ? '${peso(app.motorRate)}/month' : 'the monthly rate', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  if (app.motorRateDay > 0) ...[
-                    const TextSpan(text: ' or '),
-                    TextSpan(text: '${peso(app.motorRateDay)}/day', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ],
+                  const TextSpan(text: 'Rent a motor/motorcycle parking slot. The price depends on the slot size: '),
+                  TextSpan(
+                    text: [for (final z in app.parkSizes) if (z.month > 0) '${z.name} ${peso(z.month)}/month${z.day > 0 ? ' or ${peso(z.day)}/day' : ''}'].join(' · '),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   const TextSpan(text: ". Rates may change — check with the office for the latest amount."),
                 ]),
                 style: TextStyle(color: muted(context), fontSize: 13, height: 1.45),

@@ -298,6 +298,32 @@ List<CRow> _demoRows() {
       };
     }
   }
+  // sample household records (no random numbers, so the other sample data does not change)
+  for (var k = 0; k < units.length; k++) {
+    final u = units[k];
+    if (u.status != 'Occupied') continue;
+    final b = byUnit[u.label]!;
+    final last = u.person.split(' ').last;
+    final n = 1 + (k % 4);
+    const first = ['Elena', 'Paolo', 'Rhea', 'Carlo', 'Liza', 'Marco', 'Rico', 'Maria', 'Jenny', 'Noel', 'Cathy', 'Dennis', 'Joy', 'Ben', 'Grace'];
+    b['email'] = u.key + '@demo.test';
+    b['residents'] = n;
+    b['moveIn'] = _dk(_off(-(120 + (k * 53) % 1300)));
+    b['members'] = '${u.person}, ${u.type == 'Tenant' ? 'tenant' : 'owner'}'
+        '${n > 1 ? '\n${first[(k * 3 + 1) % first.length]} $last, family' : ''}'
+        '${n > 2 ? '\n${first[(k * 5 + 2) % first.length]} $last, child' : ''}';
+    b['emergencyName'] = '${first[(k * 7 + 3) % first.length]} $last';
+    b['emergencyRelation'] = const ['Sister', 'Brother', 'Parent', 'Spouse', 'Friend'][k % 5];
+    b['emergencyPhone'] = '0917 000 ${3000 + (k * 37) % 900}';
+    if (k % 3 == 0) b['vehicles'] = 'Motorcycle · ${String.fromCharCode(65 + k % 26)}BC ${1000 + (k * 411) % 9000}';
+    if (k % 5 == 0) b['pets'] = '1 dog';
+    if (k == 0) {
+      b['noteResident'] = 'Your parking sticker is ready for pickup at the office.';
+      b['noteOffice'] = 'Pays at the office on the first week of the month.';
+    }
+    b['profileUpdated'] = DateTime.now().millisecondsSinceEpoch - (1 + (k * 3) % 20) * 86400000;
+    b['profileBy'] = 'Administrator';
+  }
   for (final u in units) {
     r('unit', u.label, u.label, byUnit[u.label]!);
   }
@@ -306,6 +332,13 @@ List<CRow> _demoRows() {
   r('setting', 'dues_rate_sqm', '', {'rate': _sqmRate});
   r('setting', 'motor_rate', '', {'rate': 1500});
   r('setting', 'motor_rate_daily', '', {'rate': 100});
+  r('setting', 'park_sizes', '', {
+    'list': [
+      {'name': 'Small', 'sqm': 2, 'month': 1000, 'day': 70},
+      {'name': 'Regular', 'sqm': 3, 'month': 1500, 'day': 100},
+      {'name': 'Large', 'sqm': 4.5, 'month': 2200, 'day': 150},
+    ]
+  });
   r('setting', 'paymethods', '', {
     'list': [
       {'name': 'Cash or check at the office', 'details': 'Pay at the administration office, Monday to Saturday, 8 AM to 5 PM.', 'enabled': true},
@@ -745,23 +778,24 @@ List<CRow> _demoRows() {
 
   // ---- motor parking: 20 slots
   final rented = <String>{};
+  String sizeOfSlot(int n) => n <= 6 ? 'Small' : (n <= 16 ? 'Regular' : 'Large');
   void rent(String id, String unit, String plan, int off, int days, int amount) {
     rented.add(id);
-    r('slot', id, '', {'id': id, 'unit': unit, 'plan': plan, 'from': _dk(_off(off)), 'until': _dk(_off(off + days - 1)), 'amount': amount});
+    r('slot', id, '', {'id': id, 'unit': unit, 'plan': plan, 'from': _dk(_off(off)), 'until': _dk(_off(off + days - 1)), 'amount': amount, 'size': sizeOfSlot(int.parse(id.substring(2)))});
   }
 
-  rent('M-02', 'Unit 1A', 'month', -10, 30, 1500);
-  rent('M-04', 'Unit 9B', 'day', -1, 4, 400);
+  rent('M-02', 'Unit 1A', 'month', -10, 30, 1000);
+  rent('M-04', 'Unit 9B', 'day', -1, 4, 280);
   rent('M-08', 'Unit 2B', 'month', -20, 30, 1500);
   rent('M-09', 'Unit 2A', 'month', -5, 30, 1500);
   rent('M-11', 'Unit 3A', 'day', 0, 7, 700);
   rent('M-13', 'Unit 4A', 'month', -26, 30, 1500);
   rent('M-15', 'Unit 6C', 'month', -3, 30, 1500);
   rent('M-16', 'Unit 8B', 'day', -2, 3, 300);
-  rent('M-18', 'Unit 10A', 'month', -15, 30, 1500);
+  rent('M-18', 'Unit 10A', 'month', -15, 30, 2200);
   for (var s = 1; s <= 20; s++) {
     final id = 'M-${_two(s)}';
-    if (!rented.contains(id)) r('slot', id, '', {'id': id});
+    if (!rented.contains(id)) r('slot', id, '', {'id': id, 'size': sizeOfSlot(s)});
   }
   const reqs = <List<String>>[
     ['Unit 7A', 'M-05'],
@@ -778,7 +812,7 @@ List<CRow> _demoRows() {
       'slot': reqs[k][1],
       'plan': 'month',
       'days': 1,
-      'amount': 1500,
+      'amount': 1000,
       'confirmed': false,
     });
     if (k == 0) {
@@ -790,7 +824,7 @@ List<CRow> _demoRows() {
         'forText': 'Motor parking rental',
         'method': 'GCash',
         'reference': 'GC${year * 1000000 + 101403}',
-        'amount': 1500,
+        'amount': 1000,
         'date': _sd(now),
         'at': now.subtract(const Duration(hours: 5)).millisecondsSinceEpoch,
         'status': 'Pending',

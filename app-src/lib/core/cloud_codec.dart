@@ -92,6 +92,21 @@ Map<String, dynamic> _unitJson(Unit u) => {
       'statusDate': u.statusDate,
       'usageStatus': u.usageStatus,
       'usageRemark': u.usageRemark,
+      if (u.profileUpdated > 0) ...{
+        'email': u.email,
+        'moveIn': u.moveIn,
+        'residents': u.residents,
+        'members': u.members,
+        'pets': u.pets,
+        'vehicles': u.vehicles,
+        'emergencyName': u.emergencyName,
+        'emergencyRelation': u.emergencyRelation,
+        'emergencyPhone': u.emergencyPhone,
+        'noteResident': u.noteResident,
+        'noteOffice': u.noteOffice,
+        'profileUpdated': u.profileUpdated,
+        'profileBy': u.profileBy,
+      },
       'usageInfo': {for (final e in u.usageInfo.entries) e.key: e.key == 'agree' ? e.value == 'true' : e.value},
     };
 
@@ -110,7 +125,20 @@ Unit? _unitFrom(Map<String, dynamic> j) {
         if (j['usageInfo'] is Map)
           for (final e in (j['usageInfo'] as Map).entries)
             if (e.value != null && e.value.toString().isNotEmpty && e.value != false) e.key.toString(): e.value.toString(),
-      });
+      })
+    ..email = _s(j, 'email')
+    ..moveIn = _s(j, 'moveIn')
+    ..residents = _i(j, 'residents')
+    ..members = _s(j, 'members')
+    ..pets = _s(j, 'pets')
+    ..vehicles = _s(j, 'vehicles')
+    ..emergencyName = _s(j, 'emergencyName')
+    ..emergencyRelation = _s(j, 'emergencyRelation')
+    ..emergencyPhone = _s(j, 'emergencyPhone')
+    ..noteResident = _s(j, 'noteResident')
+    ..noteOffice = _s(j, 'noteOffice')
+    ..profileUpdated = _i(j, 'profileUpdated')
+    ..profileBy = _s(j, 'profileBy');
 }
 
 Map<String, dynamic> _updateJson(StatusUpdate s) =>
@@ -334,11 +362,11 @@ DocItem? _docFrom(Map<String, dynamic> j) {
 }
 
 Map<String, dynamic> _slotJson(ParkingSlot s) =>
-    {'id': s.id, 'unit': s.unit, 'plan': s.plan, 'from': s.from, 'until': s.until, 'amount': s.amount};
+    {'id': s.id, 'unit': s.unit, 'plan': s.plan, 'from': s.from, 'until': s.until, 'amount': s.amount, 'size': s.size};
 
 ParkingSlot? _slotFrom(Map<String, dynamic> j) {
   final id = _s(j, 'id');
-  return id.isEmpty ? null : ParkingSlot(id, _s(j, 'unit'), _s(j, 'plan', 'month') == 'day' ? 'day' : 'month', _s(j, 'from'), _s(j, 'until'), _num(j, 'amount'));
+  return id.isEmpty ? null : (ParkingSlot(id, _s(j, 'unit'), _s(j, 'plan', 'month') == 'day' ? 'day' : 'month', _s(j, 'from'), _s(j, 'until'), _num(j, 'amount'))..size = _s(j, 'size', 'Regular'));
 }
 
 Map<String, dynamic> _requestJson(ParkingReq r) =>
@@ -475,6 +503,11 @@ List<CRow> exportRows(AppState a) {
   }
   add('setting', 'motor_rate', '', {'rate': a.motorRate});
   add('setting', 'motor_rate_daily', '', {'rate': a.motorRateDay});
+  if (a.parkSizesSaved.isNotEmpty) {
+    add('setting', 'park_sizes', '', {
+      'list': [for (final z in a.parkSizesSaved) {'name': z.name, 'sqm': z.sqm, 'month': z.month, 'day': z.day}]
+    });
+  }
   add('setting', 'dues_rate_sqm', '', {'rate': a.duesRate});
   add('setting', 'poll_categories', '', {'list': a.pollCats});
   add('setting', 'autopost', '', {'on': a.autoPostOn, 'hours': a.autoPostHours});
@@ -612,6 +645,12 @@ void importRows(AppState a, Iterable<CRow> all) {
   }
   a.motorRate = _num(st['motor_rate'] ?? const {}, 'rate');
   a.motorRateDay = _num(st['motor_rate_daily'] ?? const {}, 'rate');
+  final ps = st['park_sizes']?['list'];
+  a.parkSizesSaved = [
+    if (ps is List)
+      for (final x in ps)
+        if (x is Map) ParkSize(_s(x, 'name', 'Regular'), _num(x, 'sqm'), _num(x, 'month'), _num(x, 'day')),
+  ];
   a.duesRate = _num(st['dues_rate_sqm'] ?? const {}, 'rate');
   final ap = st['autopost'];
   if (ap != null) {
