@@ -77,7 +77,8 @@ function notifs() {
   var over = myOpenDues().filter(function (r) { return isOverdue(r.v); });
   if (over.length) out.push([over.length === 1 ? "A charge is overdue: " + over[0].v.note + "." : over.length + " charges are overdue.", "bad", "dues"]);
   myProofs().slice(0, 3).forEach(function (r) {
-    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was verified. The receipt is under Dues.", "good", "dues"]);
+    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was " + (r.v.auto ? "posted automatically" : "verified") + ". Receipt " + (r.v.receiptNo || "") + " is under Dues.", "good", "dues"]);
+    else if (r.v.status === "Pending") { var ap = autoPostCfg(); out.push(["We received your payment details (" + peso(Number(r.v.amount) || 0) + ", ref. " + r.v.reference + ")." + (ap.on ? " It will be posted to your dues automatically by " + clockText(proofSentAt(r.v) + ap.hours * 3600000) + ". If something does not match, the office will tell you here." : " The office will verify it soon."), "info", "dues"]); }
     else if (r.v.status === "Rejected") out.push(["Your payment (ref. " + r.v.reference + ") was rejected" + (r.v.reason ? ": " + String(r.v.reason).replace(/[.\s]+$/, "") : " (please check the reference number)") + ". You can send the correct details.", "bad", "dues"]);
   });
   if (u.usageStatus === "approved") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " was approved.", "good", "rental"]);
@@ -498,13 +499,14 @@ function submitPaymentProof() {
   if (myProofs().some(function (p) { return p.v.status !== "Rejected" && String(p.v.reference).toLowerCase() === ref.toLowerCase() && p.v.method === state.payMethod; })) return toast("That reference number was already submitted.");
   act(async function () {
     var id = nextId();
-    var proofRec = { id: id, unit: myUnit(), payer: myHousehold(), forText: forText, method: state.payMethod, reference: ref, amount: amount, date: shortDate(new Date()), status: "Pending" };
+    var proofRec = { id: id, unit: myUnit(), payer: myHousehold(), forText: forText, method: state.payMethod, reference: ref, amount: amount, date: shortDate(new Date()), at: Date.now(), status: "Pending" };
     var prq = getRow("request", myUnit());
     if (forText === PARK_FOR && prq && prq.value.slot) proofRec.slot = prq.value.slot;
     await put("proof", id, myUnit(), proofRec);
     logAct("Payment reference sent, " + myUnit(), "Finance");
     state.payFor = ""; state.payAmt = ""; state.payRef = "";
-    toast("Payment details sent. The office will verify them and your receipt will appear here.");
+    var ap = autoPostCfg();
+    toast(ap.on ? "Payment details sent. It will be posted to your dues automatically by " + clockText(Date.now() + ap.hours * 3600000) + ", and your receipt will appear here." : "Payment details sent. The office will verify them and your receipt will appear here.");
   });
 }
 // My payment history.
@@ -513,6 +515,7 @@ function myPaymentsHtml() {
   return '<div class="card"><h2 style="font-size:17px;margin-bottom:8px">My payments</h2>' + (l.length ? l.map(function (r) {
     var p = r.v;
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b style="font-size:14px">' + esc(p.forText || "") + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + "</div>" + (p.receiptNo ? '<div style="font-size:12.5px;color:var(--muted)">Receipt ' + esc(p.receiptNo) + "</div>" : "") + (p.status === "Rejected" && p.reason ? '<div style="font-size:12.5px;color:#b3261e">Reason: ' + esc(p.reason) + "</div>" : "") +
+      (p.status === "Pending" && autoPostCfg().on ? '<div style="font-size:12.5px;color:var(--muted)">Posts automatically by ' + esc(clockText(proofSentAt(p) + autoPostCfg().hours * 3600000)) + "</div>" : "") + (p.auto ? '<div style="font-size:12.5px;color:var(--muted)">Posted automatically ' + esc(p.confirmedOn || "") + "</div>" : "") +
       '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="chip ' + chipFor(p.status) + '">' + esc(statusText(p.status)) + "</span>" + (p.status === "Confirmed" ? '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Receipt</button>' : "") + "</div></div>";
   }).join("") : '<p style="margin:0;font-size:13px;color:var(--muted)">No payments sent yet. After you pay, send the details above.</p>') + "</div>";
 }

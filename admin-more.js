@@ -68,15 +68,7 @@ function viewFin() {
   var methods = payMethods();
   var rate = setting("dues_rate_sqm").rate, mrate = setting("motor_rate").rate, drate = setting("motor_rate_daily").rate;
   var statsHtml = '<div class="grid cols-4">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value">' + esc(s[1]) + "</div></div>"; }).join("") + "</div>";
-  var verifyHtml = '<div class="card"><h2>Payments to verify</h2><p class="hint">Residents pay at the office, by bank, GCash or Maya, then send the amount, method and reference number. Check them against your records, then verify to issue a receipt. If the details are wrong, reject them and give the reason.</p>' +
-    (proofs.length ? proofs.map(function (r) {
-      var p = r.v;
-      // the same reference number and method already used by another submission (any unit) is flagged
-      var dup = list("proof").filter(function (o) { return String(o.id) !== String(r.id) && o.v.status !== "Rejected" && p.reference && p.reference !== "—" && String(o.v.reference).toLowerCase() === String(p.reference).toLowerCase() && o.v.method === p.method; })[0];
-      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border2)"><div style="min-width:0"><b>' + esc(p.unit) + " · " + esc(p.payer) + '</b><div style="font-size:12.5px;color:var(--muted)">' + esc(p.forText || "") + " · " + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + " · " + esc(p.date) +
-        (dup ? ' <span class="chip warn" title="This reference number was already submitted">Duplicate reference · also sent by ' + esc(dup.v.unit) + "</span>" : "") +
-        '</div></div><div style="display:flex;gap:8px"><button class="btn" onclick="rejectProof(\'' + escAttr(r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(r.id) + '\')">Verify</button></div></div>';
-    }).join("") : '<p class="hint" style="margin:6px 0 0">Nothing waiting. New submissions from residents appear here right away.</p>') + "</div>";
+  var verifyHtml = verifyPanel(proofs);
   var summaryHtml = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Collection summary</h2><p class="hint" style="margin:4px 0 0">' +
       (state.finView === "month" ? "Money collected each month of " + year + ", in pesos." : "Money collected each day of " + LONG_MONTHS[selMon] + " " + selYear + ", in pesos.") + '</p></div>' +
       '<div class="filters" style="padding:0"><button class="' + (state.finView !== "month" ? "active" : "") + '" onclick="set({finView:\'day\'})">Daily</button><button class="' + (state.finView === "month" ? "active" : "") + '" onclick="set({finView:\'month\'})">Monthly</button></div></div>' +
@@ -421,37 +413,124 @@ function recordPayment() {
     toast(done === 1 ? "Payment recorded. Receipt " + lastNo + " issued." : done + " charges marked paid (" + peso(total) + "). Receipts issued.");
   });
 }
-// Verifies a resident's payment proof and issues the receipt.
+/* ---------- "Payments to verify": one clear card per payment the resident sent ---------- */
+function verifyPanel(proofs) {
+  var cfg = autoPostCfg(), now = Date.now(), items = proofs.map(function (r) {
+    var chk = proofCheck(r), sent = proofSentAt(r.v), at = sent + cfg.hours * 3600000;
+    return { r: r, chk: chk, sent: sent, at: at, auto: cfg.on && chk.ok };
+  }).sort(function (a, b) { return (b.auto - a.auto) || (a.at - b.at); });
+  var nAuto = items.filter(function (i) { return i.auto; }).length, nReview = items.filter(function (i) { return !i.chk.ok; }).length;
+  var total = items.reduce(function (s, i) { return s + (Number(i.r.v.amount) || 0); }, 0);
+  var head = '<div class="vp-head"><div><h2>Payments to verify</h2><p class="hint" style="margin:4px 0 0">Payments residents say they made. Clean ones post by themselves; anything that does not match waits for you.</p></div>' +
+    '<div class="vp-auto-badge ' + (cfg.on ? "on" : "off") + '"><span class="vp-dot"></span><div><b>' + (cfg.on ? "Automatic posting is on" : "Automatic posting is off") + "</b><small>" +
+    (cfg.on ? "Clean payments post " + cfg.hours + " hours after they are sent" : "Every payment waits for you") + '</small></div><button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">Change</button></div></div>';
+  var stats = '<div class="vp-stats"><div><b>' + items.length + '</b><span>Waiting</span></div><div class="good"><b>' + nAuto + '</b><span>Will post by themselves</span></div><div class="' + (nReview ? "warn" : "") + '"><b>' + nReview + '</b><span>Need your review</span></div><div><b>' + peso(total) + "</b><span>Total amount</span></div></div>";
+  var body = items.length ? items.map(function (it) {
+    var p = it.r.v, u = unitRec(p.unit) || {}, chk = it.chk, due = chk.due ? chk.due.v : null, bal = balanceFor(p.unit);
+    var left = it.at - now, span = cfg.hours * 3600000, pct = Math.max(4, Math.min(100, Math.round((1 - left / span) * 100)));
+    var match = chk.expected == null ? '<span class="chip">No fixed amount</span>' : Math.abs((Number(p.amount) || 0) - chk.expected) <= 0.009 ? '<span class="chip good">✓ Matches ' + peso(chk.expected) + "</span>" : '<span class="chip bad">✗ Should be ' + peso(chk.expected) + "</span>";
+    var status;
+    if (!chk.ok) status = '<div class="vp-status review"><div class="vp-flags">' + chk.why.map(function (w) { return '<div class="vp-flag"><span>!</span>' + esc(w) + "</div>"; }).join("") + '</div><div class="vp-note">This one will not post by itself. Check it, then verify or reject.</div></div>';
+    else if (cfg.on) status = '<div class="vp-status auto"><div class="vp-line"><span>' + (left <= 0 ? "Posting now" : "Posts automatically in <b>" + waitText(left) + "</b>") + ' <small>(' + clockText(it.at) + ')</small></span><span class="vp-ok">✓ Amount, reference and charge all match</span></div><div class="vp-bar"><i style="width:' + pct + '%"></i></div></div>';
+    else status = '<div class="vp-status"><div class="vp-note">Automatic posting is off. Verify it to post the payment.</div></div>';
+    var recip = accountOfUnit(p.unit);
+    return '<article class="vp-item' + (chk.ok ? "" : " review") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
+      (recip ? " · " + esc(recip.email) : "") + '</small></div><div class="vp-amt">' + peso(Number(p.amount) || 0) + "<small>amount sent</small></div></div>" +
+      '<div class="vp-grid"><div><label>Paying for</label><b>' + esc(p.forText || "—") + '</b></div><div><label>Charge amount</label>' + match + '</div><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div>' +
+      '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div></div>" + status +
+      '<div class="vp-actions"><button class="btn" onclick="openHistory(\'' + escAttr(p.unit) + '\')">Unit history</button><span style="flex:1"></span><button class="btn" onclick="rejectProof(\'' + escAttr(it.r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(it.r.id) + '\')">' + (it.auto ? "Post now" : "Verify &amp; post") + "</button></div></article>";
+  }).join("") : '<div class="vp-empty"><b>Nothing waiting.</b><span>When a resident sends payment details they appear here, and post by themselves after ' + cfg.hours + ' hours if everything matches.</span></div>';
+  return '<div class="card vp">' + head + stats + '<div class="vp-list">' + body + "</div></div>";
+}
+/* ---------- checking and posting resident payments ---------- */
+// What is wrong (if anything) with a payment the resident sent. ok = nothing wrong, so it can be posted automatically.
+function proofCheck(r) {
+  var p = r.v, why = [], amount = Number(p.amount) || 0;
+  var open = list("due").filter(function (d) { return d.v.unit === p.unit && !d.v.paid; }).sort(function (a, b) { return Number(a.id) - Number(b.id); });
+  var named = open.filter(function (d) { return d.v.note === p.forText; })[0], expected = null, parking = p.forText === PARK_FOR;
+  if (named) expected = Number(named.v.amount) || 0;
+  else if (parking) { var mr = Number(setting("motor_rate").rate) || 0; expected = mr || null; if (!mr) why.push("The parking rate is not set, so the amount cannot be checked."); }
+  else if (p.forText === "Other charge") why.push("An \"other charge\" has no fixed amount. Check it yourself.");
+  else if (list("due").some(function (d) { return d.v.unit === p.unit && d.v.paid && d.v.note === p.forText; })) why.push("That charge is already marked paid.");
+  else why.push("No unpaid charge named “" + (p.forText || "") + "” for this unit.");
+  if (expected != null && Math.abs(amount - expected) > 0.009) why.push("Amount sent " + peso(amount) + " but it should be " + peso(expected) + (amount < expected ? " (short by " + peso(expected - amount) + ")" : " (over by " + peso(amount - expected) + ")") + ".");
+  var ref = String(p.reference || "").trim();
+  if (ref.length < 4 || ref === "—") why.push("No reference number.");
+  else {
+    var dup = list("proof").filter(function (o) { return String(o.id) !== String(r.id) && o.v.status !== "Rejected" && String(o.v.reference).toLowerCase() === ref.toLowerCase() && o.v.method === p.method; })[0];
+    if (dup) why.push("The same reference number was also sent by " + dup.v.unit + ".");
+    else if (list("payment").some(function (o) { return String(o.v.reference).toLowerCase() === ref.toLowerCase() && o.v.method === p.method; })) why.push("This reference number already has a receipt.");
+  }
+  return { why: why, due: named || null, expected: expected, ok: why.length === 0 };
+}
+// Posts a payment: marks the charge paid, issues the receipt, closes the submission. auto = posted by the system after the waiting time.
+async function postProof(id, auto) {
+  var row = getRow("proof", id);
+  if (!row || row.value.status !== "Pending") return "";
+  var p = Object.assign({}, row.value);
+  p.status = "Confirmed"; p.receiptNo = nextReceiptNo(); p.confirmedOn = shortDate(new Date());
+  if (auto) { p.auto = true; p.confirmedBy = "Automatic posting"; }
+  // the charge the resident named, else the oldest open charge (parking and "other" payments settle no charge)
+  var open = vals("due").filter(function (d) { return d.unit === p.unit && !d.paid; }).sort(function (a, b) { return a.id - b.id; });
+  var named = open.filter(function (d) { return d.note === p.forText; })[0];
+  var other = p.forText === "Motor parking rental" || p.forText === "Other charge";
+  var due = named || (other ? null : open[0]);
+  if (due) {
+    await put("due", due.id, p.unit, Object.assign({}, due, { paid: true }));
+    p.forText = due.note;
+  } else if (!p.forText) p.forText = "Association dues";
+  await put("proof", id, row.unit, p);
+  await issuePayment(p.unit, p.payer, p.forText, p.method, p.reference, p.amount, p.receiptNo);
+  logAct((auto ? "Payment posted automatically, " : "Payment recorded, ") + p.unit + (auto ? " (" + p.receiptNo + ")" : ""), "Finance");
+  // a paid parking reservation: the chosen slot goes to the resident straight away
+  var assigned = "";
+  if (p.forText === PARK_FOR && p.slot) {
+    var rq = getRow("request", p.unit), sl = getRow("slot", p.slot);
+    if (rq && !rq.value.confirmed && rq.value.slot === p.slot && sl && !sl.value.unit) {
+      await put("slot", p.slot, "", parkSlotFromRequest(p.slot, rq.value));
+      await put("request", p.unit, rq.unit, Object.assign({}, rq.value, { confirmed: true }));
+      logAct("Parking slot " + p.slot + " assigned to " + p.unit + " (paid)", "Parking");
+      assigned = p.slot;
+    }
+  }
+  return assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Receipt " + p.receiptNo + " is ready for " + p.unit + ".";
+}
+// Verifies a resident's payment proof now and issues the receipt.
 function confirmProof(id) {
   var row = getRow("proof", id);
   if (!row || row.value.status !== "Pending") return;
-  act(async function () {
-    var p = Object.assign({}, row.value);
-    p.status = "Confirmed"; p.receiptNo = nextReceiptNo(); p.confirmedOn = shortDate(new Date());
-    // the charge the resident named, else the oldest open charge (parking and "other" payments settle no charge)
-    var open = vals("due").filter(function (d) { return d.unit === p.unit && !d.paid; }).sort(function (a, b) { return a.id - b.id; });
-    var named = open.filter(function (d) { return d.note === p.forText; })[0];
-    var other = p.forText === "Motor parking rental" || p.forText === "Other charge";
-    var due = named || (other ? null : open[0]);
-    if (due) {
-      await put("due", due.id, p.unit, Object.assign({}, due, { paid: true }));
-      p.forText = due.note;
-    } else if (!p.forText) p.forText = "Association dues";
-    await put("proof", id, row.unit, p);
-    await issuePayment(p.unit, p.payer, p.forText, p.method, p.reference, p.amount, p.receiptNo);
-    logAct("Payment recorded, " + p.unit, "Finance");
-    // a paid parking reservation: the chosen slot goes to the resident straight away
-    var assigned = "";
-    if (p.forText === PARK_FOR && p.slot) {
-      var rq = getRow("request", p.unit), sl = getRow("slot", p.slot);
-      if (rq && !rq.value.confirmed && rq.value.slot === p.slot && sl && !sl.value.unit) {
-        await put("slot", p.slot, "", parkSlotFromRequest(p.slot, rq.value));
-        await put("request", p.unit, rq.unit, Object.assign({}, rq.value, { confirmed: true }));
-        logAct("Parking slot " + p.slot + " assigned to " + p.unit + " (paid)", "Parking");
-        assigned = p.slot;
-      }
+  act(async function () { toast(await postProof(id, false)); });
+}
+// Posts, by itself, every clean payment that has waited long enough. Payments with a problem are left for the office.
+var _autoBusy = false, _autoTried = {};
+async function autoPostCheck() {
+  if (_autoBusy || !state.authed || !isAdmin()) return;
+  var cfg = autoPostCfg(); if (!cfg.on) return;
+  var now = Date.now();
+  var ready = list("proof").filter(function (r) { return r.v.status === "Pending" && !_autoTried[r.id] && proofSentAt(r.v) + cfg.hours * 3600000 <= now && proofCheck(r).ok; });
+  if (!ready.length) return;
+  _autoBusy = true;
+  var done = 0, units = {};
+  try {
+    for (var i = 0; i < ready.length; i++) {
+      _autoTried[ready[i].id] = 1;
+      await postProof(ready[i].id, true); done++; units[ready[i].unit] = 1;
     }
-    toast(assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Receipt " + p.receiptNo + " is ready for " + p.unit + ".");
+  } catch (e) { /* the rest stay in the list for the office */ }
+  _autoBusy = false;
+  if (done) { toast(done + " payment" + (done === 1 ? " was" : "s were") + " posted automatically (" + Object.keys(units).join(", ") + "). Residents were notified."); render(); }
+}
+setInterval(autoPostCheck, 30000);
+var _rhEnter = rhEnter;
+rhEnter = function () { _rhEnter(); setTimeout(autoPostCheck, 1500); };
+// Turns automatic posting on or off, or changes the waiting time.
+function saveAutoPost() {
+  var on = document.getElementById("apOn").checked, h = parseInt(document.getElementById("apHours").value, 10);
+  if (!(h >= 1 && h <= 168)) return toast("Enter the waiting time in hours, from 1 to 168.");
+  act(async function () {
+    await put("setting", "autopost", "", { on: on, hours: h });
+    logAct("Automatic posting " + (on ? "on, after " + h + " hours" : "turned off"), "Settings");
+    toast(on ? "Saved. Clean payments post automatically " + h + " hours after they are sent." : "Saved. Every payment now waits for you to verify it.");
   });
 }
 // Rejects a payment proof. The administrator gives a reason; it is kept with the submission and shown to the resident.
@@ -1096,7 +1175,26 @@ function exportAccounts() {
    ========================================================================== */
 function directory() { var d = setting("directory"); return { contacts: d.contacts || [], rules: d.rules || [] }; }
 // PAGE: Settings (contacts, rules, payment methods, password).
+// PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (automatic posting).
 function viewSettings() {
+  var tab = state.setTab || "general";
+  var tabs = [["general", "General"], ["access", "Access"], ["payments", "Payments"]];
+  var bar = '<div class="filters" role="tablist" style="margin-bottom:16px">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({setTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
+  return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : viewSettingsGeneral());
+}
+// Settings > Payments: automatic posting of the payments residents send.
+function paymentSettings() {
+  var cfg = autoPostCfg(), pend = list("proof").filter(function (r) { return r.v.status === "Pending"; }), clean = pend.filter(function (r) { return proofCheck(r).ok; }).length;
+  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px"><div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>Automatic posting</h2>' +
+    '<p class="hint" style="margin:0">When a resident sends their payment details, the system checks them: the amount must match the charge, the reference number must be new, and the charge must still be unpaid. A payment that passes is <b>posted automatically</b> after the waiting time below. The charge is marked paid, a receipt is issued and the resident is notified. Anything that does not match stays in <b>Payments to verify</b> for you.</p>' +
+    '<label style="display:flex;gap:10px;align-items:center;font-size:14.5px;font-weight:600"><input id="apOn" type="checkbox" ' + (cfg.on ? "checked" : "") + ' style="width:18px;height:18px"> Post clean payments automatically</label>' +
+    '<label class="fl" style="max-width:260px">Waiting time (hours after the resident sent it)<input id="apHours" type="number" min="1" max="168" step="1" value="' + cfg.hours + '"></label>' +
+    '<div><button class="btn primary" onclick="saveAutoPost()">Save</button></div>' +
+    '<div class="kv" style="font-size:13.5px"><span>Waiting now</span><b>' + pend.length + '</b><span>Clean (will post by themselves)</span><b>' + clean + "</b><span>Need your review</span><b>" + (pend.length - clean) + "</b></div>" +
+    '<p class="hint" style="margin:0">You can still verify or reject any payment yourself before the waiting time ends. In this prototype the check runs while an administrator page is open; a live system runs it on the server.</p></div></div>' +
+    '<div style="display:flex;flex-direction:column;gap:16px"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Payment options</h2><p class="hint" style="margin:0">Where residents can pay (cash at the office, bank, GCash, Maya). They see these when they send their payment details.</p><div><button class="btn" onclick="payMethodsForm()">Edit payment options</button></div></div></div></div>';
+}
+function viewSettingsGeneral() {
   var d = directory();
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Billing</h2><p class="hint" style="margin:0">Monthly dues: <b>' + (setting("dues_rate_sqm").rate ? peso(setting("dues_rate_sqm").rate) + " per sqm" : "not set") + "</b> · Motor parking: <b>" + (setting("motor_rate").rate ? peso(setting("motor_rate").rate) : "not set") + '</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\'})">Open Finance</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
