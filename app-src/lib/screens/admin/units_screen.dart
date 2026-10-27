@@ -105,17 +105,24 @@ class _AdminUnitsState extends State<AdminUnits> {
         FieldSpec('contact', 'Contact number', type: TextInputType.phone, hint: 'e.g. 0917 555 0000', initial: edit?.contact == '—' ? '' : (edit?.contact ?? '')),
         FieldSpec('area', 'Floor area (sqm)', type: const TextInputType.numberWithOptions(decimal: true), hint: 'e.g. 45 (monthly dues = area × rate per sqm)',
             initial: edit == null || edit.area <= 0 ? '' : edit.area.toString()),
+        FieldSpec('dueday', 'Dues are due on day (1 to 31)', type: TextInputType.number, hint: 'e.g. 15 (each unit can have its own day)',
+            initial: edit == null || edit.dueDay <= 0 ? '' : '${edit.dueDay}'),
       ],
       choices: [ChoiceSpec('type', 'Occupancy', const ['Owner', 'Tenant'], edit?.type == 'Tenant' ? 'Tenant' : 'Owner')],
       submit: edit == null ? 'Add unit' : 'Save',
       onSubmit: (v) {
         if (edit == null) {
-          return app.addUnit(v['unit'] as String, v['name'] as String, v['type'] as String, v['contact'] as String, area: _areaOf(v));
+          return app.addUnit(v['unit'] as String, v['name'] as String, v['type'] as String, v['contact'] as String, area: _areaOf(v), dueDay: _dayOf(v));
         }
-        app.updateUnit(edit, v['name'] as String, v['type'] as String, v['contact'] as String, area: _areaOf(v));
+        app.updateUnit(edit, v['name'] as String, v['type'] as String, v['contact'] as String, area: _areaOf(v), dueDay: _dayOf(v));
         return null;
       },
     );
+  }
+
+  int _dayOf(Map<String, dynamic> v) {
+    final d = int.tryParse((v['dueday'] as String).trim()) ?? 0;
+    return d >= 1 && d <= 31 ? d : 0;
   }
 
   num _areaOf(Map<String, dynamic> v) => double.tryParse((v['area'] as String).trim().replaceAll(',', '')) ?? 0;
@@ -137,6 +144,7 @@ class _AdminUnitsState extends State<AdminUnits> {
             _kv(context, 'Status', u.status),
             _kv(context, 'Contact', u.contact),
             _kv(context, 'Floor area', u.area > 0 ? '${u.area} sqm' : 'Not set'),
+            _kv(context, 'Due day', u.dueDay > 0 ? 'Day ${u.dueDay} of every month' : 'Not set'),
             _kv(context, 'Monthly dues', u.area > 0 && app.duesRate > 0 ? '${peso(app.unitDues(u).monthly)} (${u.area} sqm × ${peso(app.duesRate)})' : 'Set the floor area and the rate'),
             _kv(context, 'Open charges', app.unpaidCountFor(u.unit) == 0 ? 'None' : '${app.unpaidCountFor(u.unit)} · ${peso(app.balanceFor(u.unit))}'),
             _kv(context, 'Unit state', usageLabel(u.usage)),

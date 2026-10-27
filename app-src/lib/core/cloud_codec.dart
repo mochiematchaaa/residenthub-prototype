@@ -86,6 +86,7 @@ Map<String, dynamic> _unitJson(Unit u) => {
       'status': u.status,
       'contact': u.contact,
       if (u.area > 0) 'area': u.area,
+      if (u.dueDay > 0) 'dueDay': u.dueDay,
       'usage': u.usage,
       'statusNote': u.statusNote,
       'statusDate': u.statusDate,
@@ -104,6 +105,7 @@ Unit? _unitFrom(Map<String, dynamic> j) {
       usageStatus: _s(j, 'usageStatus'),
       usageRemark: _s(j, 'usageRemark'),
       area: _num(j, 'area'),
+      dueDay: _i(j, 'dueDay'),
       usageInfo: {
         if (j['usageInfo'] is Map)
           for (final e in (j['usageInfo'] as Map).entries)
@@ -147,6 +149,8 @@ Map<String, dynamic> _dueJson(Due d) => {
       if (d.billedOn.isNotEmpty) 'billedOn': d.billedOn,
       if (d.area > 0) 'area': d.area,
       if (d.rate > 0) 'rate': d.rate,
+      if (d.remindedOn.isNotEmpty) 'remindedOn': d.remindedOn,
+      if (d.reminders > 0) 'reminders': d.reminders,
       'paid': d.paid,
     };
 
@@ -157,7 +161,9 @@ Due? _dueFrom(Map<String, dynamic> j) {
       paid: _b(j, 'paid'),
       billedOn: _s(j, 'billedOn'),
       area: _num(j, 'area'),
-      rate: _num(j, 'rate'));
+      rate: _num(j, 'rate'),
+      remindedOn: _s(j, 'remindedOn'),
+      reminders: _i(j, 'reminders'));
 }
 
 Map<String, dynamic> _grievanceJson(Grievance g) =>
