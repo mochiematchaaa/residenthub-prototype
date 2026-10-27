@@ -24,6 +24,7 @@ class _AdminFinanceState extends State<AdminFinance> {
   static const _pageSize = 10;
   int page = 0;
   String q = '';
+  bool recalcOnSave = true;
   late final rate = TextEditingController(text: app.motorRate.toStringAsFixed(0));
   late final rateDay = TextEditingController(text: app.motorRateDay == 0 ? '' : app.motorRateDay.toStringAsFixed(0));
   late final duesRate = TextEditingController(text: app.duesRate == 0 ? '' : app.duesRate.toStringAsFixed(0));
@@ -325,18 +326,29 @@ class _AdminFinanceState extends State<AdminFinance> {
                       controller: duesRate,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Monthly dues per sqm (₱)'),
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: () {
-                      final err = app.setDuesRate(duesRate.text);
-                      msg(context, err ?? 'Monthly dues set to ${peso(app.duesRate)} per sqm.');
+                      final err = app.setDuesRate(duesRate.text, recalc: recalcOnSave);
+                      final k = app.lastRecalcCount;
+                      msg(context, err ?? 'Monthly dues set to ${peso(app.duesRate)} per sqm.${k > 0 ? ' $k unpaid monthly charge${k == 1 ? '' : 's'} updated to the new rate.' : ''}');
                     },
                     child: const Text('Save'),
                   ),
                 ],
               ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                value: recalcOnSave,
+                onChanged: (v) => setState(() => recalcOnSave = v ?? true),
+                title: const Text('When I save a new rate, also update the unpaid monthly dues to it', style: TextStyle(fontSize: 13)),
+              ),
+              _pricePreview(context),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
@@ -645,6 +657,42 @@ class _AdminFinanceState extends State<AdminFinance> {
       if (list != null && list.isNotEmpty) out[d.id] = list.removeAt(0);
     }
     return out;
+  }
+
+  /// The price calculator: what a unit of each size pays at the rate being typed (floor area × rate).
+  Widget _pricePreview(BuildContext context) {
+    final rate = double.tryParse(duesRate.text.trim().replaceAll(',', '')) ?? 0;
+    if (rate <= 0) {
+      return Text('Type the price per square meter to see what every unit size will pay. It is worked out automatically (floor area × price).',
+          style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4));
+    }
+    final t = app.priceTable(rate);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Price calculator · ${peso(rate)} per sqm', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+          const SizedBox(height: 6),
+          if (t.rows.isEmpty) Text('No unit has a floor area yet. Set it with "Edit size" in Unit dues and payments.', style: TextStyle(color: muted(context), fontSize: 12.5)),
+          for (final r in t.rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Expanded(child: Text('${r.$1} sqm × ${peso(rate)}', style: const TextStyle(fontSize: 13))),
+                  Text('${r.$2} unit${r.$2 == 1 ? '' : 's'}', style: TextStyle(color: muted(context), fontSize: 12)),
+                  const SizedBox(width: 12),
+                  Text(peso(r.$3), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                ],
+              ),
+            ),
+          const Divider(height: 16),
+          Text('All units, one month: ${peso(t.total)}${t.noSize > 0 ? ' · ${t.noSize} unit${t.noSize == 1 ? ' has' : 's have'} no size yet' : ''}', style: TextStyle(color: muted(context), fontSize: 12.5)),
+        ],
+      ),
+    );
   }
 
   Widget _heroStat(String k, String v) => Column(

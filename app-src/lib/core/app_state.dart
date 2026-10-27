@@ -1308,12 +1308,39 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: sets what each unit pays every month.
-  String? setDuesRate(String raw) {
+  String? setDuesRate(String raw, {bool recalc = false}) {
     final n = double.tryParse(raw.trim().replaceAll(',', ''));
     if (n == null || n <= 0) return 'Enter the monthly dues per square meter.';
     duesRate = n;
+    var k = 0;
+    if (recalc) {
+      for (final d in dues.where((d) => !d.paid && d.area > 0 && d.rate > 0 && d.rate != n)) {
+        d.rate = n;
+        d.amount = (d.area * n * 100).round() / 100;
+        k++;
+      }
+    }
+    lastRecalcCount = k;
+    if (k > 0) logActivity('Monthly dues per sqm set to ${peso(n)} ($k unpaid monthly charge${k == 1 ? '' : 's'} updated)', 'Finance');
     _n();
     return null;
+  }
+
+  /// What a unit of each size pays at [rate] per sqm: [size, units, price], smallest first, plus units with no size.
+  ({List<(num, int, num)> rows, int noSize, num total}) priceTable(num rate) {
+    final groups = <num, int>{};
+    var none = 0;
+    num total = 0;
+    for (final u in units) {
+      if (u.area <= 0) {
+        none++;
+        continue;
+      }
+      groups[u.area] = (groups[u.area] ?? 0) + 1;
+      total += (u.area * rate * 100).round() / 100;
+    }
+    final sizes = groups.keys.toList()..sort();
+    return (rows: [for (final a in sizes) (a, groups[a]!, (a * rate * 100).round() / 100)], noSize: none, total: total);
   }
 
   int lastBilledCount = 0;
