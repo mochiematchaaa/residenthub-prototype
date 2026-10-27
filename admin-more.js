@@ -130,15 +130,43 @@ function viewFin() {
     '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div></aside></div>';
 }
 // "Unit dues and payments": every unit's floor area, monthly dues (area x rate), billed, paid and balance, all computed from the records.
+// Change a unit's floor area right from the Finance table. The monthly dues follow it automatically (area × rate per sqm).
+function editUnitArea(unit) {
+  var u = unitRec(unit) || {}, rate = Number(setting("dues_rate_sqm").rate) || 0;
+  openForm({
+    title: "Unit size · " + unit,
+    intro: "Each unit pays by its floor area, so units of different sizes pay different amounts. Monthly dues = floor area × " + (rate ? peso(rate) + " per sqm" : "the rate per sqm (set it first under Dues settings)") + ".",
+    fields: [
+      { name: "area", label: "Floor area (sqm)", type: "number", step: "0.01", value: u.area || "", placeholder: "e.g. 45" },
+      { name: "recalc", label: "Charges not paid yet", type: "select", options: ["Recalculate the unpaid monthly dues with the new size", "Keep them as billed"], value: "Recalculate the unpaid monthly dues with the new size" }
+    ],
+    submit: "Save size",
+    onSubmit: async function (d) {
+      var area = parseFloat(d.area);
+      if (!(area > 0)) return { error: "Enter the floor area in square meters, e.g. 45." };
+      await put("unit", unit, unit, Object.assign({}, u, { unit: unit, area: area }));
+      var n = 0;
+      if (rate > 0 && String(d.recalc).indexOf("Recalculate") === 0) {
+        var open = list("due").filter(function (r) { return r.v.unit === unit && !r.v.paid && Number(r.v.area) > 0 && Number(r.v.rate) > 0; });
+        for (var i = 0; i < open.length; i++) {
+          await put("due", open[i].id, unit, Object.assign({}, open[i].v, { area: area, rate: rate, amount: Math.round(area * rate * 100) / 100 }));
+          n++;
+        }
+      }
+      logAct("Unit size set, " + unit + ": " + area + " sqm" + (n ? " (" + n + " unpaid monthly charge" + (n === 1 ? "" : "s") + " updated)" : ""), "Units");
+      toast(unit + " is now " + area + " sqm" + (rate ? ", monthly dues " + peso(Math.round(area * rate * 100) / 100) : "") + (n ? ". " + n + " unpaid monthly charge" + (n === 1 ? "" : "s") + " updated." : "."));
+    }
+  });
+}
 function unitDuesCard() {
   var rate = Number(setting("dues_rate_sqm").rate) || 0, tb = 0, tp = 0, tbal = 0;
   var rows = sortedUnits().map(function (r) {
     var x = unitDues(r.id); tb += x.billed; tp += x.paid; tbal += x.balance;
-    return "<tr><td style=\"font-weight:700\">" + esc(r.id) + '</td><td style="color:var(--muted)">' + (x.area ? esc(String(x.area)) + " sqm" : '<span class="chip warn">No area</span>') + "</td><td>" + (x.area && rate ? peso(x.monthly) : "—") + "</td><td>" + peso(x.billed) + "</td><td>" + peso(x.paid) + '</td><td style="font-weight:700">' + (x.balance ? peso(x.balance) : "—") + "</td></tr>";
+    return "<tr><td style=\"font-weight:700\">" + esc(r.id) + '</td><td style="color:var(--muted)">' + (x.area ? esc(String(x.area)) + " sqm" : '<span class="chip warn">No area</span>') + "</td><td>" + (x.area && rate ? peso(x.monthly) : "—") + "</td><td>" + peso(x.billed) + "</td><td>" + peso(x.paid) + '</td><td style="font-weight:700">' + (x.balance ? peso(x.balance) : "—") + '</td><td><button class="btn" style="min-height:30px;padding:0 12px" onclick="editUnitArea(\'' + escAttr(r.id) + '\')">' + (x.area ? "Edit size" : "Set size") + "</button></td></tr>";
   });
   return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:16px 18px 6px"><h2 style="margin:0">Unit dues and payments</h2><p class="hint" style="margin:4px 0 0">Worked out automatically. Floor area × rate per sqm = monthly dues. Billed, paid and balance come from the charges and receipts, so they update as soon as you bill or record a payment.</p>' +
     '<p style="margin:8px 0 0;font-size:13px;color:var(--muted)">All units: billed <b>' + peso(tb) + "</b> · paid <b>" + peso(tp) + "</b> · balance <b>" + peso(tbal) + "</b></p></div>" +
-    '<div style="max-height:380px;overflow:auto">' + tableRows(rows, ["UNIT", "AREA", "MONTHLY DUES", "BILLED", "PAID", "BALANCE"], "No units yet.") + "</div></div>";
+    '<div style="max-height:380px;overflow:auto">' + tableRows(rows, ["UNIT", "AREA", "MONTHLY DUES", "BILLED", "PAID", "BALANCE", ""], "No units yet.") + "</div></div>";
 }
 // Popup form to change the amount (or due date) of one unit's unpaid charge.
 function editDue(id) {
