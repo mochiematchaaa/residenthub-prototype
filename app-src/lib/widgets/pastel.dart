@@ -79,10 +79,18 @@ class PastelCard extends StatelessWidget {
             onTap: onTap,
             child: Padding(
               padding: padding,
-              child: DefaultTextStyle.merge(
-                style: const TextStyle(color: ink),
-                child: IconTheme(data: const IconThemeData(color: ink), child: child),
-              ),
+              // Pastel cards stay light in dark mode, so everything on them uses the dark ink colors
+              // (including "muted" text, which would otherwise turn light grey on a light card).
+              child: Builder(builder: (context) {
+                final t = Theme.of(context);
+                return Theme(
+                  data: t.copyWith(colorScheme: t.colorScheme.copyWith(onSurface: ink, onSurfaceVariant: inkSoft)),
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(color: ink),
+                    child: IconTheme(data: const IconThemeData(color: ink), child: child),
+                  ),
+                );
+              }),
             ),
           ),
         ),

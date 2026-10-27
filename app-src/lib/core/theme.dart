@@ -53,7 +53,7 @@ ThemeData buildTheme(Brightness b) {
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor:
-        dark ? const Color(0xFF13141F) : const Color(0xFFF5F5F8),
+        dark ? const Color(0xFF13141F) : const Color(0xFFEDEFF8),
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
