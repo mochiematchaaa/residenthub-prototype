@@ -59,7 +59,14 @@ class _AdminExpensesState extends State<AdminExpenses> {
     return _month.year == n.year && _month.month == n.month;
   }
 
-  void _shift(int by) => setState(() => _month = DateTime(_month.year, _month.month + by, 1));
+  String _tab = 'Summary';
+  static const _pageSize = 8;
+  int _page = 0;
+
+  void _shift(int by) => setState(() {
+        _month = DateTime(_month.year, _month.month + by, 1);
+        _page = 0;
+      });
 
   void _budget(BuildContext context) {
   showFormSheet(
@@ -109,6 +116,13 @@ class _AdminExpensesState extends State<AdminExpenses> {
         }
         final cats = byCat.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
+        // purchases are shown one page at a time
+        final pages = list.isEmpty ? 1 : (list.length + _pageSize - 1) ~/ _pageSize;
+        final pg = _page < 0 ? 0 : (_page > pages - 1 ? pages - 1 : _page);
+        final from = pg * _pageSize;
+        final to = from + _pageSize > list.length ? list.length : from + _pageSize;
+        final pageRows = list.sublist(from, to);
+
         return SubPage(
           title: 'Expenses',
           subtitle: 'Everything the corporation buys. Record each purchase, then get the monthly report for the client.',
@@ -120,7 +134,6 @@ class _AdminExpensesState extends State<AdminExpenses> {
             onPressed: () => _add(context),
           ),
           children: [
-            const ImportBar(['expenses']),
             // --- month picker
             RCard(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -144,172 +157,199 @@ class _AdminExpensesState extends State<AdminExpenses> {
                 ],
               ),
             ),
-
-            // --- hero
-            PastelCard(
-              color: Pastel.peach,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('SPENT IN ${label.toUpperCase()}',
-                      style: const TextStyle(color: inkSoft, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-                  const SizedBox(height: 4),
-                  Text(peso(spent), style: hd(32, color: ink)),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 28,
-                    runSpacing: 8,
-                    children: [
-                      _stat('Purchases', '${list.length}'),
-                      _stat('Dues collected', peso(collected)),
-                      _stat('Collected less spending', net < 0 ? '-${peso(-net)}' : peso(net)),
-                    ],
-                  ),
-                ],
-              ),
+            FilterRow(
+              options: const ['Summary', 'Purchases', 'Report and budget'],
+              selected: _tab,
+              onSelect: (v) => setState(() => _tab = v),
             ),
-
-            // --- monthly report actions
-            DashSection(
-              title: 'Monthly report',
-              hint: 'Summary, every purchase, spending by category and by facility.',
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () => go(context, DocViewer(DocItem(reportName, 'Finance', 'Live report', live: report))),
-                    icon: const Icon(Icons.visibility_outlined),
-                    label: const Text('View report'),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => runSave(context, 'Word file', () => exportDocx(reportName, report())),
-                    icon: const Icon(Icons.description_outlined),
-                    label: const Text('Word'),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => runSave(context, 'Excel file', () => exportXlsx(reportName, report())),
-                    icon: const Icon(Icons.table_chart_outlined),
-                    label: const Text('Excel'),
-                  ),
-                ],
-              ),
-            ),
-
-            DashSection(
-              title: 'Annual budget',
-              hint: annualBudget.isEmpty
-                  ? 'Not set yet. Enter the approved budget so the report can compare spending against it.'
-                  : 'Total ${peso(annualBudget.values.fold<int>(0, (a, b) => a + b))} per year.',
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.tonalIcon(
-                  onPressed: () => _budget(context),
-                  icon: const Icon(Icons.tune_rounded),
-                  label: Text(annualBudget.isEmpty ? 'Set annual budget' : 'Edit annual budget'),
+            if (_tab == 'Summary') ...[
+              // --- hero
+              PastelCard(
+                color: Pastel.peach,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SPENT IN ${label.toUpperCase()}',
+                        style: const TextStyle(color: inkSoft, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                    const SizedBox(height: 4),
+                    Text(peso(spent), style: hd(32, color: ink)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 28,
+                      runSpacing: 8,
+                      children: [
+                        _stat('Purchases', '${list.length}'),
+                        _stat('Dues collected', peso(collected)),
+                        _stat('Collected less spending', net < 0 ? '-${peso(-net)}' : peso(net)),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ),
-
-            // --- where the money went
-            if (cats.isNotEmpty)
-              DashSection(
-                title: 'Where the money went',
-                child: RCard(
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < cats.length; i++)
-                        Padding(
-                          padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(child: Text(cats[i].key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
-                                  Text(peso(cats[i].value), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(99),
-                                child: TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0, end: spent == 0 ? 0 : (cats[i].value / spent).toDouble()),
-                                  duration: const Duration(milliseconds: 700),
-                                  curve: Curves.easeOutCubic,
-                                  builder: (_, v, __) => LinearProgressIndicator(
-                                    value: v,
-                                    minHeight: 8,
-                                    color: lavDeep,
-                                    backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+              // --- where the money went
+              if (cats.isNotEmpty)
+                DashSection(
+                  title: 'Where the money went',
+                  child: RCard(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < cats.length; i++)
+                          Padding(
+                            padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(child: Text(cats[i].key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
+                                    Text(peso(cats[i].value), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(99),
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: spent == 0 ? 0 : (cats[i].value / spent).toDouble()),
+                                    duration: const Duration(milliseconds: 700),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (_, v, __) => LinearProgressIndicator(
+                                      value: v,
+                                      minHeight: 8,
+                                      color: lavDeep,
+                                      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                                    ),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+            ],
+            if (_tab == 'Purchases') ...[
+              // --- purchases of the month
+              DashSection(
+                title: 'Purchases in $label',
+                child: Column(
+                  children: [
+                    if (list.isEmpty)
+                      EmptyBox(
+                        _isCurrentMonth ? 'No purchases yet this month. Tap Add purchase to record the first one.' : 'No purchases were recorded in $label.',
+                        icon: Icons.receipt_long_outlined,
+                      ),
+                    for (final e in pageRows)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: RCard(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const IconBadge(Icons.shopping_bag_outlined, accent: true),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(e.item, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${e.qtyText} × ${peso(e.unitPrice)} · ${e.supplierText}\n'
+                                      '${e.area} · ${e.category} · ${shortDate(e.date)}'
+                                      '${e.note.isEmpty ? '' : '\n${e.note}'}',
+                                      style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(peso(e.amount), style: hd(15)),
+                              ),
+                              PopupMenuButton<String>(
+                                tooltip: 'More',
+                                onSelected: (a) async {
+                                  if (a == 'delete') {
+                                    final ok = await confirmDialog(context, 'Delete purchase?', '${e.item} · ${peso(e.amount)} will be removed from the records.',
+                                        confirm: 'Delete', destructive: true);
+                                    if (ok) app.removeExpense(e);
+                                  }
+                                },
+                                itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete'))],
                               ),
                             ],
                           ),
                         ),
-                    ],
+                      ),
+                    if (list.length > _pageSize)
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: pg == 0 ? null : () => setState(() => _page = pg - 1),
+                            icon: const Icon(Icons.chevron_left_rounded),
+                            tooltip: 'Previous page',
+                          ),
+                          Expanded(
+                            child: Text('Showing ${from + 1}–$to of ${list.length} · page ${pg + 1} of $pages',
+                                textAlign: TextAlign.center, style: TextStyle(color: muted(context), fontSize: 12.5, fontWeight: FontWeight.w600)),
+                          ),
+                          IconButton(
+                            onPressed: pg >= pages - 1 ? null : () => setState(() => _page = pg + 1),
+                            icon: const Icon(Icons.chevron_right_rounded),
+                            tooltip: 'Next page',
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            if (_tab == 'Report and budget') ...[
+              const ImportBar(['expenses']),
+              // --- monthly report actions
+              DashSection(
+                title: 'Monthly report',
+                hint: 'Summary, every purchase, spending by category and by facility.',
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => go(context, DocViewer(DocItem(reportName, 'Finance', 'Live report', live: report))),
+                      icon: const Icon(Icons.visibility_outlined),
+                      label: const Text('View report'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () => runSave(context, 'Word file', () => exportDocx(reportName, report())),
+                      icon: const Icon(Icons.description_outlined),
+                      label: const Text('Word'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () => runSave(context, 'Excel file', () => exportXlsx(reportName, report())),
+                      icon: const Icon(Icons.table_chart_outlined),
+                      label: const Text('Excel'),
+                    ),
+                  ],
+                ),
+              ),
+              DashSection(
+                title: 'Annual budget',
+                hint: annualBudget.isEmpty
+                    ? 'Not set yet. Enter the approved budget so the report can compare spending against it.'
+                    : 'Total ${peso(annualBudget.values.fold<int>(0, (a, b) => a + b))} per year.',
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _budget(context),
+                    icon: const Icon(Icons.tune_rounded),
+                    label: Text(annualBudget.isEmpty ? 'Set annual budget' : 'Edit annual budget'),
                   ),
                 ),
               ),
-
-            // --- purchases of the month
-            DashSection(
-              title: 'Purchases in $label',
-              child: Column(
-                children: [
-                  if (list.isEmpty)
-                    EmptyBox(
-                      _isCurrentMonth ? 'No purchases yet this month. Tap Add purchase to record the first one.' : 'No purchases were recorded in $label.',
-                      icon: Icons.receipt_long_outlined,
-                    ),
-                  for (final e in list)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: RCard(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const IconBadge(Icons.shopping_bag_outlined, accent: true),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(e.item, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${e.qtyText} × ${peso(e.unitPrice)} · ${e.supplierText}\n'
-                                    '${e.area} · ${e.category} · ${shortDate(e.date)}'
-                                    '${e.note.isEmpty ? '' : '\n${e.note}'}',
-                                    style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(peso(e.amount), style: hd(15)),
-                            ),
-                            PopupMenuButton<String>(
-                              tooltip: 'More',
-                              onSelected: (a) async {
-                                if (a == 'delete') {
-                                  final ok = await confirmDialog(context, 'Delete purchase?', '${e.item} · ${peso(e.amount)} will be removed from the records.',
-                                      confirm: 'Delete', destructive: true);
-                                  if (ok) app.removeExpense(e);
-                                }
-                              },
-                              itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete'))],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            ],
           ],
         );
       },
