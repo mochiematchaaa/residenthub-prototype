@@ -219,6 +219,8 @@ List<CRow> _demoRows() {
   final occ = units.where((u) => u.occupied).toList();
   final withAcc = occ.take(24).toList();
   final byUnit = <String, Map<String, dynamic>>{};
+  // Every unit has its own due day, so payments come in all through the month.
+  final dueDayOf = <String, int>{for (var i = 0; i < units.length; i++) units[i].label: 1 + (i * 7 + 2) % 28};
   for (final u in units) {
     byUnit[u.label] = <String, dynamic>{
       'unit': u.label,
@@ -227,6 +229,7 @@ List<CRow> _demoRows() {
       'status': u.status,
       'contact': u.contact,
       'area': _areaOf(u.label),
+      'dueDay': dueDayOf[u.label],
       'usage': u.type == 'Tenant' ? 'tenant' : 'owner',
     };
   }
@@ -340,7 +343,8 @@ List<CRow> _demoRows() {
   for (var hi = 0; hi < occ.length; hi++) {
     final u = occ[hi];
     for (final off in const [-2, -1, 0]) {
-      final dd = monthDate(off, 25);
+      final dueDay = dueDayOf[u.label] ?? 25;
+      final dd = monthDate(off, dueDay);
       final note = 'Association dues - ${_monLong[dd.month - 1]} ${dd.year}';
       final idn = DateTime(dd.year, dd.month, 1, 9).millisecondsSinceEpoch + hi;
       final bool paid = off < 0 ? !(off == -1 && hi % 9 == 3) && !(off == -2 && hi % 23 == 5) : (hi % 5 == 0 || hi % 5 == 2);
@@ -358,7 +362,7 @@ List<CRow> _demoRows() {
         if (paid) 'paid': true,
       });
       if (paid) {
-        var pd = monthDate(off, 3 + (hi * 3 + off * 5 + 40) % 17);
+        var pd = monthDate(off, dueDay - (hi % 4) < 1 ? 1 : dueDay - (hi % 4));
         if (pd.isAfter(now)) {
           pd = DateTime(now.year, now.month, now.day - (hi % 10) > 0 ? now.day - (hi % 10) : 1, 12);
         }

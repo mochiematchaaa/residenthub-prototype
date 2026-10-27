@@ -69,8 +69,11 @@ class Unit {
 
   /// Floor area in square meters. Monthly dues are the area times the rate per sqm (0 = not set yet).
   num area;
+
+  /// The day of the month this unit's dues are due (1 to 31, 0 = not set). Units differ, so payments come in all month.
+  int dueDay;
   Unit(this.unit, this.name, this.type, this.status, this.contact, this.usage,
-      {this.statusNote = '', this.statusDate = '', this.usageStatus = '', this.usageRemark = '', this.area = 0, Map<String, String>? usageInfo})
+      {this.statusNote = '', this.statusDate = '', this.usageStatus = '', this.usageRemark = '', this.area = 0, this.dueDay = 0, Map<String, String>? usageInfo})
       : usageInfo = usageInfo ?? {};
 
   /// Short-term rentals and home businesses need the administrator's approval.
@@ -119,8 +122,12 @@ class Due {
 
   /// For monthly dues: the unit's floor area and the rate per sqm used (0 for other charges).
   num area, rate;
+
+  /// The last day the office sent a reminder for this charge, and how many were sent.
+  String remindedOn;
+  int reminders;
   Due(this.id, this.unit, this.name, this.amount, this.note,
-      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0});
+      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0, this.remindedOn = '', this.reminders = 0});
   num get amt => amount;
 
   /// The day it was billed. Older charges without it use the time stored in their id.
@@ -520,14 +527,14 @@ class AppState extends ChangeNotifier {
   int newStatusUpdates = 0; // resident updates the admin has not opened yet
 
   /// Admin: adds a unit. The unit name is what ties accounts, charges and bookings together.
-  String? addUnit(String unitRaw, String household, String type, String contact, {num area = 0}) {
+  String? addUnit(String unitRaw, String household, String type, String contact, {num area = 0, int dueDay = 0}) {
     var label = unitRaw.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (label.isEmpty) return 'Enter the unit name, e.g. Unit 12A.';
     if (!label.toLowerCase().startsWith('unit ')) label = 'Unit $label';
     label = 'Unit ${label.substring(5).trim().toUpperCase()}';
     if (units.any((u) => u.unit.toLowerCase() == label.toLowerCase())) return '$label already exists.';
     units.add(Unit(label, household.trim().isEmpty ? '—' : household.trim(), type,
-        'Occupied', contact.trim().isEmpty ? '—' : contact.trim(), 'owner', area: area));
+        'Occupied', contact.trim().isEmpty ? '—' : contact.trim(), 'owner', area: area, dueDay: dueDay));
     units.sort((a, b) => naturalCompare(a.unit, b.unit));
     logActivity('Unit added: $label', 'Units');
     _n();
@@ -535,8 +542,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: edits the household details of a unit.
-  void updateUnit(Unit u, String household, String type, String contact, {num? area}) {
+  void updateUnit(Unit u, String household, String type, String contact, {num? area, int? dueDay}) {
     if (area != null) u.area = area;
+    if (dueDay != null) u.dueDay = dueDay;
     u.name = household.trim().isEmpty ? '—' : household.trim();
     u.type = type;
     u.contact = contact.trim().isEmpty ? '—' : contact.trim();
@@ -545,10 +553,16 @@ class AppState extends ChangeNotifier {
 
   /// Admin: sets a unit's floor area. When [recalc] is true the unit's unpaid monthly dues are worked out again
   /// with the new size (area × the current rate per sqm). Returns an error text, or null.
-  String? setUnitArea(Unit u, String raw, {bool recalc = true}) {
+  String? setUnitArea(Unit u, String raw, {bool recalc = true, String dueDayRaw = ''}) {
     final a = double.tryParse(raw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter the floor area in square meters, e.g. 45.';
+    var day = 0;
+    if (dueDayRaw.trim().isNotEmpty) {
+      day = int.tryParse(dueDayRaw.trim()) ?? 0;
+      if (day < 1 || day > 31) return 'The due day is a day of the month from 1 to 31.';
+    }
     u.area = a;
+    u.dueDay = day;
     var n = 0;
     if (recalc && duesRate > 0) {
       for (final d in dues.where((d) => d.unit == u.unit && !d.paid && d.area > 0 && d.rate > 0)) {
@@ -1084,6 +1098,24 @@ class AppState extends ChangeNotifier {
         ]);
       }
     }
+    for (final d in openMine) {
+      final rem = parseShortDate(d.remindedOn);
+      final due = parseShortDate(d.dueDate);
+      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      final days = due?.difference(today).inDays;
+      if (rem != null && DateTime.now().difference(rem).inDays < 10) {
+        final state = days == null
+            ? 'is waiting for your payment.'
+            : days < 0
+                ? 'is overdue by ${-days} day${days == -1 ? '' : 's'}.'
+                : days == 0
+                    ? 'is due today.'
+                    : 'is due in $days day${days == 1 ? '' : 's'} (${d.dueDate}).';
+        out.add(['Reminder from the office (${d.remindedOn}): ${d.note} (${peso(d.amt)}) $state', days != null && days < 0 ? 'bad' : 'info']);
+      } else if (days != null && days >= 0 && days <= 3) {
+        out.add(['${d.note} is due ${days == 0 ? 'today' : 'in $days day${days == 1 ? '' : 's'}'} (${d.dueDate}).', 'info']);
+      }
+    }
     for (final r in myDueRows) {
       if (r.status == 'Overdue') {
         out.add(['${r.month} is overdue.', 'bad']);
@@ -1343,6 +1375,39 @@ class AppState extends ChangeNotifier {
     return (rows: [for (final a in sizes) (a, groups[a]!, (a * rate * 100).round() / 100)], noSize: none, total: total);
   }
 
+  /// Admin: sends a reminder for one unpaid charge. The resident sees it under Notifications.
+  void remindDue(Due d) {
+    if (d.paid) return;
+    d.remindedOn = shortDate(DateTime.now());
+    d.reminders++;
+    logActivity('Reminder sent, ${d.unit}: ${d.note}', 'Finance');
+    _n();
+  }
+
+  /// Unpaid charges that are overdue, due within 7 days, or have no due date.
+  List<Due> get needReminder => [
+        for (final d in dues)
+          if (!d.paid &&
+              (d.dueDate.isEmpty ||
+                  parseShortDate(d.dueDate) == null ||
+                  parseShortDate(d.dueDate)!.difference(DateTime.now()).inDays < 7))
+            d,
+      ];
+
+  /// Admin: reminds every unit in [needReminder]. Returns how many units were reminded.
+  int remindAll() {
+    final list = needReminder;
+    final units = <String>{};
+    for (final d in list) {
+      d.remindedOn = shortDate(DateTime.now());
+      d.reminders++;
+      units.add(d.unit);
+    }
+    if (units.isNotEmpty) logActivity('Reminders sent to ${units.length} unit${units.length == 1 ? '' : 's'}', 'Finance');
+    _n();
+    return units.length;
+  }
+
   int lastBilledCount = 0;
   int lastNoAreaCount = 0;
 
@@ -1371,6 +1436,9 @@ class AppState extends ChangeNotifier {
       due = shortDate(d);
     }
     final note = 'Association dues - $p';
+    final pm = _months.indexWhere((m) => p.toLowerCase().contains(m.toLowerCase()));
+    final py = int.tryParse(RegExp(r'(20\d\d)').firstMatch(p)?.group(1) ?? '') ?? DateTime.now().year;
+    final month = pm >= 0 ? pm + 1 : DateTime.now().month;
     var n = 0, noArea = 0;
     for (final u in units) {
       if (dues.any((d) => d.unit == u.unit && d.note == note)) continue;
@@ -1378,8 +1446,13 @@ class AppState extends ChangeNotifier {
         noArea++;
         continue;
       }
+      var ud = due;
+      if (u.dueDay >= 1) {
+        final last = DateTime(py, month + 1, 0).day;
+        ud = shortDate(DateTime(py, month, u.dueDay > last ? last : u.dueDay));
+      }
       dues.add(Due(nextId(), u.unit, u.name, (u.area * duesRate * 100).round() / 100, note,
-          dueDate: due, billedOn: shortDate(DateTime.now()), area: u.area, rate: duesRate));
+          dueDate: ud, billedOn: shortDate(DateTime.now()), area: u.area, rate: duesRate));
       n++;
     }
     lastBilledCount = n;

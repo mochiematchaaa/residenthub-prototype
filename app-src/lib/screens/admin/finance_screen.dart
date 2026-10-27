@@ -117,6 +117,24 @@ class _AdminFinanceState extends State<AdminFinance> {
     );
   }
 
+  Future<void> _remindAll() async {
+    final list = app.needReminder;
+    if (list.isEmpty) {
+      msg(context, 'No charge is overdue or due in the next 7 days.');
+      return;
+    }
+    final units = {for (final d in list) d.unit};
+    final ok = await confirmDialog(
+      context,
+      'Send reminders?',
+      '${list.length} unpaid charge${list.length == 1 ? '' : 's'} (${units.length} unit${units.length == 1 ? '' : 's'}) are overdue or due within 7 days. Each of those residents will see a reminder under Notifications.',
+      confirm: 'Send reminders',
+    );
+    if (!ok || !mounted) return;
+    final n = app.remindAll();
+    msg(context, 'Reminders sent to $n unit${n == 1 ? '' : 's'}.');
+  }
+
   void _editCharge(Due d) {
     showFormSheet(
       context,
@@ -136,7 +154,7 @@ class _AdminFinanceState extends State<AdminFinance> {
       subtitle: 'Adds one charge to every unit that has not been billed for this month yet. Each charge is worked out automatically: the unit\'s floor area × ${peso(app.duesRate)} per sqm.',
       fields: [
         FieldSpec('period', 'Month', hint: 'e.g. October 2026', initial: app.monthLabel(now)),
-        FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 15, 2026'),
+        FieldSpec('due', 'Due date for units without a due day (optional)', hint: 'e.g. Oct 15, 2026'),
       ],
       submit: 'Bill all units',
       onSubmit: (v) {
@@ -350,6 +368,15 @@ class _AdminFinanceState extends State<AdminFinance> {
               ),
               _pricePreview(context),
               const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _remindAll,
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  label: const Text('Send reminders'),
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.tonalIcon(
@@ -611,6 +638,14 @@ class _AdminFinanceState extends State<AdminFinance> {
                 ),
                 if (!d.paid) ...[
                   IconButton(onPressed: () => _editCharge(d), icon: const Icon(Icons.edit_outlined), tooltip: 'Change the amount'),
+                  IconButton(
+                    onPressed: () {
+                      app.remindDue(d);
+                      msg(context, 'Reminder sent to ${d.unit}. They will see it under Notifications.');
+                    },
+                    icon: const Icon(Icons.notifications_active_outlined),
+                    tooltip: d.remindedOn.isEmpty ? 'Remind this unit' : 'Reminded ${d.remindedOn}. Tap to remind again',
+                  ),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
                     onPressed: () => _recordPayment(d),

@@ -375,17 +375,18 @@ class _UnitDuesCardState extends State<UnitDuesCard> {
   void _editSize(Unit u) {
     showFormSheet(
       context,
-      title: 'Unit size · ${u.unit}',
-      subtitle: 'Each unit pays by its floor area, so bigger units pay more. Monthly dues = floor area × ${app.duesRate > 0 ? '${peso(app.duesRate)} per sqm' : 'the rate per sqm (set it first)'}.',
+      title: 'Unit size and due day · ${u.unit}',
+      subtitle: 'Each unit has its own due day, so payments come in all through the month. Each unit pays by its floor area, so bigger units pay more. Monthly dues = floor area × ${app.duesRate > 0 ? '${peso(app.duesRate)} per sqm' : 'the rate per sqm (set it first)'}.',
       fields: [
         FieldSpec('area', 'Floor area (sqm)', type: const TextInputType.numberWithOptions(decimal: true), hint: 'e.g. 45', initial: u.area <= 0 ? '' : u.area.toString()),
+        FieldSpec('dueday', 'Dues are due on day (1 to 31)', type: TextInputType.number, hint: 'e.g. 15', initial: u.dueDay <= 0 ? '' : '${u.dueDay}'),
       ],
       choices: const [
         ChoiceSpec('recalc', 'Charges not paid yet', ['Recalculate the unpaid monthly dues', 'Keep them as billed'], 'Recalculate the unpaid monthly dues'),
       ],
       submit: 'Save size',
       onSubmit: (v) {
-        final err = app.setUnitArea(u, v['area'] as String, recalc: (v['recalc'] as String).startsWith('Recalculate'));
+        final err = app.setUnitArea(u, v['area'] as String, recalc: (v['recalc'] as String).startsWith('Recalculate'), dueDayRaw: v['dueday'] as String);
         if (err == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -445,6 +446,7 @@ class _UnitDuesCardState extends State<UnitDuesCard> {
               spacing: 16,
               runSpacing: 2,
               children: [
+                Text('Due day ${r.$1.dueDay > 0 ? r.$1.dueDay : '—'}', style: TextStyle(color: muted(context), fontSize: 12.5)),
                 Text('Monthly ${r.$2.monthly > 0 ? peso(r.$2.monthly) : '—'}', style: TextStyle(color: muted(context), fontSize: 12.5)),
                 Text('Billed ${peso(r.$2.billed)}', style: TextStyle(color: muted(context), fontSize: 12.5)),
                 Text('Paid ${peso(r.$2.paid)}', style: TextStyle(color: muted(context), fontSize: 12.5)),
