@@ -71,19 +71,10 @@ function histSummary(unit) {
 function recLines(text) { return String(text || "").split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
 function recList(text, empty) { var l = recLines(text); return l.length ? l.map(function (x) { return "<div>" + esc(x) + "</div>"; }).join("") : '<span style="color:var(--muted);font-weight:500">' + (empty || "Not recorded") + "</span>"; }
 function recVal(v, empty) { return v ? esc(v) : '<span style="color:var(--muted);font-weight:500">' + (empty || "Not recorded") + "</span>"; }
-// The "Resident record" card: view mode, with an Edit record button.
+// The "Resident record" card: view mode, with an Edit record button (drawn by record.js).
 function recordCardHtml(unit) {
-  var u = unitRec(unit) || {}, acc = accountOfUnit(unit), upd = Number(u.profileUpdated) || 0;
-  var sec = function (title, body) { return '<div class="rec-sec"><h3>' + title + "</h3>" + body + "</div>"; };
-  var kv = function (k, v) { return '<div><label>' + k + "</label><b>" + v + "</b></div>"; };
-  return '<div class="card rec"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start"><div><h2 style="font-size:19px;margin:0">Resident record</h2><p class="hint" style="margin:2px 0 0">' +
-    (upd ? "Last updated " + esc(shortDate(new Date(upd))) + (u.profileBy ? " by " + esc(u.profileBy) : "") + "." : "Not filled in yet.") + ' What you save here is shown to the resident on their dashboard.</p></div><button class="btn primary" onclick="recordForm(\'' + escAttr(unit) + '\')">Edit record</button></div>' +
-    '<div class="rec-grid">' +
-    sec("Resident", kv("Name", recVal(u.name && u.name !== "—" ? u.name : "")) + kv("Occupancy", esc(u.type || "Owner")) + kv("Mobile", recVal(u.contact && u.contact !== "—" ? u.contact : "")) + kv("Email", recVal(u.email || (acc && acc.email) || "")) + kv("Moved in", recVal(u.moveIn ? usageDate(u.moveIn) : "")) + kv("Sign-in account", acc ? esc(acc.email) : "None yet")) +
-    sec("Household", kv("People living here", recVal(u.residents ? String(u.residents) : "")) + kv("Members", recList(u.members)) + kv("Pets", recVal(u.pets, "None recorded"))) +
-    sec("Emergency contact", kv("Name", recVal(u.emergencyName)) + kv("Relationship", recVal(u.emergencyRelation)) + kv("Number", recVal(u.emergencyPhone))) +
-    sec("Vehicles and notes", kv("Vehicles", recList(u.vehicles, "None recorded")) + kv("Note for the resident", recVal(u.noteResident, "None")) + kv("Private office note", recVal(u.noteOffice, "None"))) +
-    "</div></div>";
+  var acc = accountOfUnit(unit);
+  return recordSheetHtml(unit, { admin: true, email: acc ? acc.email : "", button: '<button class="btn primary" onclick="recordForm(\'' + escAttr(unit) + '\')">Edit record</button>' });
 }
 function recordForm(unit) {
   var u = unitRec(unit) || {}, acc = accountOfUnit(unit);

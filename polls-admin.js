@@ -148,12 +148,15 @@ function publishPoll() {
 }
 
 /* ---------- the page ---------- */
+function pollTab() { return state.pollFilter === "closed" || state.pollFilter === "cats" ? state.pollFilter : "open"; }
 function viewPolls() {
   if (state.pollDraft) return pollBuilderHtml();
-  var all = pollsAll(), open = all.filter(function (p) { return p.open; }).length, units = list("unit").length;
-  var shown = all.filter(function (p) { return (state.pollFilter === "all" || (state.pollFilter === "open") === p.open) && pollCatMatch(p); });
-  return '<div class="filters" style="margin-bottom:4px"><button class="btn primary" onclick="newPoll(\'poll\')">+ New poll</button><button class="btn" onclick="newPoll(\'election\')">+ New election</button><button class="btn" style="margin-left:auto" onclick="manageCategories()">Manage categories</button></div>' +
-    pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All (" + all.length + ")"]], state.pollFilter, "pollFilter") + pollCatFilterHtml(all) +
+  var all = pollsAll(), open = all.filter(function (p) { return p.open; }).length, units = list("unit").length, tab = pollTab();
+  var tools = '<button class="btn primary" onclick="newPoll(\'poll\')">+ New poll</button><button class="btn" onclick="newPoll(\'election\')">+ New election</button>';
+  var bar = subNav([["open", "Open", open, open > 0], ["closed", "Closed", all.length - open], ["cats", "Categories", catList().length]], tab, "pollFilter", tools);
+  if (tab === "cats") return bar + pollCategoriesPage(all);
+  var shown = all.filter(function (p) { return (tab === "open") === p.open && pollCatMatch(p); });
+  return bar + pollCatFilterHtml(all) +
     '<div class="poll-list">' + (shown.map(function (p) {
       var election = p.kind === "election", hidden = election && p.open && p.showResults === "closed";
       return '<div class="card poll-card' + (p.questions.length > 1 ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0">' + pollChips(p) + '<h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
@@ -161,7 +164,17 @@ function viewPolls() {
         (hidden ? '<p class="poll-note">Ballots are secret. The results stay hidden until the election closes, so nobody can see who is ahead.</p>' : pollResultsHtml(p, null, true)) +
         (units ? '<div style="margin-top:14px">' + progressBar("Units that voted", p.ballots, units, "green") + "</div>" : "") +
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn" onclick="toggleVoters(' + p.id + ')">' + (state.votersOpen === p.id ? "Hide voters" : "Who voted (" + p.ballots + ")") + '</button><button class="btn" onclick="togglePoll(' + p.id + ')">' + (p.open ? (election ? "Close election" : "Close poll") : "Reopen") + '</button><button class="btn" onclick="exportPollXlsx(' + p.id + ')"' + (hidden ? ' disabled title="Available when the election closes"' : "") + '>Export to Excel</button><button class="btn" style="margin-left:auto;color:var(--bad-fg)" onclick="deletePoll(' + p.id + ')">Delete</button></div>' + (state.votersOpen === p.id ? votersPanel(p) : "") + "</div>";
-    }).join("") || '<p class="empty">No polls here yet.</p>') + "</div>";
+    }).join("") || '<p class="empty">' + (tab === "open" ? "No open polls. Start one with “New poll”." : "No closed polls yet.") + "</p>") + "</div>";
+}
+// Sub-page "Categories": every category with how many polls it has, and the button to manage them.
+// Shows the open polls of one category.
+function pollCatGo(i) { set({ pollCat: catList()[i] || "all", pollFilter: "open" }); }
+function pollCategoriesPage(all) {
+  return '<div class="card"><div class="fx-head"><h2>Poll categories</h2><button class="btn primary" onclick="manageCategories()">Manage categories</button></div><p class="hint" style="margin:4px 0 10px">Residents can filter the polls by category.</p>' +
+    catList().map(function (c, i) {
+      var n = all.filter(function (p) { return p.category === c; }).length, o = all.filter(function (p) { return p.category === c && p.open; }).length;
+      return '<div class="am-row"><div><b>' + esc(c) + "</b><small>" + n + " poll" + (n === 1 ? "" : "s") + (o ? " · " + o + " open" : "") + '</small></div><button class="btn" onclick="pollCatGo(' + i + ')">View polls</button></div>';
+    }).join("") + "</div>";
 }
 /* ---------- categories ---------- */
 var catEdit = -1, catAsk = -1;

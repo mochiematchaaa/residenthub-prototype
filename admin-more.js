@@ -1397,6 +1397,8 @@ function bellItems() {
   if (c.unpaid) l.push({ t: c.unpaid + " unpaid charge" + (c.unpaid > 1 ? "s" : ""), s: "Finance", v: "fin" });
   if (c.grievances) l.push({ t: c.grievances + " open complaint" + (c.grievances > 1 ? "s" : ""), s: "Complaints", v: "req" });
   if (c.rentals) l.push({ t: c.rentals + " unit status to review", s: "Unit status", v: "rentals" });
+  var edited = list("unit").filter(function (r) { return Number(r.v.selfUpdated) && Date.now() - Number(r.v.selfUpdated) < 7 * 86400000; });
+  if (edited.length) l.push({ t: edited.length === 1 ? edited[0].id + " updated their household record" : edited.length + " units updated their household record", s: "Resident profiles", v: "history" });
   if (c.parking) l.push({ t: c.parking + " parking request" + (c.parking > 1 ? "s" : ""), s: "Parking", v: "parking" });
   return l;
 }

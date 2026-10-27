@@ -5,7 +5,6 @@ var state = {
   authed: false, view: "home", darkMode: false,
   bellOpen: false, bellSeen: false,
   unitSearch: "", unitPage: 0, facIdx: 0,
-  newAnnTitle: "", newAnnBody: "", newAnnType: "General",
   newPollQ: "", newPollOpts: "", pollFilter: "open",
   finTab: "overview", expPage: 0, finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
   expMonth: "", expDay: "",
@@ -346,34 +345,6 @@ function bookingAt(f, i) {
   var today = dayKey(new Date()), place = (facilities()[f] || {}).name;
   return vals("booking").filter(function (x) { return x.day === today && Number(x.slot) === i && x.place === place && (x.status === "Pending" || x.status === "Approved"); })[0];
 }
-// PAGE: Facility (booking requests and time slots).
-function viewFac() {
-  var bookings = newest(list("booking"));
-  var order = { Pending: 0, Approved: 1, Denied: 2 };
-  bookings.sort(function (a, b) { return (order[a.v.status] != null ? order[a.v.status] : 3) - (order[b.v.status] != null ? order[b.v.status] : 3) || Number(b.id) - Number(a.id); });
-  var rows = bookings.map(function (r) {
-    var b = r.v;
-    return '<tr><td style="font-weight:700">' + esc(b.place) + "</td><td>" + esc(b.unit) + (b.who && b.who !== b.unit ? ' <span style="color:var(--muted)">· ' + esc(b.who) + "</span>" : "") + '</td><td style="color:var(--muted)">' + esc(b.when) + '</td><td><span class="chip ' + (b.status === "Approved" ? "good" : b.status === "Denied" ? "bad" : "warn") + '">' + esc(b.status) + '</span></td><td style="display:flex;gap:6px">' +
-      (b.status === "Pending" ? '<button class="btn primary" onclick="setBooking(\'' + escAttr(r.id) + '\',\'Approved\')">Approve</button><button class="btn" onclick="setBooking(\'' + escAttr(r.id) + '\',\'Denied\')">Deny</button>' : "") + "</td></tr>";
-  });
-  var fl = facilities();
-  var manage = '<div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><h2 style="font-size:19px;flex-grow:1">Amenities</h2><button class="btn primary" onclick="amenityForm()">+ Add amenity</button></div>' +
-    '<p class="hint">Add a new amenity, change its name, opening hours or how long one booking is. Residents see the change straight away.</p>' +
-    (fl.length ? '<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">' + fl.map(function (f) {
-      return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--border2);padding-top:10px"><div style="flex-grow:1;min-width:200px"><b>' + esc(f.name) + '</b><div style="font-size:13px;color:var(--muted)">' + esc(f.hours || "Set the hours") + " · " + f.slots.length + " time slot" + (f.slots.length === 1 ? "" : "s") + " of " + (Number(f.mins) || 120) + ' min</div></div>' +
-        '<button class="btn" onclick="amenityForm(\'' + escAttr(f.id) + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="removeAmenity(\'' + escAttr(f.id) + '\')">Remove</button></div>';
-    }).join("") + "</div>" : '<p class="empty">No amenities yet. Add the first one.</p>') + "</div>";
-  return manage + '<div class="facility-today-grid">' + fl.map(function (f, fi) {
-    return '<div class="card"><h2>' + esc(f.name) + ' · Availability today</h2><p class="hint">' + esc(f.hours) + " · Select an open slot to close it, or a closed slot to open it</p>" +
-      (f.note ? '<p class="hint">' + esc(f.note) + "</p>" : "") + '<div class="slots">' + f.slots.map(function (t, i) {
-        var closed = slotClosed(fi, i), bk = bookingAt(fi, i);
-        var cls = closed || bk ? "booked" : "open", label = closed ? "Closed" : bk ? "Booked" : "Open";
-        return '<button class="slot ' + cls + '" title="' + escAttr(bk ? bk.unit : "") + '" onclick="toggleSlot(' + fi + "," + i + ')"><b>' + esc(t) + "</b><span>" + label + "</span></button>";
-      }).join("") + "</div></div>";
-  }).join("") + "</div>" +
-    '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;padding:14px 18px"><h2 style="font-size:19px;flex-grow:1">Reservation requests</h2><button class="btn" onclick="exportBookings()">Export to Excel (.csv)</button></div>' +
-    tableRows(rows, ["FACILITY", "UNIT", "WHEN", "STATUS", ""], "No reservation requests yet.") + "</div>";
-}
 // Blocks or opens one time slot of a facility.
 function toggleSlot(f, i) {
   var bk = bookingAt(f, i);
@@ -444,44 +415,6 @@ function exportBookings() {
 /* ==========================================================================
    Announcements and events
    ========================================================================== */
-function viewAnn() {
-  var anns = newest(list("announcement")), evs = newest(list("event"));
-  return '<div class="two-col-r" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)"><div style="display:flex;flex-direction:column;gap:16px">' +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:19px">Create announcement</h2>' +
-    '<input id="annTitle" placeholder="Title" value="' + escAttr(state.newAnnTitle) + '" oninput="state.newAnnTitle=this.value" ' + inputStyle() + ">" +
-    '<textarea id="annBody" placeholder="Message" oninput="state.newAnnBody=this.value" style="min-height:70px;border:1px solid #CFC3A9;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical">' + esc(state.newAnnBody) + "</textarea>" +
-    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="field" style="flex-grow:0"><label style="font-size:12px;font-weight:700;color:var(--muted)">Type</label>' +
-    '<select onchange="state.newAnnType=this.value" style="height:40px;border:1px solid #CFC3A9;border-radius:10px;padding:0 10px;font-size:14px">' +
-    ["General", "Maintenance", "Warning", "Emergency"].map(function (t) { return "<option " + (state.newAnnType === t ? "selected" : "") + ">" + t + "</option>"; }).join("") + "</select></div></div>" +
-    '<button class="btn primary" onclick="addAnnouncement()">Publish announcement</button></div>' +
-    '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;align-items:center;padding:14px 18px"><h2 style="font-size:19px;flex-grow:1">Announcements</h2><button class="btn" onclick="exportAnnouncements()">Export to Excel (.csv)</button></div>' +
-    (anns.map(function (r) {
-      var a = r.v, status = a.status || "Published", type = a.type || "General";
-      return '<div style="padding:12px 18px;border-top:1px solid var(--border2)"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><div style="font-weight:700;font-size:15px">' + esc(a.title) + '</div><span style="display:flex;gap:6px;flex-shrink:0">' +
-        (type !== "General" ? '<span class="chip ' + typeChipClass(type) + '">' + esc(type) + "</span>" : "") + '<span class="chip ' + (status === "Published" ? "good" : "warn") + '">' + esc(status) + "</span></span></div>" +
-        '<div style="font-size:13px;color:var(--muted);margin:4px 0">' + esc(a.body) + '</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">' + esc(a.date) + '</span><span style="display:flex;gap:6px">' +
-        (status !== "Published" ? '<button class="btn" onclick="publishAnn(\'' + escAttr(r.id) + '\')">Publish</button>' : "") +
-        '<button class="btn" style="font-size:12px" onclick="editAnn(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" style="font-size:12px;color:#A02B1D" onclick="deleteAnn(\'' + escAttr(r.id) + '\')">Delete</button></span></div></div>';
-    }).join("") || '<div style="padding:18px;border-top:1px solid var(--border2);color:var(--muted)">No announcements yet.</div>') + "</div></div>" +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:19px">Add event</h2><button class="btn primary" onclick="eventForm(null)">+ Add event</button>' +
-    '<div style="border-top:1px solid var(--border2);margin-top:6px;padding-top:10px;display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-size:16px">Upcoming events</h2><button class="btn" onclick="exportEvents()" style="font-size:12px;min-height:34px">Export .csv</button></div>' +
-    (evs.map(function (r) {
-      var e = r.v, going = list("rsvp").filter(function (x) { return Number(x.v.event) === Number(r.id); }).length;
-      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><div style="font-weight:700;font-size:14px">' + esc(e.title) + '</div><div style="font-size:12px;color:var(--muted)">' + esc(e.date) + " · " + esc(e.place) + " · " + going + ' going</div></div><span style="display:flex;gap:6px"><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="eventForm(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteEvent(\'' + escAttr(r.id) + '\')">Delete</button></span></div>';
-    }).join("") || '<p class="empty">No events yet.</p>') + "</div></div>";
-}
-// Saves a new announcement draft from the form.
-function addAnnouncement() {
-  var title = state.newAnnTitle.trim();
-  if (!title) return toast("Enter a title first.");
-  act(async function () {
-    var id = nextId();
-    await put("announcement", id, "", { id: id, title: title, body: state.newAnnBody.trim() || "—", date: shortDate(new Date()), status: "Published", type: state.newAnnType || "General" });
-    logAct("Announcement published: " + title, "Announcements");
-    state.newAnnTitle = ""; state.newAnnBody = ""; state.newAnnType = "General";
-    toast("Announcement published. Residents can see it now.");
-  });
-}
 // Publishes an announcement so residents can see it.
 function publishAnn(id) {
   var row = getRow("announcement", id); if (!row) return;
