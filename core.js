@@ -577,6 +577,25 @@ function openInfo(title, bodyHtml) {
 // Asks 'are you sure?' and runs fn only if the user confirms.
 /* The paper calls a checked payment "Verified"; the stored value stays "Confirmed" so older records keep working. */
 function statusText(s) { return s === "Confirmed" ? "Verified" : s; }
+/* Automatic posting: a payment the resident sent is posted to their dues by itself this many hours later (the office can still verify or reject it before then). */
+function autoPostCfg() { var c = setting("autopost"); return { on: c.on !== false, hours: Number(c.hours) > 0 ? Number(c.hours) : 24 }; }
+// When the resident sent the payment details (milliseconds). Older records only have a date.
+function proofSentAt(p) {
+  if (Number(p.at) > 1e12) return Number(p.at);
+  var d = parseShort(p.date || ""); return d ? d.getTime() + 9 * 3600000 : Date.now();
+}
+// "5h 12m", "45 min", "2 days" until a time (milliseconds), or "now".
+function waitText(ms) {
+  if (ms <= 60000) return "now";
+  var m = Math.round(ms / 60000), h = Math.floor(m / 60);
+  if (h >= 48) return Math.round(h / 24) + " days";
+  return h ? h + "h " + (m % 60) + "m" : m + " min";
+}
+// "Oct 28, 3:20 PM"
+function clockText(ms) {
+  var d = new Date(ms), h = d.getHours(), m = d.getMinutes();
+  return MONTHS[d.getMonth()] + " " + d.getDate() + ", " + (h % 12 || 12) + ":" + pad(m) + " " + (h < 12 ? "AM" : "PM");
+}
 function confirmBox(title, text, label, fn, danger) {
   openForm({ title: title, intro: esc(text), fields: [], submit: label, onSubmit: async function () { return await fn(); } });
   if (danger) { var b = $("#modal button[type=submit]"); if (b) b.style.background = "#A02B1D"; }

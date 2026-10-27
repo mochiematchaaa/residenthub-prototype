@@ -610,6 +610,128 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     return "download";
   }
+  /* ---------- one unit's history as an Excel workbook (template: Overview with key figures and charts, then one sheet per record type) ---------- */
+  function unitHistorySheets(unit) {
+    resetStyles();
+    var S = histSummary(unit), u = S.u, d = S.d, now = new Date(), sheets = [], count = {}, tables = [];
+    var ev = histEvents(unit);
+    function add(group, name, cols, rows, info) { var t = { group: group, name: name, cols: cols, rows: rows, info: info }; tables.push(t); count[name] = { n: rows.length, info: info, group: group }; }
+    var charges = S.charges.slice().sort(function (a, b) { return Number(b.id) - Number(a.id); });
+    function paidInfo(dd) { var m = S.pays.filter(function (p) { return p.v.forText === dd.v.note && Math.abs((Number(p.v.amount) || 0) - (Number(dd.v.amount) || 0)) < 0.01; })[0]; return m ? m.v : null; }
+    add("Money", "Charges", [["Billed on", "date"], ["Charge", "text", { w: 40 }], ["Due date", "date"], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }], ["Paid through", "text", { w: 20 }], ["Receipt no."]],
+      charges.map(function (r) { var c = r.v, p = c.paid ? paidInfo(r) : null; return [billedOn(r.id, c), c.note, c.dueDate, Number(c.amount) || 0, c.paid ? "Paid" : isOverdue(c) ? "Overdue" : "Unpaid", p ? p.method : "", p ? p.receiptNo : ""]; }),
+      "Every charge billed to this unit");
+    add("Money", "Payments", [["Date", "date"], ["Receipt no."], ["For", "text", { w: 36 }], ["Method", "text", { w: 24 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }]],
+      S.pays.map(function (r) { var p = r.v; return [p.date, p.receiptNo, p.forText, p.method, p.reference, Number(p.amount) || 0]; }), "Payments received, with official receipt numbers");
+    var proofs = newest(list("proof")).filter(function (r) { return r.unit === unit; });
+    add("Money", "Payment submissions", [["Sent", "date"], ["For", "text", { w: 34 }], ["Method", "text", { w: 22 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }], ["Posted by", "text", { w: 20 }], ["Note", "text", { w: 36 }]],
+      proofs.map(function (r) { var p = r.v; return [new Date(proofSentAt(p)), p.forText, p.method, p.reference, Number(p.amount) || 0, statusText(p.status), p.status === "Confirmed" ? (p.auto ? "Automatic posting" : "Office") : "", p.reason || ""]; }), "What the resident sent, and how it was settled");
+    var bookings = list("booking").filter(function (r) { return r.unit === unit; }).sort(function (a, b) { return String(b.v.day).localeCompare(String(a.v.day)); });
+    add("Facilities", "Bookings", [["Date", "date"], ["Facility", "text", { w: 26 }], ["When", "text", { w: 34 }], ["Status", "status", { cf: "pay" }]],
+      bookings.map(function (r) { return [r.v.day, r.v.place, r.v.when, r.v.status]; }), "Facility reservations");
+    var grs = list("grievance").filter(function (r) { return r.unit === unit; }).sort(function (a, b) { return Number(b.id) - Number(a.id); });
+    add("Residents", "Requests and repairs", [["Reported", "date"], ["Title", "text", { w: 34 }], ["Details", "text", { w: 50, wrap: true }], ["Status", "status", { cf: "grv" }], ["Assigned to", "text", { w: 22 }]],
+      grs.map(function (r) { var g = r.v; return [created(r.id), g.title, g.body, stageName(g.stage), g.assignee || ""]; }), "Complaints and repair requests");
+    var comm = ev.filter(function (e) { return e.cat === "community" && e.kind !== "Booking"; });
+    add("Residents", "Community", [["Date", "date"], ["Type"], ["Detail", "text", { w: 50 }], ["Note", "text", { w: 40 }]],
+      comm.map(function (e) { return [e.ts ? new Date(e.ts) : "", e.kind, e.title, e.sub]; }), "Event RSVPs and poll participation (not how they voted)");
+    var office = ev.filter(function (e) { return e.cat === "office"; });
+    add("System", "Office log", [["Date", "date"], ["What the office did", "text", { w: 60 }], ["Area", "text", { w: 18 }]],
+      office.map(function (e) { return [e.ts ? new Date(e.ts) : "", e.title, e.sub]; }), "Office activity that mentions this unit");
+    add("System", "Timeline", [["Date", "date"], ["Type", "text", { w: 16 }], ["Detail", "text", { w: 44 }], ["More", "text", { w: 50 }], ["Amount", "money"], ["Status", "status", { cf: "pay" }]],
+      ev.map(function (e) { return [e.ts ? new Date(e.ts) : "", e.kind, e.title, e.sub, e.amount != null ? e.amount : "", e.chip ? e.chip[0] : ""]; }), "Everything above, in one list, newest first");
+    tables.forEach(function (t) { sheets.push(tableSheet(t)); });
+
+    // chart data: billed and paid per month (last 6 months), charges by status
+    var mo = []; for (var i = 5; i >= 0; i--) { var m0 = new Date(now.getFullYear(), now.getMonth() - i, 1); mo.push({ key: m0.getFullYear() * 12 + m0.getMonth(), label: m0.toLocaleString("en-US", { month: "short" }) + " " + m0.getFullYear() }); }
+    function msum(rows, dateOf, amt) { return mo.map(function (m) { return rows.reduce(function (s2, r) { var dt = toDate(dateOf(r)); return s2 + (dt && dt.getFullYear() * 12 + dt.getMonth() === m.key ? (Number(amt(r)) || 0) : 0); }, 0); }); }
+    var st = { Paid: 0, Unpaid: 0, Overdue: 0 }; S.charges.forEach(function (r) { st[r.v.paid ? "Paid" : isOverdue(r.v) ? "Overdue" : "Unpaid"]++; });
+    var CD = [
+      { title: "Billed and paid per month", head: ["Month", "Billed", "Paid"], fmt: "money", cats: mo.map(function (m) { return m.label; }), cols: [msum(S.charges, function (r) { return billedOn(r.id, r.v); }, function (r) { return r.v.amount; }), msum(S.pays, function (r) { return r.v.date; }, function (r) { return r.v.amount; })] },
+      { title: "Charges by status", head: ["Status", "Charges"], fmt: "int", cats: ["Paid", "Unpaid", "Overdue"], cols: [[st.Paid, st.Unpaid, st.Overdue]] }
+    ];
+    var cg = new Grid(), row = 3, byT = [];
+    bannerRows(cg, 4, "Chart data", "The numbers behind the charts on the Overview sheet", true);
+    var tHead = sty({ b: 1, color: "FFFFFF", fill: C.brand, v: "center", h: "left", indent: 1 });
+    CD.forEach(function (t) {
+      cg.span(row, 0, 3, t.title, sty({ sz: 12, b: 1, color: C.deep, bb: ["medium", C.brand], v: "center" }), false); cg.h[row] = 24;
+      t.head.forEach(function (h, k) { cg.put(row + 1, k, h, tHead); });
+      t.cats.forEach(function (cat, k) {
+        var base = { v: "center", fill: k % 2 ? C.band : undefined, bb: ["thin", C.line] };
+        cg.put(row + 2 + k, 0, cat, sty(Object.assign({ h: "left", indent: 1 }, base)));
+        t.cols.forEach(function (col, j) { cg.put(row + 2 + k, 1 + j, col[k], sty(Object.assign({ fmt: FMT[t.fmt], h: "right" }, base))); });
+      });
+      t.r0 = row; byT.push(t); row += t.cats.length + 4;
+    });
+    sheets.push({ name: "Chart data", grid: cg, widths: [26, 16, 16, 16], tab: C.gray, freeze: 0, charts: [] });
+    count["Chart data"] = { n: CD.length, info: "Small tables the charts read from", group: "System" };
+    function cref(t, col) { return "'Chart data'!$" + colName(col) + "$" + (t.r0 + 3) + ":$" + colName(col) + "$" + (t.r0 + 2 + t.cats.length); }
+    function hdr(t, col) { return "'Chart data'!$" + colName(col) + "$" + (t.r0 + 2); }
+    function mk(t, kind, o) { return chartXml({ kind: kind, title: t.title, cats: t.cats, catRef: cref(t, 0), fmt: o.fmt, legend: o.legend, series: t.cols.map(function (col, k) { return { name: t.head[1 + k], nameRef: hdr(t, 1 + k), ref: cref(t, 1 + k), vals: col, color: (o.colors || PAL)[k % (o.colors || PAL).length], ptColors: o.pts }; }) }); }
+
+    // the Overview sheet (the template front page)
+    var g = new Grid(), NC = 12, W = 14;
+    var bandS = function (sz, color, b) { return sty({ sz: sz, b: b ? 1 : undefined, color: color, fill: C.deep, v: "center", h: "left", indent: 2 }); };
+    g.span(0, 0, NC - 1, "Unit history: " + unit, bandS(22, "FFFFFF", 1), false); g.h[0] = 42;
+    g.span(1, 0, NC - 1, (u.name && u.name !== "—" ? u.name : "No name yet") + " · " + (u.type || "Owner") + " · " + (u.status || "Occupied"), bandS(12, "DDD9F7"), false); g.h[1] = 22;
+    g.span(2, 0, NC - 1, "Exported on " + now.toLocaleString("en-US") + " by " + adminName(), bandS(10, "BDB6EE"), false); g.h[2] = 22; g.h[3] = 10;
+    function tile(r, c0, label, value, note, accent, fmt) {
+      function ts(extra, pos) { var o = Object.assign({ fill: C.tint, v: "center" }, extra); if (pos === 0) o.bl = ["thick", "FFFFFF"]; if (pos === 2) o.br = ["thick", "FFFFFF"]; return sty(o); }
+      [0, 1, 2].forEach(function (p) {
+        g.put(r, c0 + p, p === 0 ? label : null, ts({ sz: 9, b: 1, color: C.muted, h: "left", indent: 1, bt: ["thick", accent] }, p));
+        g.put(r + 1, c0 + p, p === 0 ? value : null, ts({ sz: 22, b: 1, color: accent, h: "left", indent: 1, fmt: fmt }, p));
+        g.put(r + 2, c0 + p, p === 0 ? note : null, ts({ sz: 9, color: C.muted, h: "left", indent: 1 }, p));
+      });
+      g.merges.push(colName(c0) + (r + 1) + ":" + colName(c0 + 2) + (r + 1), colName(c0) + (r + 2) + ":" + colName(c0 + 2) + (r + 2), colName(c0) + (r + 3) + ":" + colName(c0 + 2) + (r + 3));
+      g.h[r] = 22; g.h[r + 1] = 36; g.h[r + 2] = 20;
+    }
+    var MON = '"₱"#,##0.00';
+    tile(4, 0, "TOTAL BILLED", d.billed, S.charges.length + " charges", C.brand, MON);
+    tile(4, 3, "PAID", d.paid, (d.billed ? Math.round(d.paid / d.billed * 100) : 0) + "% of what was billed", C.green, MON);
+    tile(4, 6, "BALANCE", d.balance, S.open.length + " unpaid, " + S.overdue + " overdue", d.balance ? C.red : C.green, MON);
+    tile(4, 9, "LAST PAYMENT", S.last ? Number(S.last.v.amount) || 0 : 0, S.last ? (S.last.v.date || "") + " · " + (S.last.v.method || "") : "No payment yet", C.blue, MON);
+    g.h[7] = 12;
+    var secS = sty({ sz: 13, b: 1, color: C.deep, bb: ["medium", C.brand], v: "center" }), charts = [], r = 8;
+    g.span(r, 0, NC - 1, "Money", secS, false); g.h[r] = 26; r++;
+    charts.push({ xml: mk(byT[0], "col", { fmt: K_FMT, legend: true, colors: [C.amber, C.green] }), a: [0, r, 7, r + 14] });
+    charts.push({ xml: mk(byT[1], "donut", { fmt: N_FMT, legend: true, pts: [C.green, C.amber, C.red] }), a: [8, r, 11, r + 14] });
+    r += 16;
+    var hd = sty({ b: 1, color: "FFFFFF", fill: C.brand, v: "center", h: "left", indent: 1 });
+    g.span(r, 0, NC - 1, "About this unit", secS, false); g.h[r] = 26; r++;
+    var facts = [["Unit", unit], ["Household / owner", u.name && u.name !== "—" ? u.name : ""], ["Occupancy", (u.type || "Owner") + " · " + (u.status || "Occupied")], ["Contact", u.contact || ""],
+      ["Resident account", S.accounts.map(function (a) { return a.email; }).join(", ") || "None yet"], ["Floor area", d.area ? d.area + " sqm" : "Not set"], ["Dues due on", Number(u.dueDay) > 0 ? "Day " + u.dueDay + " of every month" : "Not set"],
+      ["Monthly dues", d.monthly || 0, "money"], ["Usage of the unit", usageLabel(u.usage) + (u.usageStatus ? " (" + u.usageStatus + ")" : "")], ["Motor parking", S.slot ? "Slot " + S.slot.id : "None"], ["Open complaints", S.openReq]];
+    facts.forEach(function (k, i) {
+      var base = { v: "center", fill: i % 2 ? C.band : undefined, bb: ["thin", C.line] };
+      g.span(r, 0, 3, k[0], sty(Object.assign({ h: "left", indent: 1, b: 1 }, base)));
+      g.span(r, 4, NC - 1, k[1], sty(Object.assign({ h: "left", indent: 1, fmt: k[2] ? FMT.money : undefined }, base)));
+      r++;
+    });
+    r++;
+    g.span(r, 0, NC - 1, "What is in this workbook", secS, false); g.h[r] = 26; r++;
+    g.span(r, 0, 2, "Sheet", hd); g.put(r, 3, "Records", sty({ b: 1, color: "FFFFFF", fill: C.brand, v: "center", h: "right" })); g.span(r, 4, NC - 1, "What it contains", hd); g.h[r] = 24; r++;
+    sheets.forEach(function (sh, i) {
+      var ct = count[sh.name]; if (!ct) return;
+      var base = { v: "center", fill: i % 2 ? C.band : undefined, bb: ["thin", C.line] };
+      g.span(r, 0, 2, sh.name, sty(Object.assign({ u: 1, color: C.link, h: "left", indent: 1 }, base))); g.link(r, 0, "'" + sh.name + "'!A1");
+      g.put(r, 3, ct.n, sty(Object.assign({ fmt: FMT.int, h: "right" }, base)));
+      g.span(r, 4, NC - 1, ct.info, sty(Object.assign({ color: C.muted, h: "left", indent: 1 }, base)));
+      r++;
+    });
+    var widths = []; for (var w = 0; w < NC; w++) widths.push(W);
+    sheets.unshift({ name: "Overview", grid: g, widths: widths, tab: C.deep, freeze: 0, charts: charts });
+    return sheets;
+  }
+  window.exportUnitHistory = async function (unit) {
+    try {
+      var sheets = unitHistorySheets(unit), slug = String(unit).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, ""), name = "history-" + slug + "-" + dayKey(new Date()) + ".xlsx";
+      var how = await saveBlob(makeXlsx(sheets), name);
+      if (how === "cancel") return;
+      logAct("Unit history exported to Excel, " + unit, "Reports");
+      toast(how === "picked" ? "Saved " + name + "." : "Downloaded " + name + ". Find it in your Downloads folder.");
+    } catch (e) { toast("Could not create the Excel file: " + (e && e.message || e)); }
+  };
+  window.__buildUnitHistory = unitHistorySheets; // used by the automatic test
   window.exportAllData = async function () {
     try {
       var sheets = buildSheets(), name = "ResidentHub-all-data-" + dayKey(new Date()) + ".xlsx";

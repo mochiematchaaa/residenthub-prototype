@@ -63,6 +63,7 @@ function titles() {
     reports: ["Reports", "Collections, occupancy, dues ageing, facility use and requests at a glance."],
     parking: ["Parking", "Motor parking slots, who has one, and requests waiting for approval."],
     log: ["Activity log", "A record of what the administrators did, newest first."],
+    history: ["Unit history", "Everything about one unit or resident in one place: dues, payments, requests, bookings and records."],
     settings: ["Settings", "Billing defaults, the resident directory and your preferences."],
     profile: ["My profile", "Your administrator account, recent activity and shortcuts."]
   }[state.view] || ["", ""];
@@ -71,13 +72,14 @@ function titles() {
 function view() {
   var f = { home: viewHome, units: viewUnits, fac: viewFac, expenses: viewExpenses, fin: viewFin, manage: viewManage, ann: viewAnn,
     rentals: viewRentals, polls: viewPolls, reports: viewReports, parking: viewParking, log: viewLog, settings: viewSettings,
-    profile: viewProfile, req: viewReq }[state.view] || viewHome;
+    profile: viewProfile, req: viewReq, history: viewHistory }[state.view] || viewHome;
   return f();
 }
 
 // Draws the whole admin dashboard (menu + current page). Called after every change.
 function render() {
   if (!state.authed) return;
+  if (state.view === "manage") { state.view = "settings"; state.setTab = "access"; } // Access now lives in Settings
   document.documentElement.setAttribute("data-theme", state.darkMode ? "dark" : "light");
   try { localStorage.setItem("rh_dark", state.darkMode ? "1" : "0"); } catch (e) { /* storage blocked */ }
   var app = document.getElementById("app");
@@ -94,8 +96,8 @@ function render() {
       '<div class="side-label">General</div><nav>' + navBtn("home", "Dashboard") + navBtn("units", "Units") + navBtn("fac", "Facility") + navBtn("ann", "Announcements") + navBtn("polls", "Polls") + "</nav>" +
       '<div class="side-label">Tools</div><nav>' + navBtn("fin", "Finance") +
       '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>Expenses</span></button>" +
-      navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
-      '<div class="side-label">Admin</div><nav>' + navBtn("log", "Activity log") + navBtn("manage", "Access") + navBtn("settings", "Settings") + "</nav>" +
+      navBtn("history", "History") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
+      '<div class="side-label">Admin</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + esc(initials(adminName())) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>Log out</span></button></div></aside>" +
       "<main>" +
@@ -208,7 +210,7 @@ function viewUnits() {
   var html = rows.slice(unitPage * UNIT_PAGE, (unitPage + 1) * UNIT_PAGE).map(function (r) {
     var u = r.v, bal = balanceFor(r.id);
     return '<tr><td style="font-weight:700">' + esc(r.id) + "</td><td>" + esc(u.name || "—") + '</td><td style="color:var(--muted)">' + esc(u.type || "Owner") + '</td><td><span class="chip ' + (u.status === "Vacant" ? "warn" : "good") + '">' + esc(u.status || "Occupied") + '</span></td><td style="color:var(--muted)">' + (Number(u.area) > 0 ? esc(String(u.area)) + " sqm" : "—") + '</td><td style="color:var(--muted)">' + esc(u.contact || "—") + "</td><td>" + usageCellHtml(u) +
-      "</td><td>" + (bal ? peso(bal) : '<span style="color:var(--muted)">—</span>') + '</td><td><button class="btn" style="min-height:34px;padding:0 14px;font-size:12.5px" onclick="showUnit(\'' + escAttr(r.id) + '\')">View</button></td></tr>';
+      "</td><td>" + (bal ? peso(bal) : '<span style="color:var(--muted)">—</span>') + '</td><td><button class="btn" style="min-height:34px;padding:0 14px;font-size:12.5px" onclick="showUnit(\'' + escAttr(r.id) + '\')">View</button> <button class="btn" style="min-height:34px;padding:0 14px;font-size:12.5px" onclick="openHistory(\'' + escAttr(r.id) + '\')">History</button></td></tr>';
   });
   return '<div class="unit-search-panel"><label for="unitSearchInput">Search units &amp; residents</label>' +
     '<input type="search" id="unitSearchInput" value="' + escAttr(state.unitSearch) + '" oninput="set({unitSearch:this.value,unitPage:0})" placeholder="Search unit, resident, contact, status, usage or dues..." autocomplete="off">' +
@@ -285,7 +287,7 @@ function showUnit(unit) {
     (usageInfoRows(u).length ? usageInfoRows(u).map(function (x) { return "<span>" + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b>"; }).join("") : (u.statusNote ? "<span>Note</span><b>" + esc(u.statusNote) + "</b>" : "")) +
     "<span>Floor area</span><b>" + (Number(u.area) > 0 ? esc(String(u.area)) + " sqm" : "Not set") + "</b><span>Monthly dues</span><b>" + (unitDues(unit).area && unitDues(unit).rate ? peso(unitDues(unit).monthly) + " (" + unitDues(unit).area + " sqm × " + peso(unitDues(unit).rate) + ")" : "Set the area and the rate") + "</b>" +
     "<span>Dues</span><b>" + (bal ? peso(bal) + " unpaid" : "Settled") + "</b><span>Account</span><b>" + (acc ? esc(acc.email) : "None yet") + "</b></div>" +
-    '<div class="modal-actions"><button class="btn primary" onclick="closeModal();unitForm(\'' + escAttr(unit) + '\')">Edit</button>' +
+    '<div class="modal-actions"><button class="btn primary" onclick="closeModal();unitForm(\'' + escAttr(unit) + '\')">Edit</button><button class="btn" onclick="openHistory(\'' + escAttr(unit) + '\')">Full history</button>' +
     (acc ? "" : '<button class="btn" onclick="closeModal();set({view:\'manage\',manage:Object.assign(state.manage,{unit:\'' + escAttr(unit) + '\'})})">Create account</button>') +
     '<button class="btn" onclick="closeModal();setUsageForm(\'' + escAttr(unit) + '\')">Change usage</button>' +
     '<button class="btn" style="color:#A02B1D" onclick="removeUnit(\'' + escAttr(unit) + '\')">Remove</button></div>');
