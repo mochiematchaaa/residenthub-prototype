@@ -126,8 +126,10 @@ class RCard extends StatelessWidget {
             color: gradient == null ? (color ?? cs.surface) : null,
             gradient: gradient,
             borderRadius: radius,
+            // A clear edge, so a white card never melts into the page behind it.
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF3A3D63) : const Color(0xFFD9D9E8)),
             boxShadow: [
-              BoxShadow(color: ink.withAlpha(14), blurRadius: 18, offset: const Offset(0, 6)),
+              BoxShadow(color: ink.withAlpha(24), blurRadius: 18, offset: const Offset(0, 6)),
             ],
           ),
           child: InkWell(

@@ -206,3 +206,59 @@ html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{
 .pc-act{display:flex;gap:8px;flex-wrap:wrap}
 .pc-act .btn{min-height:36px;padding:0 14px;font-size:13px;text-decoration:none;display:inline-flex;align-items:center}
 @media (max-width:640px){.pc-amt{text-align:left}.pc-act{width:100%}.pc-act .btn{flex:1;justify-content:center}}
+
+/* ==========================================================================
+   Containers that blend together (light) and unreadable text (dark)
+   ========================================================================== */
+/* LIGHT: the page behind the cards is a soft blue, every card has a clear edge, and a block inside a card is tinted
+   so white never sits on white. */
+:root:not([data-theme="dark"]) .shell{background:rgba(205,225,247,.55);border-color:#c5daf1}
+:root:not([data-theme="dark"]) .card,:root:not([data-theme="dark"]) .login-card{background:#fff;border:1px solid #c9dcf1;box-shadow:0 1px 2px rgba(31,95,164,.10),0 10px 26px rgba(31,95,164,.12)}
+:root:not([data-theme="dark"]) .card .card,:root:not([data-theme="dark"]) .poll-card .pq-block,:root:not([data-theme="dark"]) .card .pq-block,:root:not([data-theme="dark"]) .poll-card>.pq-block{background:linear-gradient(140deg,#eff6ff,#faf6ec);border:1px solid #c9dcf1;box-shadow:none}
+:root:not([data-theme="dark"]) .card .card .card{background:#fff}
+:root:not([data-theme="dark"]) .pq-answer,:root:not([data-theme="dark"]) .pq-block .pq-answer{background:#fff;border:1px solid #d3e2f3}
+:root:not([data-theme="dark"]) .pq-block .pbar-track,:root:not([data-theme="dark"]) .pbar-track{background:#dbe8f6}
+:root:not([data-theme="dark"]) .lrow,:root:not([data-theme="dark"]) .tx-row,:root:not([data-theme="dark"]) .activity>div{border-color:#d3e2f3}
+
+/* DARK: a dark page (it was turning grey), readable chips and secondary text. */
+:root[data-theme="dark"]{
+  --good-bg:rgba(70,200,130,.20);--good-fg:#8fe6b4;
+  --warn-bg:rgba(245,196,80,.20);--warn-fg:#f6d783;
+  --bad-bg:rgba(255,105,130,.20);--bad-fg:#ffa5b4;
+  --info-bg:rgba(100,170,255,.22);--info-fg:#b1d6ff;
+}
+:root[data-theme="dark"] .shell{background:rgba(5,14,32,.6);border-color:var(--border)}
+:root[data-theme="dark"] .card .card,:root[data-theme="dark"] .card .pq-block,:root[data-theme="dark"] .poll-card>.pq-block{background:#1a3556;border:1px solid #35567f;box-shadow:none}
+:root[data-theme="dark"] .card{border:1px solid #2f4f78}
+:root[data-theme="dark"] .pq-answer{background:#22416a;border:1px solid #35567f;color:var(--ink)}
+:root[data-theme="dark"] .pq-block .pbar-track,:root[data-theme="dark"] .pbar-track{background:#2b4a73}
+:root[data-theme="dark"] .chip.cat{background:rgba(165,145,255,.24);color:#d4ccff}
+:root[data-theme="dark"] .kicker,:root[data-theme="dark"] .hint{color:var(--muted)}
+:root[data-theme="dark"] .lrow,:root[data-theme="dark"] .tx-row,:root[data-theme="dark"] .activity>div,:root[data-theme="dark"] .tl-card{background:#1d3a5e;border-color:#35567f;color:var(--ink)}
+:root[data-theme="dark"] .tl-card.next{background:#4a3d1c;border-color:#7a6430}
+:root[data-theme="dark"] .cal-week span,:root[data-theme="dark"] .cal-title span{background:#1d3a5e;color:var(--ink)}
+:root[data-theme="dark"] .pills-row button{background:#1e3d65;color:var(--ink);border-color:#35567f}
+:root[data-theme="dark"] .rec2-col h3{color:#b9cdee}
+
+/* Sidebar text on the coloured gradient, in both themes */
+.side-label{color:#eaf7ff!important}
+.side nav button,.side-out,.side-brand span{color:#fff}
+.side nav button .nav-tag{background:rgba(10,20,60,.34);color:#fff}
+.side nav button.active .nav-tag{background:rgba(11,54,122,.16);color:#0b367a}
+.side-user small,.side-user b{color:#fff}
+/* Main buttons: a little deeper so the white text is easy to read */
+.btn.primary,button.primary{background:linear-gradient(115deg,#6a58cf,#3f78b5)!important}
+
+/* Dark mode: the coloured summary cards stay light, so their text must stay dark */
+:root[data-theme="dark"] .sc,:root[data-theme="dark"] .panel,:root[data-theme="dark"] .sc small,:root[data-theme="dark"] .panel small,:root[data-theme="dark"] .sc em,:root[data-theme="dark"] .panel em,:root[data-theme="dark"] .t1,:root[data-theme="dark"] .t2,:root[data-theme="dark"] .t3,:root[data-theme="dark"] .t4{color:#0b2a5c}
+:root[data-theme="dark"] .sc small,:root[data-theme="dark"] .panel small,:root[data-theme="dark"] .panel .note small,:root[data-theme="dark"] .t1 small,:root[data-theme="dark"] .t2 small,:root[data-theme="dark"] .t3 small,:root[data-theme="dark"] .t4 small,:root[data-theme="dark"] .t1 em,:root[data-theme="dark"] .t2 em,:root[data-theme="dark"] .t3 em,:root[data-theme="dark"] .t4 em{color:#365179}
+:root[data-theme="dark"] .panel .note b,:root[data-theme="dark"] .panel h2,:root[data-theme="dark"] .sc h3,:root[data-theme="dark"] .panel .empty{color:#0b2a5c}
+:root[data-theme="dark"] .lrow small,:root[data-theme="dark"] .tx-row small,:root[data-theme="dark"] .activity small,:root[data-theme="dark"] .tl-card small{color:var(--muted)}
+:root[data-theme="dark"] .lrow b,:root[data-theme="dark"] .tl-card b,:root[data-theme="dark"] .tl-card em,:root[data-theme="dark"] .activity b{color:var(--ink)}
+:root[data-theme="dark"] .pq-req{color:#ff9a8a}
+:root[data-theme="dark"] .rec2-pen{color:#b9adff}
+:root:not([data-theme="dark"]) .tl-card,:root:not([data-theme="dark"]) .note,:root:not([data-theme="dark"]) .ann-card,:root:not([data-theme="dark"]) .fx-card,:root:not([data-theme="dark"]) .ev-card{border:1px solid #c9dcf1}
+:root:not([data-theme="dark"]) .btn{border-color:#b9d0ea}
+:root:not([data-theme="dark"]){--muted:#495d7e}
+.rec2-av{background:linear-gradient(135deg,#6a58cf,#3f78b5)}
+:root[data-theme="dark"] .usage-sec .num{background:#b9d4ff;color:#0b2a5c}
