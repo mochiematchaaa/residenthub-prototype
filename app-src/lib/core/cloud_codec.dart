@@ -151,6 +151,7 @@ Map<String, dynamic> _dueJson(Due d) => {
       if (d.rate > 0) 'rate': d.rate,
       if (d.remindedOn.isNotEmpty) 'remindedOn': d.remindedOn,
       if (d.reminders > 0) 'reminders': d.reminders,
+      if (d.remindMsg.isNotEmpty) 'remindMsg': d.remindMsg,
       'paid': d.paid,
     };
 
@@ -163,7 +164,8 @@ Due? _dueFrom(Map<String, dynamic> j) {
       area: _num(j, 'area'),
       rate: _num(j, 'rate'),
       remindedOn: _s(j, 'remindedOn'),
-      reminders: _i(j, 'reminders'));
+      reminders: _i(j, 'reminders'),
+      remindMsg: _s(j, 'remindMsg'));
 }
 
 Map<String, dynamic> _grievanceJson(Grievance g) =>
