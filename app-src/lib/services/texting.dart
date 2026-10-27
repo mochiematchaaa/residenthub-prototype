@@ -33,3 +33,31 @@ Future<void> textNumbers(BuildContext context, List<String> numbers, String titl
         : 'Could not open a messaging app on this device. The announcement is still published.');
   }
 }
+
+/// Opens the phone dialer for one number (the administrator taps Call there).
+Future<void> callNumber(BuildContext context, String number) async {
+  final digits = number.replaceAll(RegExp(r'[^\d+]'), '');
+  var opened = false;
+  try {
+    opened = await launchUrl(Uri.parse('tel:$digits'), mode: LaunchMode.externalApplication);
+  } catch (_) {
+    opened = false;
+  }
+  if (!opened && context.mounted) {
+    msg(context, kDemo ? 'Calling $number. The prototype cannot place real calls; on a phone the dialer opens with this number.' : 'Could not open the phone dialer on this device.');
+  }
+}
+
+/// Opens the messaging app with a text for one number already typed in.
+Future<void> textOne(BuildContext context, String number, String text) async {
+  final digits = number.replaceAll(RegExp(r'[^\d+]'), '');
+  var opened = false;
+  try {
+    opened = await launchUrl(Uri.parse('sms:$digits?body=${Uri.encodeComponent(text)}'), mode: LaunchMode.externalApplication);
+  } catch (_) {
+    opened = false;
+  }
+  if (!opened && context.mounted) {
+    msg(context, kDemo ? 'Text message prepared for $number. The prototype does not send real texts; on a phone the app opens the messaging app.' : 'Could not open a messaging app on this device.');
+  }
+}

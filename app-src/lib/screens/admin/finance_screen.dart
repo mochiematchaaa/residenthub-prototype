@@ -11,6 +11,7 @@ import '../shared/document_viewer_screen.dart';
 import '../shared/payment_widgets.dart';
 import 'admin_screens.dart';
 import 'finance_cards.dart';
+import 'pay_check.dart';
 import 'verify_panel.dart';
 import 'parking_rates_card.dart';
 import 'price_calculator.dart';
@@ -261,6 +262,7 @@ class _AdminFinanceState extends State<AdminFinance> {
               ],
             ),
           ),
+          const PayCheckCard(),
           if (pendingProofs.isNotEmpty)
             VerifyPanel(
               proofs: pendingProofs,

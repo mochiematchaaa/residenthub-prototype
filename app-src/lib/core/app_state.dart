@@ -166,8 +166,16 @@ class Due {
 
   /// The message the office wrote for the last reminder (shown to the resident).
   String remindMsg;
+
+  /// "Did they pay?" bookkeeping. checkedAt = when the office last answered "No" (milliseconds, 0 = never) and checkedNo that day;
+  /// lateFeeId = the late charge added for this charge; partOf = the full amount when only part was paid;
+  /// balanceOf = the charge this one is the unpaid balance of; lateFor = the charge this late charge belongs to.
+  int checkedAt, lateFeeId, balanceOf, lateFor;
+  String checkedNo;
+  num partOf;
   Due(this.id, this.unit, this.name, this.amount, this.note,
-      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0, this.remindedOn = '', this.reminders = 0, this.remindMsg = ''});
+      {this.dueDate = '', this.paid = false, this.billedOn = '', this.area = 0, this.rate = 0, this.remindedOn = '', this.reminders = 0, this.remindMsg = '',
+      this.checkedAt = 0, this.lateFeeId = 0, this.balanceOf = 0, this.lateFor = 0, this.checkedNo = '', this.partOf = 0});
   num get amt => amount;
 
   /// The day it was billed. Older charges without it use the time stored in their id.
@@ -970,7 +978,7 @@ class AppState extends ChangeNotifier {
   List<Due> get myDues => dues.where((d) => d.unit == myUnit).toList()..sort((a, b) => b.id.compareTo(a.id));
 
   /// Resident: "I have paid" with the reference number. [due] is the charge being paid (the oldest open one when null).
-  String? submitProof(String method, String reference, String amountRaw, {Due? due}) {
+  String? submitProof(String method, String reference, String amountRaw, {Due? due, String image = ''}) {
     final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter the amount you paid.';
     if (reference.trim().isEmpty) {
@@ -980,7 +988,7 @@ class AppState extends ChangeNotifier {
     proofs.insert(
         0,
         PaymentProof(nextId(), myUnit, myHousehold, method, reference.trim(), shortDate(DateTime.now()), a,
-            forText: target == null ? 'Association dues' : target.note, at: DateTime.now().millisecondsSinceEpoch));
+            forText: target == null ? 'Association dues' : target.note, at: DateTime.now().millisecondsSinceEpoch, image: image));
     logActivity('Payment reference sent, $myUnit', 'Finance');
     _n();
     return null;
@@ -1550,6 +1558,131 @@ class AppState extends ChangeNotifier {
     }
     final sizes = groups.keys.toList()..sort();
     return (rows: [for (final a in sizes) (a, groups[a]!, (a * rate * 100).round() / 100)], noSize: none, total: total);
+  }
+
+  // ---- "Did they pay?" (administrator) ----
+  /// The late charge, as a percentage of the unpaid charge. The office changes it when answering "No".
+  num latePct = 5;
+
+  /// After a "No", the same charge is not asked about again for this many days.
+  static const payCheckRecheckDays = 7;
+  static const payCheckAsk =
+      'Your charge is due. If you already paid, please send your payment details (and a photo of your payment) under Dues so your balance updates. If not yet, please pay soon. Thank you!';
+  static const payCheckNoMsg =
+      'Our records show this charge is still unpaid. Please pay it, or if you already paid, send your payment details under Dues so your balance updates. Thank you!';
+
+  /// Charges whose due date has come (or passed) with no payment on record and nothing sent by the resident,
+  /// oldest first. They may well have been paid already without the resident telling the system.
+  List<({Due due, int days})> get payCheckList {
+    final now = DateTime.now();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final pend = <String>{for (final p in proofs) if (p.status == 'Pending') '${p.unit}|${p.forText}'};
+    final out = <({Due due, int days})>[];
+    for (final d in dues) {
+      if (d.paid || d.dueDate.isEmpty || d.amount <= 0) continue;
+      final x = parseShortDate(d.dueDate);
+      if (x == null) continue;
+      final days = today.difference(DateTime.utc(x.year, x.month, x.day)).inDays;
+      if (days < 0) continue;
+      if (pend.contains('${d.unit}|${d.note}')) continue;
+      if (d.checkedAt > 0 && now.millisecondsSinceEpoch - d.checkedAt < payCheckRecheckDays * 86400000) continue;
+      out.add((due: d, days: days));
+    }
+    out.sort((a, b) => b.days.compareTo(a.days));
+    return out;
+  }
+
+  /// The mobile number to call or text for a unit ('' when none is on file).
+  String unitPhone(String unit) {
+    for (final a in trusted) {
+      if (a.role == 'Resident' && a.unit == unit && a.phone.trim().isNotEmpty) return a.phone.trim();
+    }
+    final u = units.where((x) => x.unit == unit).firstOrNull;
+    return (u == null || u.contact == '—') ? '' : u.contact.trim();
+  }
+
+  /// YES, they paid. Records what was really paid and issues a receipt. If it is less than the charge, the rest becomes
+  /// a new "(balance)" charge with the same due date. Returns an error text, or the receipt number and what is left.
+  ({String? error, String receipt, num left}) payCheckYes(Due d, {required String amountRaw, required String method, String dateRaw = '', String reference = ''}) {
+    ({String? error, String receipt, num left}) bad(String m) => (error: m, receipt: '', left: 0);
+    if (d.paid) return bad('This charge is already paid.');
+    final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
+    if (a == null || a <= 0) return bad('Enter the amount they paid.');
+    final amt = (a * 100).round() / 100, full = d.amount;
+    if (amt > full + 0.009) return bad('That is more than the charge (${peso(full)}). Enter the amount that applies to this charge.');
+    var when = DateTime.now();
+    if (dateRaw.trim().isNotEmpty) {
+      final x = parseShortDate(dateRaw);
+      if (x == null) return bad('Enter the date like "Oct 25, 2026", or leave it empty for today.');
+      if (x.isAfter(DateTime.now())) return bad('The date paid cannot be in the future.');
+      when = x;
+    }
+    final date = shortDate(when), ref = reference.trim().isEmpty ? '—' : reference.trim();
+    final payer = d.name.isEmpty ? d.unit : d.name;
+    final no = nextReceiptNo();
+    payments.insert(0, PaymentRecord(nextId(), no, d.unit, payer, d.note, method, ref, date, amt));
+    proofs.insert(
+      0,
+      PaymentProof(nextId(), d.unit, payer, method, ref, date, amt,
+          status: 'Confirmed', forText: d.note, receiptNo: no, confirmedOn: date, direct: true),
+    );
+    final left = ((full - amt) * 100).round() / 100;
+    d.paid = true;
+    if (left > 0.009) {
+      d.amount = amt;
+      d.partOf = full;
+      dues.add(Due(nextId(), d.unit, d.name, left, '${d.note} (balance)',
+          dueDate: d.dueDate, billedOn: shortDate(DateTime.now()), balanceOf: d.id, checkedAt: DateTime.now().millisecondsSinceEpoch));
+    }
+    logActivity('Marked paid, ${d.unit}: ${d.note} ${peso(amt)}${left > 0.009 ? ' (balance ${peso(left)} left)' : ''}', 'Finance');
+    _n();
+    return (error: null, receipt: no, left: left > 0.009 ? left : 0);
+  }
+
+  /// NO, they did not pay. Optionally adds a late charge (due in 7 days) and sends the resident a reminder.
+  /// Returns an error text, or a short summary of what was done.
+  ({String? error, String done}) payCheckNo(Due d, {required bool late, String pctRaw = '', required bool notify, String message = ''}) {
+    if (d.paid) return (error: 'This charge is already paid.', done: '');
+    final notes = <String>[];
+    if (late) {
+      final pct = double.tryParse(pctRaw.trim().replaceAll(',', ''));
+      if (pct == null || pct <= 0 || pct > 100) return (error: 'Enter the late charge as a percentage, from 0.1 to 100.', done: '');
+      if (d.lateFeeId > 0) return (error: 'A late charge was already added for this charge.', done: '');
+      final amt = (d.amount * pct).round() / 100;
+      if (amt <= 0) return (error: 'The late charge works out to zero. Raise the percentage.', done: '');
+      final lid = nextId();
+      dues.add(Due(lid, d.unit, d.name, amt, 'Late charge: ${d.note}',
+          dueDate: shortDate(DateTime.now().add(const Duration(days: 7))), billedOn: shortDate(DateTime.now()), lateFor: d.id));
+      d.lateFeeId = lid;
+      latePct = pct;
+      notes.add('late charge ${peso(amt)}');
+    }
+    if (notify) {
+      d.remindedOn = shortDate(DateTime.now());
+      d.reminders++;
+      d.remindMsg = message.trim().isEmpty ? payCheckNoMsg : message.trim();
+      notes.add('reminder sent');
+    }
+    d.checkedAt = DateTime.now().millisecondsSinceEpoch;
+    d.checkedNo = shortDate(DateTime.now());
+    logActivity('Not paid, ${d.unit}: ${d.note}${notes.isEmpty ? '' : ' (${notes.join(', ')})'}', 'Finance');
+    _n();
+    return (error: null, done: notes.isEmpty ? 'Saved. We will ask again in $payCheckRecheckDays days if it is still unpaid.' : 'Saved for ${d.unit}: ${notes.join(' and ')}.');
+  }
+
+  /// Sends one message to every unit on the list: "if you already paid, send your payment details". Returns how many units.
+  int payCheckAskAll(String message) {
+    final l = payCheckList;
+    final units = <String>{};
+    for (final x in l) {
+      x.due.remindedOn = shortDate(DateTime.now());
+      x.due.reminders++;
+      x.due.remindMsg = message.trim().isEmpty ? payCheckAsk : message.trim();
+      units.add(x.due.unit);
+    }
+    if (units.isNotEmpty) logActivity('Asked ${units.length} unit(s) to send proof of payment', 'Finance');
+    _n();
+    return units.length;
   }
 
   /// Admin: sends a reminder for one unpaid charge. The resident sees it under Notifications.

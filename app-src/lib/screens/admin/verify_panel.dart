@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/payment_widgets.dart';
 import 'unit_history_screen.dart';
 
 class VerifyPanel extends StatefulWidget {
@@ -93,6 +94,27 @@ class _VerifyPanelState extends State<VerifyPanel> {
             _fact(context, 'Method', p.method),
             _fact(context, 'Reference no.', p.reference.isEmpty ? '—' : p.reference),
             _fact(context, 'Expected', chk.expected == null ? 'Not known' : peso(chk.expected!)),
+            SizedBox(
+              width: 150,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('PHOTO OF PAYMENT', style: TextStyle(color: muted(context), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                  const SizedBox(height: 2),
+                  if (proofImageBytes(p.image) != null)
+                    InkWell(
+                      onTap: () => showProofImage(context, p),
+                      child: Row(children: [
+                        ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.memory(proofImageBytes(p.image)!, width: 44, height: 44, fit: BoxFit.cover)),
+                        const SizedBox(width: 8),
+                        const Text('View', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, decoration: TextDecoration.underline)),
+                      ]),
+                    )
+                  else
+                    Text('None attached', style: TextStyle(color: muted(context), fontWeight: FontWeight.w600, fontSize: 13)),
+                ],
+              ),
+            ),
           ]),
           const SizedBox(height: 12),
           Pill(chk.ok ? 'Matches the charge' : 'Needs a look', tone: tone),

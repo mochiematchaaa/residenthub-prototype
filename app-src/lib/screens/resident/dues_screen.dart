@@ -1,5 +1,7 @@
 // RESIDENT page: Dues and payments (ring, payment proof).
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
@@ -79,7 +81,8 @@ class _ResDuesState extends State<ResDues> {
     showFormSheet(
       context,
       title: due == null ? 'Send payment proof' : 'Pay ${due.note}',
-      subtitle: 'Enter the reference number from your payment receipt. The administrator will check it and record your payment.',
+      subtitle: 'Enter the reference number from your payment receipt and add a photo of your payment if you have one. It posts to your dues by itself if it matches, or the office verifies it. Paid at the office? Nothing to send; the office records it.',
+      photo: const PhotoSpec('photo', 'Photo of your payment (screenshot or receipt, optional)', hint: 'It helps the office check your payment faster.'),
       choices: [ChoiceSpec('method', 'Paid through', online, online.first)],
       fields: [
         const FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank receipt'),
@@ -87,7 +90,9 @@ class _ResDuesState extends State<ResDues> {
       ],
       submit: 'Send',
       onSubmit: (v) {
-        final err = app.submitProof(v['method'] as String, v['ref'] as String, v['amount'] as String, due: due);
+        final pic = v['photo'];
+        final err = app.submitProof(v['method'] as String, v['ref'] as String, v['amount'] as String,
+            due: due, image: pic is Uint8List ? proofImageText(pic) : '');
         if (err == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) msg(context, 'Sent. The administrator will verify your payment.');
@@ -269,7 +274,7 @@ class _ResDuesState extends State<ResDues> {
     final tone = dueTone(st);
     final t = toneOf(context, tone);
     final cd = (st == 'open' || st == 'overdue') ? dueCountdown(d) : null;
-    final label = st == 'paid' ? 'Paid' : (st == 'overdue' ? 'Overdue' : (st == 'pending' ? 'Waiting for the office' : 'To pay'));
+    final label = st == 'paid' ? 'Paid' : (st == 'overdue' ? 'Overdue' : (st == 'pending' ? 'Payment sent' : 'To pay'));
     final key = _keys.putIfAbsent(d.id, () => GlobalKey());
     PaymentRecord? receipt;
     if (st == 'paid') {
@@ -317,6 +322,17 @@ class _ResDuesState extends State<ResDues> {
                   if (d.billed.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text('Billed ${d.billed}', style: TextStyle(color: muted(context), fontSize: 12)),
+                  ],
+                  if (st == 'pending') ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      () {
+                        final p = app.myProofs.where((x) => x.status == 'Pending' && x.forText == d.note).firstOrNull;
+                        if (p == null) return 'Waiting for the office to verify it';
+                        return app.autoPostOn ? 'Posts to your dues by ${clockText(app.autoPostAt(p))} at the latest' : 'Waiting for the office to verify it';
+                      }(),
+                      style: TextStyle(color: muted(context), fontSize: 12),
+                    ),
                   ],
                 ],
               ),
@@ -480,7 +496,21 @@ class _ResDuesState extends State<ResDues> {
                       '${p.status == 'Pending' && app.autoPostOn ? '\nPosts automatically by ${clockText(app.autoPostAt(p))} if it matches your charge.' : ''}'
                       '${p.status == 'Confirmed' && p.auto ? '\nPosted automatically. Receipt ${p.receiptNo}.' : ''}',
                     ),
-                    trailing: Pill(p.status == 'Confirmed' ? (p.auto ? 'Posted' : 'Verified') : p.status),
+                    trailing: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Pill(p.status == 'Confirmed' ? (p.auto ? 'Posted' : 'Verified') : p.status),
+                        if (p.image.isNotEmpty)
+                          InkWell(
+                            onTap: () => showProofImage(context, p),
+                            child: const Padding(
+                              padding: EdgeInsets.only(top: 6),
+                              child: Text('View photo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, decoration: TextDecoration.underline)),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
               ],
             ),

@@ -30,9 +30,9 @@ DueCountdown? dueCountdown(Due d) {
 /// The status of a charge as the resident sees it: paid, overdue, pending (a payment was sent) or open.
 String dueState(Due d) {
   if (d.paid) return 'paid';
-  if (d.overdue) return 'overdue';
   final pending = app.myProofs.any((p) => p.status == 'Pending' && p.forText == d.note);
-  return pending ? 'pending' : 'open';
+  if (pending) return 'pending';
+  return d.overdue ? 'overdue' : 'open';
 }
 
 Tone dueTone(String st) => st == 'paid' ? Tone.good : (st == 'overdue' ? Tone.bad : (st == 'pending' ? Tone.warn : Tone.info));

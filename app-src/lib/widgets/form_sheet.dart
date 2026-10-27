@@ -1,10 +1,13 @@
 // The popup form used for adding/editing things. Describe fields with FieldSpec, ChoiceSpec, ToggleSpec, TimeSpec.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../core/core.dart';
+import '../services/doc_files.dart';
+import '../services/photo_shrink.dart';
 import 'common.dart';
 
 /// Describes a text input in a FormSheet.
@@ -37,6 +40,12 @@ class ToggleSpec {
   const ToggleSpec(this.key, this.label, this.initial);
 }
 
+/// A picture the person can add (for example a photo of an online payment). The value is the picture's bytes, or null.
+class PhotoSpec {
+  final String key, label, hint;
+  const PhotoSpec(this.key, this.label, {this.hint = ''});
+}
+
 /// A time of day picked from the clock. The value is "HH:MM" (24 hour).
 class TimeSpec {
   final String key, label, initial;
@@ -53,6 +62,7 @@ Future<void> showFormSheet(
   List<ChoiceSpec> choices = const [],
   List<ToggleSpec> toggles = const [],
   List<TimeSpec> times = const [],
+  PhotoSpec? photo,
   required String submit,
   required FutureOr<String?> Function(Map<String, dynamic> v) onSubmit,
 }) {
@@ -62,7 +72,7 @@ Future<void> showFormSheet(
     useSafeArea: true,
     builder: (_) => _FormSheet(
       title: title, subtitle: subtitle, fields: fields, choices: choices,
-      toggles: toggles, times: times, submit: submit, onSubmit: onSubmit,
+      toggles: toggles, times: times, photo: photo, submit: submit, onSubmit: onSubmit,
     ),
   );
 }
@@ -74,10 +84,11 @@ class _FormSheet extends StatefulWidget {
   final List<ChoiceSpec> choices;
   final List<ToggleSpec> toggles;
   final List<TimeSpec> times;
+  final PhotoSpec? photo;
   final FutureOr<String?> Function(Map<String, dynamic>) onSubmit;
   const _FormSheet({
     required this.title, this.subtitle, required this.fields, required this.choices,
-    required this.toggles, this.times = const [], required this.submit, required this.onSubmit,
+    required this.toggles, this.times = const [], this.photo, required this.submit, required this.onSubmit,
   });
 
   @override
@@ -89,6 +100,46 @@ class _FormSheetState extends State<_FormSheet> {
   final Map<String, dynamic> vals = {};
   String? error;
   bool busy = false;
+  Uint8List? _photo;
+
+  Future<void> _pickPhoto() async {
+    try {
+      final b = await pickPhoto();
+      if (b == null) return;
+      final small = await shrinkPhoto(b);
+      if (mounted) setState(() => _photo = small);
+    } on FormatException catch (e) {
+      if (mounted) msg(context, e.message);
+    } catch (_) {
+      if (mounted) msg(context, 'Could not open that picture.');
+    }
+  }
+
+  Widget _photoBox(PhotoSpec p) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(p.label, style: TextStyle(fontWeight: FontWeight.w700, color: muted(context), fontSize: 13)),
+            if (p.hint.isNotEmpty) Text(p.hint, style: TextStyle(color: muted(context), fontSize: 12)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (_photo != null) ...[
+                  ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(_photo!, width: 72, height: 72, fit: BoxFit.cover)),
+                  const SizedBox(width: 12),
+                ],
+                OutlinedButton.icon(
+                  onPressed: _pickPhoto,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text(_photo == null ? 'Add a photo' : 'Change'),
+                ),
+                if (_photo != null) TextButton(onPressed: () => setState(() => _photo = null), child: const Text('Remove')),
+              ],
+            ),
+          ],
+        ),
+      );
 
   @override
   void initState() {
@@ -137,6 +188,7 @@ class _FormSheetState extends State<_FormSheet> {
     if (busy) return;
     final out = <String, dynamic>{...vals};
     ctrls.forEach((k, c) => out[k] = c.text);
+    if (widget.photo != null) out[widget.photo!.key] = _photo;
     setState(() => busy = true);
     final err = await widget.onSubmit(out);
     if (!mounted) return;
@@ -223,6 +275,7 @@ class _FormSheetState extends State<_FormSheet> {
               for (final f in widget.fields)
                 if (f.belowChoice && f.onlyWhenKey == c.key && vals[f.onlyWhenKey] == f.onlyWhenValue) _fieldBox(f),
             ],
+            if (widget.photo != null) _photoBox(widget.photo!),
             for (final t in widget.toggles)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
