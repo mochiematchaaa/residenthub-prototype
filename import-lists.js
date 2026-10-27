@@ -300,15 +300,17 @@
     },
     slots: {
       label: "motor parking slots", file: "parking-slots",
-      cols: [{ k: "name", label: "Slot name", req: 1, al: ["slot", "slot name", "slot no", "slot number", "name", "parking", "number"] }],
-      sample: [["M-25"], ["M-26"]],
+      cols: [{ k: "name", label: "Slot name", req: 1, al: ["slot", "slot name", "slot no", "slot number", "name", "parking", "number"] }, { k: "size", label: "Size (Small, Regular or Large)", al: ["size", "slot size", "kind"] }],
+      sample: [["M-25", "Small"], ["M-26", "Large"]],
       init: function () { return { have: {} }; },
       check: function (v, c) {
         var n = v.name.replace(/\s+/g, " ").trim(); if (!n) return skip("No slot name");
         if (getRow("slot", n) || c.have[lc(n)]) return skip("Slot already exists");
-        c.have[lc(n)] = 1; return { rec: { name: n }, show: {} };
+        c.have[lc(n)] = 1;
+        var sz = parkSizes().filter(function (z) { return lc(z.name) === lc(v.size || ""); })[0];
+        return { rec: { name: n, size: sz ? sz.name : "Regular" }, show: { size: sz ? sz.name : "Regular" } };
       },
-      save: function (r) { return put("slot", r.name, "", { id: r.name }); }
+      save: function (r) { return put("slot", r.name, "", { id: r.name, size: r.size || "Regular" }); }
     },
     announcements: {
       label: "announcements", file: "announcements",

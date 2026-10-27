@@ -365,13 +365,29 @@ function slotKey(f, i) { var a = facilities()[f]; return (a ? a.id : f) + "-" + 
 /* Motor parking: a resident picks a free slot, pays, and the office confirms the payment.
    The request row holds the chosen slot ("slot") and the rental ("amount"). */
 var PARK_FOR = "Motor parking rental";
-/* the two ways to rent a slot: for one month, or by the day */
-function motorRates() { return { month: setting("motor_rate").rate || 0, day: setting("motor_rate_daily").rate || 0 }; }
+/* Motor parking is priced by the size of the slot. Each size has its own monthly and daily rate.
+   Rates live in the "park_sizes" setting; until the office sets them they come from the old single rates. */
+var PARK_SIZE_DEFAULT = [["Small", 2, 0.7], ["Regular", 3, 1], ["Large", 4.5, 1.5]];
+function parkSizes() {
+  var saved = setting("park_sizes").list;
+  if (saved && saved.length) return saved.map(function (x) { return { name: String(x.name), sqm: Number(x.sqm) || 0, month: Number(x.month) || 0, day: Number(x.day) || 0 }; });
+  var m = Number(setting("motor_rate").rate) || 0, d = Number(setting("motor_rate_daily").rate) || 0;
+  return PARK_SIZE_DEFAULT.map(function (z) { return { name: z[0], sqm: z[1], month: Math.round(m * z[2] / 10) * 10, day: Math.round(d * z[2]) }; });
+}
+// The size of a slot ('Regular' when the office never set one).
+function slotSize(id) { var r = getRow("slot", id); return (r && r.value.size) || "Regular"; }
+// Monthly and daily rate for a size name.
+function parkRatesFor(size) {
+  var all = parkSizes(), f = all.filter(function (z) { return z.name === size; })[0] || all.filter(function (z) { return z.name === "Regular"; })[0] || all[0];
+  return { month: f.month, day: f.day, sqm: f.sqm, name: f.name };
+}
+/* the old name: the rates of a Regular slot */
+function motorRates() { return parkRatesFor("Regular"); }
 // Text for a parking plan: 'Monthly' or 'Daily - 3 days'.
 function parkPlanText(plan, days) { return plan === "day" ? "Daily" + (days ? " · " + days + " day" + (days === 1 ? "" : "s") : "") : "Monthly"; }
 // Computes the parking price from the plan and number of days.
-function parkQuote(plan, days) {
-  var r = motorRates();
+function parkQuote(plan, days, size) {
+  var r = parkRatesFor(size || "Regular");
   if (plan === "day") { var d = Math.max(1, Math.min(365, Math.round(Number(days)) || 1)); return { plan: "day", days: d, amount: r.day * d }; }
   return { plan: "month", days: 0, amount: r.month };
 }
@@ -388,7 +404,7 @@ function parkUntil(plan, days, from) {
 /* what the office writes on a slot when it gives it to a unit */
 function parkSlotValue(id, unit, plan, days, amount) {
   var from = dayKey(new Date());
-  return { id: id, unit: unit, plan: plan || "month", from: from, until: parkUntil(plan || "month", days, from), amount: amount || 0 };
+  return { id: id, unit: unit, plan: plan || "month", from: from, until: parkUntil(plan || "month", days, from), amount: amount || 0, size: slotSize(id) };
 }
 // True if a parking rental already ended.
 function parkExpired(v) { return !!(v && v.unit && v.until && v.until < dayKey(new Date())); }

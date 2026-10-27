@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v14", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v15", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -91,6 +91,18 @@
       else if (x[1] === "business") b.usageInfo = { bname: u.person.split(" ")[1] + " Online Shop", btype: pick(["Online selling", "Tutoring", "Home office", "Baking"]), permit: "DTI-" + ri(100000, 999999), hours: "Mon to Fri, 9 AM to 5 PM", phone: u.contact };
       else b.usageInfo = { work: pick(["New tiles in the kitchen and bathroom", "Repainting and new ceiling", "New cabinets and countertop"]), contractor: pick(["J. Villanueva Builders", "Metro Renovations", "Santos Interiors"]), phone: "0917 000 " + ri(3000, 3999), start: dk(dayOff(ri(3, 12))), end: dk(dayOff(ri(20, 45))) };
     });
+    /* sample household records (shown on the Resident profiles page and on the resident's dashboard) */
+    U.forEach(function (u, k) {
+      if (u.status !== "Occupied") return;
+      var b = byUnit[u.label], last = u.person.split(" ").slice(-1)[0], n = 1 + (k % 4), f2 = FIRST[(k * 3 + 1) % FIRST.length], f3 = FIRST[(k * 5 + 2) % FIRST.length];
+      b.email = u.key + "@demo.test"; b.residents = n; b.moveIn = dk(dayOff(-(120 + (k * 53) % 1300)));
+      b.members = u.person + ", " + (u.type === "Tenant" ? "tenant" : "owner") + (n > 1 ? "\n" + f2 + " " + last + ", family" : "") + (n > 2 ? "\n" + f3 + " " + last + ", child" : "");
+      b.emergencyName = FIRST[(k * 7 + 3) % FIRST.length] + " " + last; b.emergencyRelation = ["Sister", "Brother", "Parent", "Spouse", "Friend"][k % 5]; b.emergencyPhone = "0917 000 " + (3000 + (k * 37) % 900);
+      if (k % 3 === 0) b.vehicles = "Motorcycle · " + String.fromCharCode(65 + k % 26) + "BC " + (1000 + (k * 411) % 9000);
+      if (k % 5 === 0) b.pets = "1 dog";
+      if (k === 0) { b.noteResident = "Your parking sticker is ready for pickup at the office."; b.noteOffice = "Pays at the office on the first week of the month."; }
+      b.profileUpdated = Date.now() - (1 + (k * 3) % 20) * 86400000; b.profileBy = "Administrator";
+    });
     U.forEach(function (u) { R("unit", u.label, u.label, byUnit[u.label]); });
 
     /* ---------- settings ---------- */
@@ -98,6 +110,7 @@
     R("setting", "dues_rate_sqm", "", { rate: SQM_RATE });
     R("setting", "motor_rate", "", { rate: 1500 });
     R("setting", "motor_rate_daily", "", { rate: 100 });
+    R("setting", "park_sizes", "", { list: [{ name: "Small", sqm: 2, month: 1000, day: 70 }, { name: "Regular", sqm: 3, month: 1500, day: 100 }, { name: "Large", sqm: 4.5, month: 2200, day: 150 }] });
     R("setting", "paymethods", "", { list: [
       { name: "Cash or check at the office", details: "Pay at the administration office, Monday to Saturday, 8 AM to 5 PM.", enabled: true },
       { name: "Bank transfer", details: "Account name: City Residences Condominium Corp. (sample)\nBank: Sample Bank\nAccount no.: 0000-0000-00", enabled: true },
@@ -391,15 +404,16 @@
 
     /* ---------- motor parking: 20 slots ---------- */
     var rentedSlots = {};
-    function rent(id, unit, plan, off, days, amt) { rentedSlots[id] = 1; R("slot", id, "", { id: id, unit: unit, plan: plan, from: dk(dayOff(off)), until: dk(dayOff(off + days - 1)), amount: amt }); }
-    rent("M-02", "Unit 1A", "month", -10, 30, 1500); rent("M-04", "Unit 9B", "day", -1, 4, 400); rent("M-08", "Unit 2B", "month", -20, 30, 1500);
+    function sizeOfSlot(n) { return n <= 6 ? "Small" : n <= 16 ? "Regular" : "Large"; }
+    function rent(id, unit, plan, off, days, amt) { rentedSlots[id] = 1; R("slot", id, "", { id: id, unit: unit, plan: plan, from: dk(dayOff(off)), until: dk(dayOff(off + days - 1)), amount: amt, size: sizeOfSlot(Number(id.slice(2))) }); }
+    rent("M-02", "Unit 1A", "month", -10, 30, 1000); rent("M-04", "Unit 9B", "day", -1, 4, 280); rent("M-08", "Unit 2B", "month", -20, 30, 1500);
     rent("M-09", "Unit 2A", "month", -5, 30, 1500); rent("M-11", "Unit 3A", "day", 0, 7, 700); rent("M-13", "Unit 4A", "month", -26, 30, 1500);
-    rent("M-15", "Unit 6C", "month", -3, 30, 1500); rent("M-16", "Unit 8B", "day", -2, 3, 300); rent("M-18", "Unit 10A", "month", -15, 30, 1500);
-    for (var s = 1; s <= 20; s++) { var sid2 = "M-" + pad(s); if (!rentedSlots[sid2]) R("slot", sid2, "", { id: sid2 }); }
+    rent("M-15", "Unit 6C", "month", -3, 30, 1500); rent("M-16", "Unit 8B", "day", -2, 3, 300); rent("M-18", "Unit 10A", "month", -15, 30, 2200);
+    for (var s = 1; s <= 20; s++) { var sid2 = "M-" + pad(s); if (!rentedSlots[sid2]) R("slot", sid2, "", { id: sid2, size: sizeOfSlot(s) }); }
     [["Unit 7A", "M-05", 1], ["Unit 5C", "M-06", 2]].forEach(function (q, k) {
       var u = byUnit[q[0]], rpid = tid();
-      R("request", q[0], q[0], { unit: q[0], who: u.name, when: k ? "3 hours ago" : "1 hour ago", at: Date.now() - (k ? 10800000 : 3600000), slot: q[1], plan: "month", days: 1, amount: 1500, confirmed: false });
-      if (!k) R("proof", rpid, q[0], { id: rpid, unit: q[0], payer: u.name, forText: "Motor parking rental", method: "GCash", reference: "GC" + (YEAR * 1000000 + 101403), amount: 1500, date: sd(now), status: "Pending", slot: q[1] });
+      R("request", q[0], q[0], { unit: q[0], who: u.name, when: k ? "3 hours ago" : "1 hour ago", at: Date.now() - (k ? 10800000 : 3600000), slot: q[1], plan: "month", days: 1, amount: 1000, confirmed: false });
+      if (!k) R("proof", rpid, q[0], { id: rpid, unit: q[0], payer: u.name, forText: "Motor parking rental", method: "GCash", reference: "GC" + (YEAR * 1000000 + 101403), amount: 1000, date: sd(now), status: "Pending", slot: q[1] });
     });
 
     /* ---------- documents (readable inside the page) ---------- */

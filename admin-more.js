@@ -66,7 +66,7 @@ function viewFin() {
   var deskTotal = deskDues.filter(function (d) { return state.payDues.indexOf(String(d.id)) >= 0; }).reduce(function (t, d) { return t + Number(d.v.amount || 0); }, 0);
   var deskPending = state.payUnit ? list("proof").filter(function (o) { return o.unit === state.payUnit && o.v.status === "Pending"; }).length : 0;
   var methods = payMethods();
-  var rate = setting("dues_rate_sqm").rate, mrate = setting("motor_rate").rate, drate = setting("motor_rate_daily").rate;
+  var rate = setting("dues_rate_sqm").rate;
   var statsHtml = '<div class="grid cols-4">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value">' + esc(s[1]) + "</div></div>"; }).join("") + "</div>";
   var verifyHtml = verifyPanel(proofs);
   var summaryHtml = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Collection summary</h2><p class="hint" style="margin:4px 0 0">' +
@@ -92,13 +92,10 @@ function viewFin() {
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:200px">Monthly dues per sqm (₱)<input id="duesRate" type="number" min="0" step="0.01" value="' + escAttr(state.duesDraft != null ? state.duesDraft : (rate || "")) + '" oninput="state.duesDraft=this.value;duesPreview()"></label><button class="btn primary" onclick="saveDuesRate()">Save rate</button>' +
     '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (rate ? peso(rate) + " per sqm" : "not set yet") + '</b></span></div>' +
     '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" ' + (state.duesRecalc === false ? "" : "checked") + ' onchange="state.duesRecalc=this.checked"> When I save a new rate, also update the unpaid monthly dues to it</label>' +
+    duesCalcHtml() +
     '<div id="duesPreview">' + duesPreviewHtml(state.duesDraft != null ? state.duesDraft : rate) + "</div>" +
     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>';
-  var motorHtml = '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">Residents rent a motor/motorcycle slot for one month or by the day. Set a rate for each. The board can change them at any time.</p>' +
-    '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Monthly rate (₱ / month)<input id="motorRate" type="number" min="0" value="' + escAttr(state.motorDraft != null ? state.motorDraft : (mrate || "")) + '" oninput="state.motorDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate\',\'motorDraft\',\'Monthly parking rate\')">Update monthly</button>' +
-    '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (mrate ? peso(mrate) + "/month" : "not set yet") + "</b></span></div>" +
-    '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="fl" style="width:170px">Daily rate (₱ / day)<input id="motorRateDay" type="number" min="0" value="' + escAttr(state.dailyDraft != null ? state.dailyDraft : (drate || "")) + '" oninput="state.dailyDraft=this.value"></label><button class="btn primary" onclick="saveRate(\'motor_rate_daily\',\'dailyDraft\',\'Daily parking rate\')">Update daily</button>' +
-    '<span style="font-size:13px;color:var(--muted)">Current: <b>' + (drate ? peso(drate) + "/day" : "not set yet (daily option hidden)") + "</b></span></div></div>";
+  var motorHtml = parkRatesCard();
   var deskHtml = '<div class="card" id="payDesk" style="display:flex;flex-direction:column;gap:10px"><h2>Record payment</h2>' +
     '<p class="hint" style="margin:0">The resident paid at the office or online but did not update the dashboard? Record it here. The charges you tick are marked paid and the resident\'s dues go down right away.</p>' +
     '<label class="fl">Resident / unit<select onchange="choosePayUnit(this.value)"><option value="">Select a unit with unpaid charges</option>' + deskUnitIds.map(function (id) {
@@ -166,17 +163,94 @@ function editUnitArea(unit) {
     }
   });
 }
-// The price calculator under "Dues settings": what a unit of each size pays at the rate being typed (floor area × rate).
+/* ---------- price calculator (Dues settings) ----------
+   Dues are billed per month, but the calculator can quote and show a price per day, per month or per year.
+   Per day = per year / 365, per month = per year / 12. */
+var CALC_PERIODS = [["day", "Per day"], ["month", "Per month"], ["year", "Per year"]];
+function toMonthly(x, period) { return period === "day" ? x * 365 / 12 : period === "year" ? x / 12 : x; }
+function fromMonthly(x, period) { return period === "day" ? x * 12 / 365 : period === "year" ? x * 12 : x; }
+function calcNum(v) { var n = parseFloat(String(v == null ? "" : v).replace(/,/g, "")); return isFinite(n) ? n : NaN; }
+function calcRound(n, d) { var f = Math.pow(10, d == null ? 2 : d); return Math.round(n * f) / f; }
+function calcState() { if (!state.calc) state.calc = { mode: "cost", period: "month", area: "", rate: null, total: "", unit: "" }; return state.calc; }
+// The rate field when nobody typed in it yet: the saved rate, expressed for the chosen period.
+function calcRateValue(c) {
+  if (c.rate != null) return c.rate;
+  var saved = Number(setting("dues_rate_sqm").rate) || 0, draft = calcNum(state.duesDraft);
+  var base = draft > 0 ? draft : saved;
+  return base > 0 ? String(calcRound(fromMonthly(base, c.period), 4)) : "";
+}
+// The numbers shown in the result area for the current inputs.
+function calcCompute() {
+  var c = calcState(), area = calcNum(c.area), total = calcNum(c.total), rate = calcNum(calcRateValue(c)), per = c.period;
+  var pl = per === "day" ? "day" : per === "year" ? "year" : "month", out = { tiles: [], main: null, useRate: 0, note: "" };
+  function tiles(monthly) { return [["Per day", monthly * 12 / 365], ["Per month", monthly], ["Per quarter", monthly * 3], ["Per year", monthly * 12]]; }
+  if (c.mode === "cost") {
+    if (!(area > 0) || !(rate > 0)) { out.note = "Enter the size and the price per square meter."; return out; }
+    var amt = area * rate, monthly = toMonthly(amt, per);
+    out.main = { label: "A " + calcRound(area, 2) + " sqm unit pays", value: peso(calcRound(amt, 2)), sub: "per " + pl + " at " + peso(rate) + " per sqm per " + pl };
+    out.tiles = tiles(monthly).map(function (t) { return [t[0], peso(calcRound(t[1], 2))]; });
+    out.useRate = toMonthly(rate, per); out.note = "Every unit pays its own size × the rate, so a bigger unit pays more.";
+  } else if (c.mode === "rate") {
+    if (!(area > 0) || !(total > 0)) { out.note = "Enter the total amount and the size."; return out; }
+    var r = total / area, rm = toMonthly(r, per);
+    out.main = { label: "Price per square meter", value: peso(calcRound(r, 2)), sub: "per sqm per " + pl + " (" + peso(total) + " ÷ " + calcRound(area, 2) + " sqm)" };
+    out.tiles = [["Per sqm per day", rm * 12 / 365], ["Per sqm per month", rm], ["Per sqm per year", rm * 12]].map(function (t) { return [t[0], peso(calcRound(t[1], 2))]; });
+    out.useRate = rm; out.note = "Use this when you know what a whole unit should pay and want the rate that gives it.";
+  } else {
+    if (!(total > 0) || !(rate > 0)) { out.note = "Enter the budget and the price per square meter."; return out; }
+    var sq = total / rate;
+    out.main = { label: "Size that fits the budget", value: calcRound(sq, 2) + " sqm", sub: peso(total) + " per " + pl + " ÷ " + peso(rate) + " per sqm" };
+    out.tiles = [["Budget per month", peso(calcRound(toMonthly(total, per), 2))], ["Budget per year", peso(calcRound(toMonthly(total, per) * 12, 2))], ["Rate per sqm per month", peso(calcRound(toMonthly(rate, per), 2))]];
+    out.useRate = toMonthly(rate, per); out.note = "How big a unit can be for a given amount at this rate.";
+  }
+  return out;
+}
+function calcOutHtml() {
+  var o = calcCompute(), c = calcState();
+  if (!o.main) return '<div class="calc-empty">' + esc(o.note) + "</div>";
+  return '<div class="calc-main"><small>' + esc(o.main.label) + "</small><b>" + esc(o.main.value) + "</b><span>" + esc(o.main.sub) + "</span></div>" +
+    '<div class="calc-tiles">' + o.tiles.map(function (t) { return '<div class="calc-tile"><small>' + esc(t[0]) + "</small><b>" + esc(t[1]) + "</b></div>"; }).join("") + "</div>" +
+    '<div class="calc-foot"><span>' + esc(o.note) + "</span>" + (o.useRate > 0 ? '<button class="btn" onclick="calcUseRate()">Use ' + peso(calcRound(o.useRate, 2)) + " per sqm as the monthly rate</button>" : "") + "</div>";
+}
+function duesCalcHtml() {
+  var c = calcState(), pl = c.period;
+  var modes = [["cost", "Dues for a size"], ["rate", "Rate from a total"], ["size", "Size from a budget"]];
+  var plural = pl === "day" ? "day" : pl === "year" ? "year" : "month";
+  function field(label, key, val, ph, extra) { return '<label class="fl">' + label + '<input type="number" min="0" step="any" inputmode="decimal" value="' + escAttr(val) + '" placeholder="' + ph + '" oninput="calcIn(\'' + key + '\',this.value)"' + (extra || "") + "></label>"; }
+  var units = sortedUnits().filter(function (u) { return Number(u.v.area) > 0; });
+  var unitPick = '<label class="fl">Or use a unit\'s size<select onchange="calcPickUnit(this.value)"><option value="">Pick a unit</option>' + units.map(function (u) { return '<option value="' + escAttr(u.id) + '"' + (c.unit === u.id ? " selected" : "") + ">" + esc(u.id) + " · " + Number(u.v.area) + " sqm</option>"; }).join("") + "</select></label>";
+  var fields = c.mode === "cost" ? field("Size (sqm)", "area", c.area, "e.g. 45", ' id="calcArea"') + unitPick + field("Price per sqm (₱ per " + plural + ")", "rate", calcRateValue(c), "e.g. 100")
+    : c.mode === "rate" ? field("Total amount (₱ per " + plural + ")", "total", c.total, "e.g. 4500") + field("Size (sqm)", "area", c.area, "e.g. 45", ' id="calcArea"') + unitPick
+    : field("Budget (₱ per " + plural + ")", "total", c.total, "e.g. 4500") + field("Price per sqm (₱ per " + plural + ")", "rate", calcRateValue(c), "e.g. 100");
+  return '<div class="calc"><div class="calc-head"><div><b>Price calculator</b><span>Work out dues for any size, per day, month or year. Nothing is saved until you press the button at the bottom.</span></div></div>' +
+    '<div class="calc-tabs" role="tablist">' + modes.map(function (m) { return '<button role="tab" aria-selected="' + (c.mode === m[0]) + '" class="' + (c.mode === m[0] ? "on" : "") + '" onclick="calcSetMode(\'' + m[0] + '\')">' + m[1] + "</button>"; }).join("") + "</div>" +
+    '<div class="calc-per"><span>Quote the price</span>' + CALC_PERIODS.map(function (p) { return '<button class="' + (c.period === p[0] ? "on" : "") + '" onclick="calcSetPeriod(\'' + p[0] + '\')">' + p[1].replace("Per ", "per ") + "</button>"; }).join("") + "</div>" +
+    '<div class="calc-grid">' + fields + '</div><div id="calcOut" class="calc-out">' + calcOutHtml() + "</div></div>";
+}
+function calcSetMode(m) { calcState().mode = m; render(); }
+function calcSetPeriod(p) { var c = calcState(); c.period = p; c.rate = null; render(); }
+function calcIn(key, v) { var c = calcState(); c[key] = v; if (key === "area") c.unit = ""; var el = document.getElementById("calcOut"); if (el) el.innerHTML = calcOutHtml(); }
+function calcPickUnit(id) { var c = calcState(), u = unitRec(id); c.unit = id; c.area = u && u.area ? String(u.area) : ""; render(); }
+function calcUseRate() {
+  var o = calcCompute(); if (!(o.useRate > 0)) return;
+  state.duesDraft = String(calcRound(o.useRate, 2));
+  toast("Rate of " + peso(calcRound(o.useRate, 2)) + " per sqm per month is ready. Press “Save rate” to keep it.");
+  render();
+}
+// The table under the calculator: what each unit size pays at the rate in the box, per day, month and year.
 function duesPreviewHtml(raw) {
   var rate = parseFloat(raw), units = sortedUnits();
-  if (!(rate > 0)) return '<p class="hint" style="margin:0">Type the price per square meter to see what every unit size will pay. It is worked out automatically (floor area × price).</p>';
+  if (!(rate > 0)) return '<p class="hint" style="margin:0">Type the monthly price per square meter above to see what every unit size will pay. It is worked out automatically (floor area × price).</p>';
   var groups = {}, none = 0, total = 0;
   units.forEach(function (r) { var a = Number(r.v.area) || 0; if (!(a > 0)) { none++; return; } groups[a] = (groups[a] || 0) + 1; total += Math.round(a * rate * 100) / 100; });
   var sizes = Object.keys(groups).map(Number).sort(function (a, b) { return a - b; });
-  var rows = sizes.map(function (a) { return '<tr><td style="font-weight:700">' + a + ' sqm</td><td>' + a + " × " + peso(rate) + '</td><td style="font-weight:700">' + peso(Math.round(a * rate * 100) / 100) + "</td><td style=\"color:var(--muted)\">" + groups[a] + " unit" + (groups[a] === 1 ? "" : "s") + "</td></tr>"; }).join("");
-  return '<div style="border:1px solid var(--border2);border-radius:14px;overflow:hidden"><div style="padding:10px 14px;font-size:13px;font-weight:700;background:var(--soft,rgba(120,115,217,.08))">Price calculator · ' + peso(rate) + ' per sqm</div>' +
-    (rows ? '<div style="max-height:220px;overflow:auto"><table><thead><tr><th>SIZE</th><th>CALCULATION</th><th>MONTHLY DUES</th><th>UNITS</th></tr></thead><tbody>' + rows + "</tbody></table></div>" : '<p class="hint" style="margin:10px 14px">No unit has a floor area yet. Set it with “Edit size” in the table above.</p>') +
-    '<div style="padding:10px 14px;font-size:13px;color:var(--muted)">All units, one month: <b style="color:inherit">' + peso(total) + "</b>" + (none ? " · " + none + " unit" + (none === 1 ? " has" : "s have") + " no size yet" : "") + "</div></div>";
+  var rows = sizes.map(function (a) {
+    var m = Math.round(a * rate * 100) / 100;
+    return '<tr><td style="font-weight:700">' + a + ' sqm</td><td>' + a + " × " + peso(rate) + '</td><td>' + peso(calcRound(m * 12 / 365, 2)) + '</td><td style="font-weight:700">' + peso(m) + "</td><td>" + peso(calcRound(m * 12, 2)) + "</td><td style=\"color:var(--muted)\">" + groups[a] + " unit" + (groups[a] === 1 ? "" : "s") + "</td></tr>";
+  }).join("");
+  return '<div style="border:1px solid var(--border2);border-radius:14px;overflow:hidden"><div style="padding:10px 14px;font-size:13px;font-weight:700;background:var(--soft,rgba(120,115,217,.08))">Dues by unit size · ' + peso(rate) + ' per sqm per month</div>' +
+    (rows ? '<div style="max-height:240px;overflow:auto"><table><thead><tr><th>SIZE</th><th>CALCULATION</th><th>PER DAY</th><th>PER MONTH</th><th>PER YEAR</th><th>UNITS</th></tr></thead><tbody>' + rows + "</tbody></table></div>" : '<p class="hint" style="margin:10px 14px">No unit has a floor area yet. Set it with “Edit size” in the table above.</p>') +
+    '<div style="padding:10px 14px;font-size:13px;color:var(--muted)">All units: <b style="color:inherit">' + peso(total) + "</b> per month · <b style=\"color:inherit\">" + peso(calcRound(total * 12, 2)) + "</b> per year · " + peso(calcRound(total * 12 / 365, 2)) + " per day" + (none ? " · " + none + " unit" + (none === 1 ? " has" : "s have") + " no size yet" : "") + "</div></div>";
 }
 function duesPreview() { var el = document.getElementById("duesPreview"); if (el) el.innerHTML = duesPreviewHtml(state.duesDraft); }
 // Saves the dues rate per sqm; optionally brings the unpaid monthly dues (billed from floor area) up to the new rate.
@@ -359,6 +433,37 @@ function togglePayDue(id, on) {
   render();
 }
 // Saves a changed rate (dues or parking).
+// "Motor parking rental" settings: the rental depends on the size of the slot, so every size has its own monthly and daily rate.
+function parkRatesCard() {
+  var sizes = parkSizes();
+  var rows = sizes.map(function (z, i) {
+    var perSqm = z.sqm > 0 && z.month > 0 ? peso(calcRound(z.month / z.sqm, 2)) : "—";
+    return '<tr><td><b>' + esc(z.name) + '</b></td><td><input type="number" min="0" step="0.1" id="psSqm' + i + '" value="' + escAttr(z.sqm || "") + '" aria-label="' + escAttr(z.name) + ' slot size in sqm"></td>' +
+      '<td><input type="number" min="0" id="psMonth' + i + '" value="' + escAttr(z.month || "") + '" aria-label="' + escAttr(z.name) + ' monthly rate"></td>' +
+      '<td><input type="number" min="0" id="psDay' + i + '" value="' + escAttr(z.day || "") + '" aria-label="' + escAttr(z.name) + ' daily rate"></td><td style="color:var(--muted);white-space:nowrap">' + perSqm + ' / sqm / month</td></tr>';
+  }).join("");
+  var counts = {}; list("slot").forEach(function (r) { var k = r.v.size || "Regular"; counts[k] = (counts[k] || 0) + 1; });
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">The rental depends on the <b>size of the slot</b>. Give every size its own monthly and daily rate. Residents see the price of each slot on the parking map. Set the size of each slot under Parking. Leave a daily rate empty to hide the daily option for that size.</p>' +
+    '<div style="overflow:auto"><table class="psz"><thead><tr><th>SLOT SIZE</th><th>SQM</th><th>₱ / MONTH</th><th>₱ / DAY</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" onclick="saveParkSizes()">Save parking rates</button><span style="font-size:13px;color:var(--muted)">Slots now: ' + (sizes.map(function (z) { return (counts[z.name] || 0) + " " + z.name.toLowerCase(); }).join(" · ")) + "</span></div></div>";
+}
+function saveParkSizes() {
+  var cur = parkSizes(), out = [];
+  for (var i = 0; i < cur.length; i++) {
+    var g = function (k) { return document.getElementById(k + i); };
+    var sqm = parseFloat(g("psSqm").value), m = parseFloat(g("psMonth").value), d = parseFloat(g("psDay").value);
+    if (!(m > 0)) return toast("Enter a monthly rate for the " + cur[i].name + " slot.");
+    out.push({ name: cur[i].name, sqm: sqm > 0 ? sqm : cur[i].sqm, month: m, day: d > 0 ? d : 0 });
+  }
+  act(async function () {
+    await put("setting", "park_sizes", "", { list: out });
+    // the Regular size also keeps the old single rates in step
+    var reg = out.filter(function (z) { return z.name === "Regular"; })[0];
+    if (reg) { await put("setting", "motor_rate", "", { rate: reg.month }); await put("setting", "motor_rate_daily", "", { rate: reg.day }); }
+    logAct("Parking rates by slot size saved: " + out.map(function (z) { return z.name + " " + peso(z.month) + "/month"; }).join(", "), "Finance");
+    toast("Parking rates saved.");
+  });
+}
 function saveRate(id, draftKey, label) {
   var n = parseFloat(state[draftKey]);
   if (!(n > 0)) return toast("Enter an amount above zero.");
@@ -449,7 +554,12 @@ function proofCheck(r) {
   var open = list("due").filter(function (d) { return d.v.unit === p.unit && !d.v.paid; }).sort(function (a, b) { return Number(a.id) - Number(b.id); });
   var named = open.filter(function (d) { return d.v.note === p.forText; })[0], expected = null, parking = p.forText === PARK_FOR;
   if (named) expected = Number(named.v.amount) || 0;
-  else if (parking) { var mr = Number(setting("motor_rate").rate) || 0; expected = mr || null; if (!mr) why.push("The parking rate is not set, so the amount cannot be checked."); }
+  else if (parking) {
+    var prq = getRow("request", p.unit), slotId = p.slot || (prq && prq.value.slot) || "", mr = 0;
+    if (prq && prq.value.slot === slotId && Number(prq.value.amount) > 0) mr = Number(prq.value.amount);
+    else mr = parkRatesFor(slotId ? slotSize(slotId) : "Regular").month;
+    expected = mr || null; if (!mr) why.push("The parking rate is not set, so the amount cannot be checked.");
+  }
   else if (p.forText === "Other charge") why.push("An \"other charge\" has no fixed amount. Check it yourself.");
   else if (list("due").some(function (d) { return d.v.unit === p.unit && d.v.paid && d.v.note === p.forText; })) why.push("That charge is already marked paid.");
   else why.push("No unpaid charge named “" + (p.forText || "") + "” for this unit.");
@@ -819,17 +929,17 @@ function removeDoc(id) {
 function sortedSlots() { return list("slot").sort(function (a, b) { return naturalCompare(a.id, b.id); }); }
 // PAGE: Parking (slots, requests, rentals).
 function viewParking() {
-  var slots = sortedSlots(), used = slots.filter(function (s) { return s.v.unit; }).length, rate = setting("motor_rate").rate || 0;
-  var monthly = slots.filter(function (s) { return s.v.unit && s.v.plan !== "day"; }).length, daily = used - monthly;
+  var slots = sortedSlots(), used = slots.filter(function (s) { return s.v.unit; }).length, sizes = parkSizes();
+  var monthlyIncome = slots.filter(function (s) { return s.v.unit && s.v.plan !== "day" && !parkExpired(s.v); }).reduce(function (t, s) { return t + (Number(s.v.amount) || parkRatesFor(s.v.size || "Regular").month); }, 0);
   var reqs = list("request").filter(function (r) { return !r.v.confirmed; }).sort(function (a, b) { return (a.v.at || 0) - (b.v.at || 0); });
   if (!slots.length) {
     return '<div class="card" style="display:flex;flex-direction:column;gap:10px;max-width:520px"><h2>Set up motor parking</h2><p class="hint" style="margin:0">There are no slots yet. Tell the system how many motor parking slots the building has. They are named M-01, M-02, and so on.</p>' +
       '<button class="btn primary" onclick="addSlotsForm()">Add slots</button></div>' + (reqs.length ? '<p class="hint" style="margin-top:12px">' + reqs.length + " resident request(s) are waiting for slots.</p>" : "");
   }
-  return '<div class="grid cols-3">' + statCard("Slots in use", used + " of " + slots.length) + statCard("Monthly rentals income", peso(monthly * rate)) + statCard("Requests waiting", String(reqs.length)) + "</div>" +
+  return '<div class="grid cols-3">' + statCard("Slots in use", used + " of " + slots.length) + statCard("Monthly rentals income", peso(monthlyIncome)) + statCard("Requests waiting", String(reqs.length)) + "</div>" +
     '<div class="two-col-r" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Motor parking slots</h2><button class="btn" onclick="addSlotsForm()">+ Add slots</button></div>' +
-    '<p class="hint">Tap a slot to assign it, remove the resident, rename it or delete it. Rates: ' + (rate ? peso(rate) + "/month" : "monthly not set") + " · " + (setting("motor_rate_daily").rate ? peso(setting("motor_rate_daily").rate) + "/day" : "daily not set") + " (change them under Finance).</p>" +
-    '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + "</small></button>"; }).join("") + "</div></div>" +
+    '<p class="hint">Tap a slot to assign it, remove the resident, rename it or delete it. The price depends on the slot size: ' + sizes.map(function (z) { return "<b>" + esc(z.name) + "</b> " + (z.month ? peso(z.month) + "/month" : "not set") + (z.day ? " · " + peso(z.day) + "/day" : ""); }).join(" · ") + ". Change the rates under Finance &gt; Settings.</p>" +
+    '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + '</small><small class="psz-tag">' + esc(s.v.size || "Regular") + "</small></button>"; }).join("") + "</div></div>" +
     '<div class="card"><h2>Requests</h2><p class="hint">Residents who reserved or asked for a slot. A reserved slot is approved when its payment is verified.</p>' + (reqs.map(function (r) {
       var v = r.v, pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", state;
       var btns;
@@ -841,7 +951,7 @@ function viewParking() {
         state = v.slot ? '<span class="chip info">Chose ' + esc(v.slot) + "</span>" : "";
         btns = '<button class="btn primary" onclick="approveParking(\'' + escAttr(r.id) + '\')">Assign' + (v.slot ? " " + esc(v.slot) : "") + '</button><button class="btn" onclick="declineParking(\'' + escAttr(r.id) + '\')">Decline</button>';
       }
-      return '<div class="req-row"><div><b>' + esc(v.unit) + "</b><small>" + esc(v.who || "") + " · " + esc(v.when || "") + (v.slot ? " · Slot " + esc(v.slot) + (v.amount ? " · " + peso(Number(v.amount)) : "") : "") + (v.plan ? " · " + esc(parkPlanText(v.plan, v.days)) : "") + "</small>" + (state ? '<div style="margin-top:6px">' + state + "</div>" : "") + "</div><div>" + btns + "</div></div>";
+      return '<div class="req-row"><div><b>' + esc(v.unit) + "</b><small>" + esc(v.who || "") + " · " + esc(v.when || "") + (v.slot ? " · Slot " + esc(v.slot) + " (" + esc(slotSize(v.slot)) + ")" + (v.amount ? " · " + peso(Number(v.amount)) : "") : "") + (v.plan ? " · " + esc(parkPlanText(v.plan, v.days)) : "") + "</small>" + (state ? '<div style="margin-top:6px">' + state + "</div>" : "") + "</div><div>" + btns + "</div></div>";
     }).join("") || '<p class="empty">No requests waiting.</p>') + "</div></div>" + rentalsCard(slots);
 }
 /* who has a slot: one row each, with how long the rental runs and a Remove button */
@@ -850,7 +960,7 @@ function rentalsCard(slots) {
   return '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="padding:14px 18px"><h2 style="margin:0">Current rentals</h2><p class="hint" style="margin:4px 0 0">Everyone who has a slot, and whether it is rented for a month or by the day. Remove ends the rental and frees the slot.</p></div>' +
     tableRows(rows.map(function (s) {
       var v = s.v, exp = parkExpired(v);
-      return '<tr><td style="font-weight:700">' + esc(v.unit) + "</td><td>" + esc(s.id) + "</td><td>" + (v.plan === "day" ? "Daily" : "Monthly") + '</td><td style="color:var(--muted)">' + (v.until ? esc(usageDate(v.from)) + " – " + esc(usageDate(v.until)) : "No end date") + "</td><td>" +
+      return '<tr><td style="font-weight:700">' + esc(v.unit) + "</td><td>" + esc(s.id) + '<div class="cell-sub">' + esc(v.size || "Regular") + ' · ' + (v.amount ? peso(Number(v.amount)) : "") + '</div></td><td>' + (v.plan === "day" ? "Daily" : "Monthly") + '</td><td style="color:var(--muted)">' + (v.until ? esc(usageDate(v.from)) + " – " + esc(usageDate(v.until)) : "No end date") + "</td><td>" +
         (exp ? '<span class="chip bad">Ended</span>' : '<span class="chip good">Active</span>') + ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeRental(\'' + escAttr(s.id) + '\')">Remove</button></td></tr>';
     }), ["UNIT", "SLOT", "PLAN", "RENTAL PERIOD", "STATUS"], "No slot is rented yet.") + "</div>";
 }
@@ -866,13 +976,14 @@ function freshSlotIds(n) {
 function addSlotsForm() {
   openForm({
     title: "Add motor parking slots", intro: "How many slots should be added? Existing slots stay as they are.",
-    fields: [{ name: "n", label: "Number of slots to add", type: "number", value: sortedSlots().length ? "" : "24" }], submit: "Add",
+    fields: [{ name: "n", label: "Number of slots to add", type: "number", value: sortedSlots().length ? "" : "24" }, { name: "size", label: "Slot size", type: "select", options: parkSizes().map(function (z) { return z.name + (z.sqm ? " (" + z.sqm + " sqm)" : ""); }), value: "Regular" + (parkRatesFor("Regular").sqm ? " (" + parkRatesFor("Regular").sqm + " sqm)" : "") }], submit: "Add",
     onSubmit: async function (d) {
       var n = parseInt(d.n, 10);
       if (!(n >= 1 && n <= 200)) return { error: "Enter a number from 1 to 200." };
       var ids = freshSlotIds(n);
-      for (var i = 0; i < ids.length; i++) await put("slot", ids[i], "", { id: ids[i] });
-      logAct(n + " motor parking slot" + (n === 1 ? "" : "s") + " added", "Parking");
+      var size = String(d.size || "Regular").replace(/ \(.*$/, "");
+      for (var i = 0; i < ids.length; i++) await put("slot", ids[i], "", { id: ids[i], size: size });
+      logAct(n + " " + size.toLowerCase() + " motor parking slot" + (n === 1 ? "" : "s") + " added", "Parking");
     }
   });
 }
@@ -880,13 +991,13 @@ function addSlotsForm() {
 function openSlot(id) {
   var s = getRow("slot", id); if (!s) return;
   if (s.value.unit) {
-    openModal("<h2>" + esc(id) + "</h2><p>Assigned to <b>" + esc(s.value.unit) + '</b>.</p><p class="hint" style="margin:0">' + esc(parkRentalLine(s.value) || "Monthly") + (parkExpired(s.value) ? " (ended)" : "") + (s.value.amount ? " · " + peso(Number(s.value.amount)) : "") + '</p><div class="modal-actions"><button class="btn primary" onclick="removeRental(\'' + escAttr(id) + '\')">Remove resident</button><button class="btn" onclick="renameSlotForm(\'' + escAttr(id) + '\')">Rename</button><button class="btn" style="color:#A02B1D" onclick="removeSlot(\'' + escAttr(id) + '\')">Delete</button><button class="btn" onclick="closeModal()">Keep</button></div>');
+    openModal("<h2>" + esc(id) + "</h2><p>Assigned to <b>" + esc(s.value.unit) + '</b>.</p><p class="hint" style="margin:0">' + esc(parkRentalLine(s.value) || "Monthly") + (parkExpired(s.value) ? " (ended)" : "") + (s.value.amount ? " · " + peso(Number(s.value.amount)) : "") + '</p><div class="modal-actions"><button class="btn primary" onclick="removeRental(\'' + escAttr(id) + '\')">Remove resident</button><button class="btn" onclick="slotSizeForm(\'' + escAttr(id) + '\')">Size: ' + esc(s.value.size || "Regular") + '</button><button class="btn" onclick="renameSlotForm(\'' + escAttr(id) + '\')">Rename</button><button class="btn" style="color:#A02B1D" onclick="removeSlot(\'' + escAttr(id) + '\')">Delete</button><button class="btn" onclick="closeModal()">Keep</button></div>');
   } else {
     var taken = vals("slot").map(function (x) { return x.unit; });
     var choices = unitNames().filter(function (u) { return taken.indexOf(u) < 0; });
     var pick = choices.length ? '<label class="fl">Unit<select id="pkUnit">' + choices.map(function (u) { return "<option>" + esc(u) + "</option>"; }).join("") + '</select></label>' : '<p class="hint">Every unit already has a slot, or there are no units yet.</p>';
     var plan = '<label class="fl">Rental<select id="pkPlan"><option value="month">Monthly (1 month)</option><option value="day">Daily (by the day)</option></select></label><label class="fl">Number of days (daily only)<input id="pkDays" type="number" min="1" max="365" value="1"></label>';
-    openModal("<h2>" + esc(id) + '</h2><p>This slot is free. Choose a unit and how long it rents it, or rename or delete the slot.</p>' + pick + (choices.length ? plan : "") + '<div class="modal-actions">' + (choices.length ? '<button class="btn primary" onclick="assignSlot(\'' + escAttr(id) + '\')">Assign slot</button>' : "") + '<button class="btn" onclick="renameSlotForm(\'' + escAttr(id) + '\')">Rename</button><button class="btn" style="color:#A02B1D" onclick="removeSlot(\'' + escAttr(id) + '\')">Delete</button><button class="btn" onclick="closeModal()">Cancel</button></div>');
+    openModal("<h2>" + esc(id) + '</h2><p>This is a <b>' + esc(s.value.size || "Regular") + "</b> slot (" + peso(parkRatesFor(s.value.size || "Regular").month) + "/month" + (parkRatesFor(s.value.size || "Regular").day ? ", " + peso(parkRatesFor(s.value.size || "Regular").day) + "/day" : "") + '). It is free. Choose a unit and how long it rents it, or change the size, rename or delete the slot.</p>' + pick + (choices.length ? plan : "") + '<div class="modal-actions">' + (choices.length ? '<button class="btn primary" onclick="assignSlot(\'' + escAttr(id) + '\')">Assign slot</button>' : "") + '<button class="btn" onclick="slotSizeForm(\'' + escAttr(id) + '\')">Size: ' + esc(s.value.size || "Regular") + '</button><button class="btn" onclick="renameSlotForm(\'' + escAttr(id) + '\')">Rename</button><button class="btn" style="color:#A02B1D" onclick="removeSlot(\'' + escAttr(id) + '\')">Delete</button><button class="btn" onclick="closeModal()">Cancel</button></div>');
   }
 }
 // Assigns a slot to a unit.
@@ -894,8 +1005,9 @@ function assignSlot(id) {
   var unit = document.getElementById("pkUnit").value, plan = document.getElementById("pkPlan").value, days = parseInt(document.getElementById("pkDays").value, 10) || 1;
   closeModal();
   act(async function () {
-    var q = parkQuote(plan, days);
-    await put("slot", id, "", parkSlotValue(id, unit, q.plan, q.days, q.amount));
+    var q = parkQuote(plan, days, slotSize(id));
+    var sv = parkSlotValue(id, unit, q.plan, q.days, q.amount); sv.size = slotSize(id);
+    await put("slot", id, "", sv);
     var rq = getRow("request", unit);
     if (rq) await put("request", unit, rq.unit, Object.assign({}, rq.value, { confirmed: true }));
     logAct("Parking slot " + id + " assigned to " + unit + " (" + parkPlanText(q.plan, q.days) + ")", "Parking");
@@ -912,6 +1024,21 @@ function removeRental(id) {
     logAct("Parking rental ended: " + unit + " removed from " + id, "Parking");
     toast(unit + " removed. " + id + " is free.");
   }, true);
+}
+// Popup form to change the size of a slot. The size decides the rental price for the next resident.
+function slotSizeForm(id) {
+  var s = getRow("slot", id); closeModal(); if (!s) return;
+  var names = parkSizes().map(function (z) { return z.name; });
+  openForm({
+    title: "Size of " + id, intro: "The rental price follows the size. " + (s.value.unit ? "The current resident keeps the amount they already pay." : "The next resident pays the rate of this size."),
+    fields: [{ name: "size", label: "Slot size", type: "select", options: parkSizes().map(function (z) { return [z.name, z.name + (z.sqm ? " · " + z.sqm + " sqm" : "") + " · " + peso(z.month) + "/month"]; }), value: s.value.size || "Regular" }],
+    submit: "Save",
+    onSubmit: async function (d) {
+      var size = names.indexOf(d.size) >= 0 ? d.size : "Regular";
+      await put("slot", id, "", Object.assign({}, s.value, { size: size }));
+      logAct("Parking slot " + id + " set to " + size, "Parking");
+    }
+  });
 }
 // Popup form to rename a slot.
 function renameSlotForm(id) {
@@ -1069,6 +1196,7 @@ function viewManage() {
       '<div class="field" style="flex-grow:0;min-width:210px"><label>Unit</label><div class="combo"><input id="mUnit" autocomplete="off" value="' + escAttr(m.unit) + '" oninput="unitSuggest(this)" onfocus="unitSuggest(this)" onblur="unitMenuHide()" onkeydown="unitKey(event)" placeholder="e.g. Unit 12A"><div class="combo-menu" id="mUnitMenu" hidden></div></div></div>' +
       '<button class="btn primary" onclick="createAccount()">+ Create account</button></div>' : '<p class="hint" style="margin:0"><b>Add a unit first.</b> Every resident account belongs to a unit. <a href="#" onclick="set({view:\'units\'});return false">Go to Units</a></p>') +
     (state.manageErr ? '<div style="font-size:13px;color:#A02B1D;font-weight:600">' + esc(state.manageErr) + "</div>" : "") + "</div>" +
+    '<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px"><div style="flex:1;min-width:220px"><b>Looking for a resident\'s details?</b><div class="hint" style="margin:2px 0 0">This list only controls who can sign in. Household details, contacts, vehicles and the full record of each unit are kept separately under Resident profiles.</div></div><button class="btn primary" onclick="set({view:\'history\'})">Open Resident profiles</button></div>' +
     '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px"><h2 style="font-size:19px;margin:0">People with access</h2>' +
     '<input id="manageSearchInput" value="' + escAttr(state.manageSearch) + '" oninput="set({manageSearch:this.value})" placeholder="Search name, email, unit or role..." style="height:38px;border:1px solid #CFC3A9;border-radius:999px;padding:0 14px;font-size:13px;min-width:220px">' +
     '<span style="font-size:13px;color:var(--muted);margin-left:auto">' + accs.length + " of " + DB.accounts.length + ' accounts</span><button class="btn" onclick="exportAccounts()">Export to Excel (.csv)</button></div>' +
@@ -1076,7 +1204,7 @@ function viewManage() {
       var self = a.id === DB.user.id, adm = a.role === "admin";
       var status = a.suspended ? '<span class="chip bad">Suspended</span>' : (!adm && !a.contact_verified_at) ? '<span class="chip warn">Not verified yet</span>' : (!adm && a.must_change_password) ? '<span class="chip warn">Not signed in yet</span>' : '<span class="chip good">Active</span>';
       return "<tr" + (a.suspended ? ' style="opacity:.55"' : "") + '><td style="font-weight:700">' + esc(a.name) + '</td><td style="color:var(--muted)">' + esc(a.email) + '</td><td style="color:var(--muted)">' + esc(a.phone || "—") + '</td><td style="color:var(--muted)">' + esc(a.unit || "—") + '</td><td><span class="chip ' + (adm ? "info" : "good") + '">' + (adm ? "Administrator" : "Resident") + "</span></td><td>" + status + '</td><td style="display:flex;gap:6px;flex-wrap:wrap">' +
-        (adm ? (self ? '<span style="color:var(--muted);font-size:12px">You</span>' : "") : '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="resetAccount(\'' + escAttr(a.id) + '\')">Reset password</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="suspendAccount(\'' + escAttr(a.id) + '\')">' + (a.suspended ? "Reactivate" : "Suspend") + '</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteAccount(\'' + escAttr(a.id) + '\')">Revoke</button>') + "</td></tr>";
+        (adm ? (self ? '<span style="color:var(--muted);font-size:12px">You</span>' : "") : (a.unit ? '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="openHistory(\'' + escAttr(a.unit) + '\')">Profile</button>' : "") + '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="resetAccount(\'' + escAttr(a.id) + '\')">Reset password</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="suspendAccount(\'' + escAttr(a.id) + '\')">' + (a.suspended ? "Reactivate" : "Suspend") + '</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteAccount(\'' + escAttr(a.id) + '\')">Revoke</button>') + "</td></tr>";
     }), ["NAME", "EMAIL", "MOBILE", "UNIT", "ROLE", "STATUS", "ACTION"], "No accounts match.") +
     '<div style="padding:10px 18px;font-size:12px;color:var(--muted);border-top:1px solid var(--border2)">Suspend keeps the account on file but blocks sign-in; Revoke permanently removes it and asks for confirmation first.</div></div>';
 }

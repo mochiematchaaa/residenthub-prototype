@@ -63,7 +63,7 @@ function titles() {
     reports: ["Reports", "Collections, occupancy, dues ageing, facility use and requests at a glance."],
     parking: ["Parking", "Motor parking slots, who has one, and requests waiting for approval."],
     log: ["Activity log", "A record of what the administrators did, newest first."],
-    history: ["Unit history", "Everything about one unit or resident in one place: dues, payments, requests, bookings and records."],
+    history: ["Resident profiles", "The record of every unit and resident: details, household, dues, payments, requests and history. Edit a record and the resident sees it on their dashboard."],
     settings: ["Settings", "Billing defaults, the resident directory and your preferences."],
     profile: ["My profile", "Your administrator account, recent activity and shortcuts."]
   }[state.view] || ["", ""];
@@ -96,7 +96,7 @@ function render() {
       '<div class="side-label">General</div><nav>' + navBtn("home", "Dashboard") + navBtn("units", "Units") + navBtn("fac", "Facility") + navBtn("ann", "Announcements") + navBtn("polls", "Polls") + "</nav>" +
       '<div class="side-label">Tools</div><nav>' + navBtn("fin", "Finance") +
       '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>Expenses</span></button>" +
-      navBtn("history", "History") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
+      navBtn("history", "Resident profiles") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
       '<div class="side-label">Admin</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + esc(initials(adminName())) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>Log out</span></button></div></aside>" +
