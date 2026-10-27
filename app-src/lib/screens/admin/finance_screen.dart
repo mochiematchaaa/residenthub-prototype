@@ -144,13 +144,25 @@ class _AdminFinanceState extends State<AdminFinance> {
   }
 
   void _editCharge(Due d) {
+    final same = app.dues.where((x) => !x.paid && x.note == d.note).length;
+    const one = 'This unit only', rm = 'Remove it from all units (unpaid ones)';
+    final many = 'All units: $same unpaid charge${same == 1 ? '' : 's'} named this';
     showFormSheet(
       context,
       title: 'Change charge',
-      subtitle: '${d.unit} · ${d.note}${d.area > 0 && d.rate > 0 ? '\nWorked out as ${d.area} sqm × ${peso(d.rate)} = ${peso(d.area * d.rate)}. Changing the amount affects this unit only.' : ''}',
-      fields: [FieldSpec('amount', 'Amount (₱)', type: const TextInputType.numberWithOptions(decimal: true), initial: d.amt.toString())],
+      subtitle: '${d.unit}${d.area > 0 && d.rate > 0 ? '\nWorked out as ${d.area} sqm × ${peso(d.rate)} = ${peso(d.area * d.rate)}.' : ''}\nChange the description, amount or due date. Pick "All units" to change every unit\'s unpaid charge with this description in one go. Paid ones are never touched.',
+      fields: [
+        FieldSpec('note', 'Description', initial: d.note),
+        FieldSpec('amount', 'Amount (₱)', type: const TextInputType.numberWithOptions(decimal: true), initial: d.amt.toString()),
+        FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 30, 2026', initial: d.dueDate),
+      ],
+      choices: [ChoiceSpec('scope', 'Apply to', same > 1 ? [one, many, rm] : [one, rm], one)],
       submit: 'Save',
-      onSubmit: (v) => app.editCharge(d, v['amount'] as String),
+      onSubmit: (v) {
+        final scope = v['scope'] as String;
+        return app.editCharge(d, v['amount'] as String,
+            note: v['note'] as String, dueRaw: v['due'] as String, allUnits: scope == many, remove: scope == rm);
+      },
     );
   }
 
@@ -445,8 +457,8 @@ class _AdminFinanceState extends State<AdminFinance> {
                   context,
                   title: 'Add finance charge',
                   fields: const [
-                    FieldSpec('unit', 'Unit', hint: 'e.g. Unit 12A'),
-                    FieldSpec('amount', 'Amount (₱)', type: TextInputType.number),
+                    FieldSpec('unit', 'Unit', hint: 'e.g. Unit 12A, or type All units to bill everyone', initial: ''),
+                    FieldSpec('amount', 'Amount (₱) for each unit', type: TextInputType.number),
                     FieldSpec('note', 'Description', hint: 'e.g. Facility damage fee'),
                     FieldSpec('due', 'Due date (optional)', hint: 'e.g. Oct 30, 2026'),
                   ],

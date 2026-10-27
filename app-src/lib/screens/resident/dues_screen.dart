@@ -624,7 +624,11 @@ class _ResDuesState extends State<ResDues> {
               ],
             ),
           ),
-        if (app.myParkingReq != null && app.myParkingReq!.slot.isNotEmpty && app.myParkingReq!.amount > 0 && app.slotOf(app.myUnit) == null)
+        if (app.myParkingReq != null &&
+            app.myParkingReq!.slot.isNotEmpty &&
+            app.myParkingReq!.amount > 0 &&
+            app.slotOf(app.myUnit) == null &&
+            !all.any((d) => !d.paid && d.note == parkingPayFor))
           Builder(builder: (context) {
             final r = app.myParkingReq!;
             final proof = app.parkingProofFor(app.myUnit, r.slot);

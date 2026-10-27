@@ -385,7 +385,8 @@ function dueItems() {
     return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, billed: billedOn(r.id, d), receipt: conf ? conf.id : "", sent: pend ? proofSentAt(pend.v) : 0, mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
   });
   var prq = getRow("request", myUnit());
-  if (prq && prq.value.slot && prq.value.amount && !prq.value.confirmed) {
+  var hasParkDue = items.some(function (i) { return i.title === PARK_FOR && i.st !== "paid"; });   // one parking item only: the charge the office billed
+  if (prq && prq.value.slot && prq.value.amount && !prq.value.confirmed && !hasParkDue) {
     var pp = parkProof(myUnit(), prq.value.slot);
     items.unshift({ id: "parking", title: "Motor parking rental · " + prq.value.slot + " · " + parkPlanText(prq.value.plan, prq.value.days), amount: Number(prq.value.amount), due: "On reservation", st: pp ? (pp.v.status === "Confirmed" ? "paid" : "pending") : "open", d: {}, receipt: "", mon: "P", park: true });
   }

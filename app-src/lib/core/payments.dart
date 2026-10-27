@@ -35,6 +35,9 @@ class PaymentRecord {
 /// What a motor parking payment is for. Same text as the website.
 const parkingPayFor = 'Motor parking rental';
 
+/// The parking sticker fee and the parking rental are one thing. Older records are read under the one name.
+String normPayFor(String t) => t == 'Parking sticker fee' ? parkingPayFor : t;
+
 /// A payment proof sent by a resident, waiting for the admin to confirm.
 class PaymentProof {
   final int id;
@@ -126,7 +129,7 @@ class PaymentProof {
       s('date'),
       amount is num ? amount : (num.tryParse(amount.toString()) ?? 0),
       status: st == 'Confirmed' || st == 'Rejected' ? st : 'Pending',
-      forText: s('forText'),
+      forText: normPayFor(s('forText')),
       receiptNo: s('receiptNo'),
       confirmedOn: s('confirmedOn'),
       reason: s('reason'),

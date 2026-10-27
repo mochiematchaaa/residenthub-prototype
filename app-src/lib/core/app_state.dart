@@ -156,7 +156,8 @@ class Booking {
 /// One charge billed to a unit: monthly association dues, a damage fee, and so on.
 class Due {
   final int id;
-  final String unit, name, note;
+  final String unit, name;
+  String note;
   num amount;
 
   /// Due date written like "Oct 15, 2026" (empty = due upon receipt).
@@ -1279,7 +1280,7 @@ class AppState extends ChangeNotifier {
     p.receiptNo = nextReceiptNo();
     p.confirmedOn = shortDate(DateTime.now());
     final isParking = p.forText == parkingPayFor;
-    final due = isParking ? null : (_openDueNamed(p.unit, p.forText) ?? _firstOpenDue(p.unit));
+    final due = _openDueNamed(p.unit, p.forText) ?? (isParking ? null : _firstOpenDue(p.unit));
     final String forText;
     if (due != null) {
       due.paid = true;
@@ -1653,11 +1654,16 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: adds a charge (e.g. a facility damage fee) to a unit.
+  static const allUnits = 'All units';
+
   String? addCharge(String unitRaw, String amountRaw, String note, {String dueRaw = ''}) {
     String norm(String t) => t.toLowerCase().replaceAll('unit', '').replaceAll(RegExp(r'[^a-z0-9]'), '');
     final key = norm(unitRaw);
-    final match = key.isEmpty ? <Unit>[] : units.where((u) => norm(u.unit) == key).toList();
-    if (match.isEmpty) return 'No unit with that name. Add the unit first, or use a name such as "Unit 12A".';
+    final everyone = unitRaw.trim().toLowerCase() == allUnits.toLowerCase();
+    final match = everyone
+        ? [for (final u in units) if (u.name.isNotEmpty && u.name != '—') u]
+        : (key.isEmpty ? <Unit>[] : units.where((u) => norm(u.unit) == key).toList());
+    if (match.isEmpty) return everyone ? 'No unit has a household yet.' : 'No unit with that name. Add the unit first, or use a name such as "Unit 12A", or type All units.';
     final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter a valid amount.';
     if (note.trim().isEmpty) return 'Add a short description, e.g. Facility damage fee.';
@@ -1667,8 +1673,10 @@ class AppState extends ChangeNotifier {
       if (d == null) return 'Enter the due date like "Oct 15, 2026".';
       due = shortDate(d);
     }
-    dues.add(Due(nextId(), match.first.unit, match.first.name, a, note.trim(), dueDate: due, billedOn: shortDate(DateTime.now())));
-    logActivity('Charge added, ${match.first.unit}: ${note.trim()}', 'Finance');
+    for (final u in everyone ? match : [match.first]) {
+      dues.add(Due(nextId(), u.unit, u.name, a, note.trim(), dueDate: due, billedOn: shortDate(DateTime.now())));
+    }
+    logActivity('Charge added, ${everyone ? 'all units (${match.length})' : match.first.unit}: ${note.trim()}', 'Finance');
     _n();
     return null;
   }
@@ -1879,13 +1887,40 @@ class AppState extends ChangeNotifier {
   int lastNoAreaCount = 0;
 
   /// Admin: changes the amount of a charge that is not paid yet (affects that unit only).
-  String? editCharge(Due d, String amountRaw) {
+  String? editCharge(Due d, String amountRaw, {String? note, String? dueRaw, bool allUnits = false, bool remove = false}) {
     if (d.paid) return 'A paid charge cannot be changed.';
+    final oldNote = d.note;
+    final same = [for (final x in dues) if (!x.paid && x.note == oldNote) x];
+    if (remove) {
+      dues.removeWhere((x) => !x.paid && x.note == oldNote);
+      logActivity('Charge removed from ${same.length} unit${same.length == 1 ? '' : 's'}: $oldNote', 'Finance');
+      _n();
+      return null;
+    }
     final a = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (a == null || a <= 0) return 'Enter a valid amount.';
+    final newNote = (note ?? oldNote).trim();
+    if (newNote.isEmpty) return 'Add a short description.';
+    var due = d.dueDate;
+    if (dueRaw != null) {
+      if (dueRaw.trim().isEmpty) {
+        due = '';
+      } else {
+        final p = parseShortDate(dueRaw);
+        if (p == null) return 'Enter the due date like "Oct 15, 2026".';
+        due = shortDate(p);
+      }
+    }
     final old = d.amount;
-    d.amount = a;
-    logActivity('Charge edited, ${d.unit}: ${peso(old)} to ${peso(a)}', 'Finance');
+    for (final x in (allUnits ? same : [d])) {
+      for (final p in proofs.where((p) => p.status == 'Pending' && p.unit == x.unit && p.forText == oldNote)) {
+        p.forText = newNote;
+      }
+      x.amount = a;
+      x.note = newNote;
+      x.dueDate = due;
+    }
+    logActivity('Charge edited, ${allUnits ? '${same.length} units' : d.unit}: $oldNote${newNote != oldNote ? ' → $newNote' : ''} ${peso(old)} to ${peso(a)}', 'Finance');
     _n();
     return null;
   }

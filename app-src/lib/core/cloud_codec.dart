@@ -197,7 +197,7 @@ Map<String, dynamic> _dueJson(Due d) => {
 
 Due? _dueFrom(Map<String, dynamic> j) {
   if (j['id'] is! num) return null;
-  return Due(_i(j, 'id'), _s(j, 'unit'), _s(j, 'name'), _num(j, 'amount'), _s(j, 'note', 'Charge'),
+  return Due(_i(j, 'id'), _s(j, 'unit'), _s(j, 'name'), _num(j, 'amount'), normPayFor(_s(j, 'note', 'Charge')),
       dueDate: _s(j, 'dueDate'),
       paid: _b(j, 'paid'),
       billedOn: _s(j, 'billedOn'),
