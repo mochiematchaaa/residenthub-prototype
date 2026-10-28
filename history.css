@@ -634,11 +634,25 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   main{padding-left:2px;padding-right:2px}
 }
 
-/* Phone menu: all the pages are visible (they wrap onto a second row) instead of hiding behind a sideways scroll */
+/* Phone menu: a slim header on top and a bar at the bottom (built by mobNav in shared.js) */
+#mnav{display:none}
+.mn-label{margin:14px 0 6px;font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mn-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mn-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px;padding:10px 4px;border:1.5px solid var(--border);border-radius:18px;background:var(--beige);color:var(--ink);font:600 12.5px 'Source Sans 3',sans-serif;text-align:center;cursor:pointer}
+.mn-tile svg{width:24px;height:24px}
+.mn-tile.on{background:linear-gradient(135deg,#6b5fd1,#3f7bbf);color:#fff;border-color:transparent}
 @media (max-width:900px){
-  .side{flex-wrap:wrap;overflow:visible;row-gap:6px}
-  .side nav{display:contents}
-  .side-foot{flex-basis:auto}
+  .side nav,.side-label{display:none !important}
+  .side{flex-wrap:nowrap;overflow:visible;padding:8px 12px}
+  .side-brand span{display:inline !important;font-size:16px}
+  main{padding-bottom:104px}
+  #mnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:80;gap:2px;padding:6px;border-radius:26px;background:var(--card);border:1.5px solid var(--border);box-shadow:0 12px 30px rgba(20,30,60,.2)}
+  #mnav button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 1px;border:0;border-radius:20px;background:transparent;color:var(--muted);font:700 10.5px 'Source Sans 3',sans-serif;cursor:pointer}
+  #mnav button svg{width:22px;height:22px}
+  #mnav button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #mnav button.active{background:linear-gradient(135deg,#6b5fd1,#3f7bbf);color:#fff}
+  body.kb #mnav{display:none}
+  #toasts{bottom:88px !important}
 }
 
 /* Boxes that adapt: same size buttons, rows that wrap instead of squeezing, details that stack on a phone */

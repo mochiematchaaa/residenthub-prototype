@@ -445,7 +445,54 @@ function mountApp(app, html){
       t.classList.add("rt");
     });
   }
-  function queue() { if (!queued) { queued = true; (window.requestAnimationFrame || setTimeout)(label); } }
-  function start() { label(); try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true }); } catch (e) { /* old browser: tables simply scroll sideways */ } }
+  function queue() { if (!queued) { queued = true; (window.requestAnimationFrame || setTimeout)(function () { label(); mobNav(); }); } }
+  function start() { label(); mobNav(); try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true }); } catch (e) { /* old browser: tables simply scroll sideways */ } }
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
 })();
+
+/* ---------- Phone menu: a bar at the bottom with the main pages and a "More" button ----------
+   It is built from the side menu that is already on the page, so it always matches it. Phones only (see history.css). */
+function mobNav() {
+  var side = document.querySelector(".side");
+  var bar = document.getElementById("mnav");
+  if (!side || !side.querySelector("nav button")) { if (bar) bar.remove(); return; }
+  var admin = /admin/i.test(location.pathname);
+  var main = admin ? ["home", "units", "fin", "req"] : ["home", "book", "dues", "parking"];
+  var groups = [], all = {}, active = "";
+  var label = "";
+  Array.prototype.forEach.call(side.children, function (el) {
+    if (el.classList.contains("side-label")) { label = (el.textContent || "").trim(); return; }
+    if (el.tagName !== "NAV") return;
+    var items = [];
+    Array.prototype.forEach.call(el.querySelectorAll("button"), function (b) {
+      var m = /view:\s*'([\w-]+)'/.exec(b.getAttribute("onclick") || ""); if (!m) return;
+      var sv = b.querySelector("svg"), sp = b.querySelector("span");
+      var it = { key: m[1], text: sp ? sp.textContent.trim() : m[1], svg: sv ? sv.outerHTML : "", on: b.classList.contains("active") };
+      if (it.on) active = it.key;
+      all[it.key] = it; items.push(it);
+    });
+    groups.push({ label: label, items: items });
+  });
+  var sig = active + "|" + Object.keys(all).join(",");
+  if (bar && bar.getAttribute("data-sig") === sig) return;
+  if (!bar) { bar = document.createElement("nav"); bar.id = "mnav"; bar.setAttribute("aria-label", "Main pages"); document.body.appendChild(bar); }
+  bar.setAttribute("data-sig", sig);
+  var shortName = { home: "Home", book: "Book" };
+  var btn = function (it) { return '<button class="' + (it.on ? "active" : "") + '" onclick="set({view:\'' + it.key + '\',bellOpen:false});window.scrollTo(0,0)">' + it.svg + "<span>" + (shortName[it.key] || it.text).replace(/</g, "&lt;") + "</span></button>"; };
+  var inMain = main.indexOf(active) > -1;
+  bar.innerHTML = main.filter(function (k) { return all[k]; }).map(function (k) { return btn(all[k]); }).join("") +
+    '<button class="' + (inMain ? "" : "active") + '" onclick="mobMore()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg><span>More</span></button>';
+  window.__mobGroups = groups;
+}
+// Opens the list of every page.
+function mobMore() {
+  var html = "<h2>All pages</h2>" + (window.__mobGroups || []).map(function (g) {
+    return (g.label ? '<div class="mn-label">' + g.label.replace(/</g, "&lt;") + "</div>" : "") + '<div class="mn-grid">' + g.items.map(function (it) {
+      return '<button class="mn-tile' + (it.on ? " on" : "") + '" onclick="closeModal();set({view:\'' + it.key + '\',bellOpen:false});window.scrollTo(0,0)">' + it.svg + "<span>" + it.text.replace(/</g, "&lt;") + "</span></button>";
+    }).join("") + "</div>";
+  }).join("");
+  openModal(html);
+}
+// The bar hides while a field is being typed in, so the keyboard never covers it.
+document.addEventListener("focusin", function (e) { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) document.body.classList.add("kb"); });
+document.addEventListener("focusout", function () { document.body.classList.remove("kb"); });
