@@ -93,6 +93,7 @@ Map<String, dynamic> _unitJson(Unit u) => {
       'usageStatus': u.usageStatus,
       'usageRemark': u.usageRemark,
       if (u.profileUpdated > 0 || u.selfUpdated > 0) ...{
+        if (u.selfLog.isNotEmpty) 'selfLog': [for (final s in u.selfLog) {'field': s.field, 'from': s.from, 'to': s.to, 'at': s.at, 'by': s.by}],
         'email': u.email,
         'moveIn': u.moveIn,
         'residents': u.residents,
@@ -142,7 +143,12 @@ Unit? _unitFrom(Map<String, dynamic> j) {
     ..profileUpdated = _i(j, 'profileUpdated')
     ..profileBy = _s(j, 'profileBy')
     ..selfUpdated = _i(j, 'selfUpdated')
-    ..selfBy = _s(j, 'selfBy');
+    ..selfBy = _s(j, 'selfBy')
+    ..selfLog = [
+      if (j['selfLog'] is List)
+        for (final e in (j['selfLog'] as List))
+          if (e is Map) SelfChange(_s(e, 'field'), _s(e, 'from'), _s(e, 'to'), _i(e, 'at'), _s(e, 'by')),
+    ];
 }
 
 Map<String, dynamic> _updateJson(StatusUpdate s) =>

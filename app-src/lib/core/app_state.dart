@@ -105,11 +105,21 @@ class Unit {
   int selfUpdated = 0;
   String selfBy = '';
 
+  /// What the resident changed themselves (name, household details), newest first, the last 20.
+  List<SelfChange> selfLog = [];
+
   /// Short-term rentals and home businesses need the administrator's approval.
   bool get needsApproval => usage == 'shortterm' || usage == 'business';
 }
 
 /// One entry in a unit's status history (also drives the admin's update feed).
+/// One change a resident made to their own details: the field, the old and new value, when, and who.
+class SelfChange {
+  final String field, from, to, by;
+  final int at;
+  const SelfChange(this.field, this.from, this.to, this.at, this.by);
+}
+
 class StatusUpdate {
   final int id;
   final String unit, key, note, date, by; // by: 'Resident' | 'Admin'
@@ -2412,6 +2422,20 @@ class AppState extends ChangeNotifier {
     final u = myUnitRec;
     if (u == null) return;
     String t(String k) => (v[k] ?? '').trim();
+    // what changed goes on the unit record as "Recent changes", so the office can see it
+    final changes = <(String, String, String)>[];
+    void diff(String label, String a, String b) {
+      if (a != b) changes.add((label, a, b));
+    }
+
+    diff('People living here', u.residents > 0 ? '${u.residents}' : '', residents > 0 ? '$residents' : '');
+    diff('Household members', u.members, t('members'));
+    diff('Pets', u.pets, t('pets'));
+    diff('Emergency contact', u.emergencyName, t('emergencyName'));
+    diff('Emergency relationship', u.emergencyRelation, t('emergencyRelation'));
+    diff('Emergency number', u.emergencyPhone, t('emergencyPhone'));
+    diff('Vehicles', u.vehicles, t('vehicles'));
+    logMyChange(changes);
     u.members = t('members');
     u.pets = t('pets');
     u.vehicles = t('vehicles');
@@ -2422,6 +2446,22 @@ class AppState extends ChangeNotifier {
     u.selfUpdated = DateTime.now().millisecondsSinceEpoch;
     u.selfBy = me?.name ?? 'the resident';
     logActivity('Resident updated household record, ${u.unit}', 'Units');
+    _n();
+  }
+
+  /// Resident: writes what they changed on their own unit record (the office sees it as "Recent changes").
+  void logMyChange(List<(String, String, String)> changes) {
+    final u = myUnitRec;
+    if (u == null || changes.isEmpty) return;
+    String cut(String x) {
+      x = x.replaceAll(RegExp(r'\s*\n\s*'), ', ');
+      return x.length > 60 ? '${x.substring(0, 57)}…' : x;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch, by = me?.name ?? 'the resident';
+    u.selfLog = [for (final c in changes) SelfChange(c.$1, cut(c.$2), cut(c.$3), now, by), ...u.selfLog].take(20).toList();
+    u.selfUpdated = now;
+    u.selfBy = by;
     _n();
   }
 

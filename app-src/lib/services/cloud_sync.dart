@@ -176,13 +176,16 @@ class CloudSync extends ChangeNotifier {
   static const _residentUnitKeys = [
     'usage', 'usageStatus', 'usageRemark', 'usageInfo', 'status', 'statusNote', 'statusDate',
     // the household details a resident keeps up to date themselves
-    'residents', 'members', 'pets', 'vehicles', 'emergencyName', 'emergencyRelation', 'emergencyPhone', 'selfUpdated', 'selfBy',
+    'residents', 'members', 'pets', 'vehicles', 'emergencyName', 'emergencyRelation', 'emergencyPhone', 'selfUpdated', 'selfBy', 'selfLog',
   ];
 
   /// A unit written on the website may leave out fields the app fills in with a default (name,
   /// contact, type...). Those are not changes, so leave the defaults out when comparing.
   String _unitField(String key, dynamic v) {
-    if (v is Map) return canonJson(v) == '{}' ? '' : canonJson(v);
+    if (v is Map || v is List) {
+      final c = canonJson(v);
+      return c == '{}' || c == '[]' ? '' : c;
+    }
     final t = (v ?? '').toString();
     if (key == 'usage' && t == 'owner') return '';
     if (key == 'status' && t == 'Occupied') return '';
