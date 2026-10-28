@@ -1006,6 +1006,7 @@ function removeDoc(id) {
    ========================================================================== */
 function sortedSlots() { return list("slot").sort(function (a, b) { return naturalCompare(a.id, b.id); }); }
 // PAGE: Parking (slots, requests, rentals).
+function parkTab() { return ["requests", "slots", "rentals"].indexOf(state.parkTab) >= 0 ? state.parkTab : "requests"; }
 function viewParking() {
   var slots = sortedSlots(), used = slots.filter(function (s) { return s.v.unit; }).length, sizes = parkSizes();
   var monthlyIncome = slots.filter(function (s) { return s.v.unit && s.v.plan !== "day" && !parkExpired(s.v); }).reduce(function (t, s) { return t + (Number(s.v.amount) || parkRatesFor(s.v.size || "Regular").month); }, 0);
@@ -1014,23 +1015,42 @@ function viewParking() {
     return '<div class="card" style="display:flex;flex-direction:column;gap:10px;max-width:520px"><h2>Set up motor parking</h2><p class="hint" style="margin:0">There are no slots yet. Tell the system how many motor parking slots the building has. They are named M-01, M-02, and so on.</p>' +
       '<button class="btn primary" onclick="addSlotsForm()">Add slots</button></div>' + (reqs.length ? '<p class="hint" style="margin-top:12px">' + reqs.length + " resident request(s) are waiting for slots.</p>" : "");
   }
+  var tab = parkTab(), active = slots.filter(function (s) { return s.v.unit && !parkExpired(s.v); }).length;
+  var tools = tab === "slots" ? '<button class="btn primary" onclick="addSlotsForm()">+ Add slots</button>' : "";
   return '<div class="grid cols-3">' + statCard("Slots in use", used + " of " + slots.length) + statCard("Monthly rentals income", peso(monthlyIncome)) + statCard("Requests waiting", String(reqs.length)) + "</div>" +
-    '<div class="two-col-r" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Motor parking slots</h2><button class="btn" onclick="addSlotsForm()">+ Add slots</button></div>' +
-    '<p class="hint">Tap a slot to assign it, remove the resident, rename it or delete it. The price depends on the slot size: ' + sizes.map(function (z) { return "<b>" + esc(z.name) + "</b> " + (z.month ? peso(z.month) + "/month" : "not set") + (z.day ? " · " + peso(z.day) + "/day" : ""); }).join(" · ") + ". Change the rates under Finance &gt; Settings.</p>" +
-    '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + '</small><small class="psz-tag">' + esc(s.v.size || "Regular") + "</small></button>"; }).join("") + "</div></div>" +
-    '<div class="card"><h2>Requests</h2><p class="hint">Residents who reserved or asked for a slot. A reserved slot is approved when its payment is verified.</p>' + (reqs.map(function (r) {
-      var v = r.v, pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", state;
-      var btns;
-      if (v.slot && v.amount) {
-        state = pr ? (pst === "Confirmed" ? '<span class="chip good">Verified</span>' : '<span class="chip warn">Payment sent · Ref ' + esc(pr.v.reference) + "</span>") : '<span class="chip info">Waiting for payment</span>';
-        btns = pr ? (pst === "Confirmed" ? '<button class="btn primary" onclick="approveParking(\'' + escAttr(r.id) + '\')">Assign ' + esc(v.slot) + "</button>" : '<button class="btn primary" onclick="confirmProof(\'' + escAttr(pr.id) + '\')">Verify payment</button>') : '<button class="btn" onclick="approveParkingFree(\'' + escAttr(r.id) + '\')">Assign without payment</button>';
-        btns += '<button class="btn" onclick="declineParking(\'' + escAttr(r.id) + '\')">Decline</button>';
-      } else {
-        state = v.slot ? '<span class="chip info">Chose ' + esc(v.slot) + "</span>" : "";
-        btns = '<button class="btn primary" onclick="approveParking(\'' + escAttr(r.id) + '\')">Assign' + (v.slot ? " " + esc(v.slot) : "") + '</button><button class="btn" onclick="declineParking(\'' + escAttr(r.id) + '\')">Decline</button>';
-      }
-      return '<div class="req-row"><div><b>' + esc(v.unit) + "</b><small>" + esc(v.who || "") + " · " + esc(v.when || "") + (v.slot ? " · Slot " + esc(v.slot) + " (" + esc(slotSize(v.slot)) + ")" + (v.amount ? " · " + peso(Number(v.amount)) : "") : "") + (v.plan ? " · " + esc(parkPlanText(v.plan, v.days)) : "") + "</small>" + (state ? '<div style="margin-top:6px">' + state + "</div>" : "") + "</div><div>" + btns + "</div></div>";
-    }).join("") || '<p class="empty">No requests waiting.</p>') + "</div></div>" + rentalsCard(slots);
+    '<div style="height:16px"></div>' + subNav([["requests", "Requests", reqs.length || "", true], ["slots", "Slots", slots.length], ["rentals", "Current rentals", active]], tab, "parkTab", tools) +
+    (tab === "slots" ? parkSlotsPage(slots, sizes) : tab === "rentals" ? rentalsCard(slots) : parkRequestsPage(reqs));
+}
+// Slots tab: the map of every slot.
+function parkSlotsPage(slots, sizes) {
+  return '<div class="card"><h2>Motor parking slots</h2>' +
+    '<p class="hint">Tap a slot to assign it, edit the rental, remove the resident, rename it or delete it. The price depends on the slot size: ' + sizes.map(function (z) { return "<b>" + esc(z.name) + "</b> " + (z.month ? peso(z.month) + "/month" : "not set") + (z.day ? " · " + peso(z.day) + "/day" : ""); }).join(" · ") + ". Change the rates under Finance &gt; Settings.</p>" +
+    '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + '</small><small class="psz-tag">' + esc(s.v.size || "Regular") + "</small></button>"; }).join("") + "</div></div>";
+}
+// Requests tab: one card for each resident request, with the payment they sent (reference, date, screenshot).
+function parkRequestsPage(reqs) {
+  if (!reqs.length) return '<div class="card"><p class="empty" style="margin:0">No requests waiting. When a resident reserves a slot it shows up here.</p></div>';
+  return '<p class="hint" style="margin:0 0 12px">A reserved slot is assigned only after its payment is verified. Check the reference number and the screenshot, then verify.</p><div class="park-reqs">' + reqs.map(function (r) {
+    var v = r.v, id = escAttr(r.id), pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", priced = !!(v.slot && v.amount);
+    var chip = !priced ? (v.slot ? '<span class="chip info">Chose ' + esc(v.slot) + "</span>" : '<span class="chip info">Asked for a slot</span>') : pr ? (pst === "Confirmed" ? '<span class="chip good">Payment verified</span>' : '<span class="chip warn">Payment sent</span>') : '<span class="chip info">Waiting for payment</span>';
+    var facts = '<div class="vp-grid">' + (v.slot ? '<div><label>Slot</label><b>' + esc(v.slot) + " · " + esc(slotSize(v.slot)) + "</b></div>" : "") + (v.plan ? '<div><label>Rental</label><b>' + esc(parkPlanText(v.plan, v.days)) + "</b></div>" : "") + (v.amount ? '<div><label>Amount to pay</label><b>' + peso(Number(v.amount)) + "</b></div>" : "") + '<div><label>Requested</label><b>' + esc(v.when || "") + "</b></div></div>";
+    var pay = "", btns = "";
+    if (priced && pr) {
+      var p = pr.v, chk = proofCheck(pr), match = Math.abs((Number(p.amount) || 0) - Number(v.amount)) <= 0.009;
+      pay = '<div class="park-pay"><div class="park-pay-h"><b>Payment sent by the resident</b>' + (pst === "Confirmed" ? '<span class="chip good">Verified</span>' : match ? '<span class="chip good">✓ Amount matches</span>' : '<span class="chip bad">✗ Should be ' + peso(Number(v.amount)) + "</span>") + "</div>" +
+        '<div class="vp-grid"><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div><div><label>Amount sent</label><b>' + peso(Number(p.amount) || 0) + '</b></div><div><label>Date paid</label><b>' + esc(p.paidOn || "Not given") + '</b></div><div><label>Sent</label><b>' + esc(clockText(proofSentAt(p))) + "</b></div>" +
+        '<div class="vp-photo"><label>Screenshot of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(pr.id) + '\')" title="Open the screenshot"><img alt="Payment screenshot" src="' + escAttr(p.image) + '"><span>View screenshot</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" +
+        (pst !== "Confirmed" && chk.checks ? '<div class="vp-checks">' + chk.checks.map(function (c) { return '<span class="chip ' + (c.ok === true ? "good" : c.ok === false ? "bad" : "") + '">' + (c.ok === true ? "✓ " : c.ok === false ? "✕ " : "• ") + esc(c.label) + "</span>"; }).join("") + "</div>" : "") + "</div>";
+      btns = pst === "Confirmed" ? '<button class="btn primary" onclick="approveParking(\'' + id + '\')">Assign ' + esc(v.slot) + "</button>" : '<button class="btn primary" onclick="confirmProof(\'' + escAttr(pr.id) + '\')">Verify and assign ' + esc(v.slot) + '</button><button class="btn" onclick="rejectProof(\'' + escAttr(pr.id) + '\')">Reject payment</button>';
+    } else if (priced) {
+      pay = '<div class="park-pay wait"><b>No payment yet.</b> The slot can only be assigned after the payment is verified. The resident sends the reference number and a screenshot from their Parking page. If they paid at the office, record it below.</div>';
+      btns = '<button class="btn primary" onclick="parkOfficePay(\'' + id + '\')">Paid at the office</button>';
+    } else {
+      btns = '<button class="btn primary" onclick="approveParking(\'' + id + '\')">Assign' + (v.slot ? " " + esc(v.slot) : "") + "</button>";
+    }
+    return '<article class="card park-req"><div class="park-req-h"><span class="vp-av">' + esc(String(v.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(v.unit) + "</b><small>" + esc(v.who || "") + "</small></div>" + chip + "</div>" + facts + pay +
+      '<div class="vp-actions">' + btns + '<span style="flex:1"></span><button class="btn" onclick="editParkReq(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="declineParking(\'' + id + '\')">Decline</button></div></article>';
+  }).join("") + "</div>";
 }
 /* who has a slot: one row each, with how long the rental runs and a Remove button */
 function rentalsCard(slots) {
@@ -1039,7 +1059,7 @@ function rentalsCard(slots) {
     tableRows(rows.map(function (s) {
       var v = s.v, exp = parkExpired(v);
       return '<tr><td style="font-weight:700">' + esc(v.unit) + "</td><td>" + esc(s.id) + '<div class="cell-sub">' + esc(v.size || "Regular") + ' · ' + (v.amount ? peso(Number(v.amount)) : "") + '</div></td><td>' + (v.plan === "day" ? "Daily" : "Monthly") + '</td><td style="color:var(--muted)">' + (v.until ? esc(usageDate(v.from)) + " – " + esc(usageDate(v.until)) : "No end date") + "</td><td>" +
-        (exp ? '<span class="chip bad">Ended</span>' : '<span class="chip good">Active</span>') + ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeRental(\'' + escAttr(s.id) + '\')">Remove</button></td></tr>';
+        (exp ? '<span class="chip bad">Ended</span>' : '<span class="chip good">Active</span>') + ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="editRental(\'' + escAttr(s.id) + '\')">Edit</button> <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeRental(\'' + escAttr(s.id) + '\')">Remove</button></td></tr>';
     }), ["UNIT", "SLOT", "PLAN", "RENTAL PERIOD", "STATUS"], "No slot is rented yet.") + "</div>";
 }
 /* the next n slot names (M-01, M-02, ...) that no slot uses yet, so adding never overwrites a slot */
@@ -1069,7 +1089,7 @@ function addSlotsForm() {
 function openSlot(id) {
   var s = getRow("slot", id); if (!s) return;
   if (s.value.unit) {
-    openModal("<h2>" + esc(id) + "</h2><p>Assigned to <b>" + esc(s.value.unit) + '</b>.</p><p class="hint" style="margin:0">' + esc(parkRentalLine(s.value) || "Monthly") + (parkExpired(s.value) ? " (ended)" : "") + (s.value.amount ? " · " + peso(Number(s.value.amount)) : "") + '</p><div class="modal-actions"><button class="btn primary" onclick="removeRental(\'' + escAttr(id) + '\')">Remove resident</button><button class="btn" onclick="slotSizeForm(\'' + escAttr(id) + '\')">Size: ' + esc(s.value.size || "Regular") + '</button><button class="btn" onclick="renameSlotForm(\'' + escAttr(id) + '\')">Rename</button><button class="btn" style="color:#A02B1D" onclick="removeSlot(\'' + escAttr(id) + '\')">Delete</button><button class="btn" onclick="closeModal()">Keep</button></div>');
+    openModal("<h2>" + esc(id) + "</h2><p>Assigned to <b>" + esc(s.value.unit) + '</b>.</p><p class="hint" style="margin:0">' + esc(parkRentalLine(s.value) || "Monthly") + (parkExpired(s.value) ? " (ended)" : "") + (s.value.amount ? " · " + peso(Number(s.value.amount)) : "") + '</p><div class="modal-actions"><button class="btn primary" onclick="editRental(\'' + escAttr(id) + '\')">Edit rental</button><button class="btn" onclick="removeRental(\'' + escAttr(id) + '\')">Remove resident</button><button class="btn" onclick="slotSizeForm(\'' + escAttr(id) + '\')">Size: ' + esc(s.value.size || "Regular") + '</button><button class="btn" onclick="renameSlotForm(\'' + escAttr(id) + '\')">Rename</button><button class="btn" style="color:#A02B1D" onclick="removeSlot(\'' + escAttr(id) + '\')">Delete</button><button class="btn" onclick="closeModal()">Keep</button></div>');
   } else {
     var taken = vals("slot").map(function (x) { return x.unit; });
     var choices = unitNames().filter(function (u) { return taken.indexOf(u) < 0; });
@@ -1159,16 +1179,81 @@ function approveParking(unit) {
     toast(target + " assigned to " + unit + ".");
   });
 }
-/* assign without a payment: the office decides to waive it */
-function approveParkingFree(unit) {
-  confirmBox("Assign without payment?", unit + " has not paid yet. The slot is assigned and no payment is recorded.", "Assign anyway", async function () {
-    var rq = getRow("request", unit); if (!rq) return;
-    var id = rq.value.slot; if (!id) return;
-    var sl = getRow("slot", id); if (!sl || sl.value.unit) throw new Error(id + " is already taken.");
-    await put("slot", id, "", parkSlotFromRequest(id, rq.value));
-    await put("request", unit, rq.unit, Object.assign({}, rq.value, { confirmed: true }));
-    logAct("Parking slot " + id + " assigned to " + unit + " without payment", "Parking");
-  }, true);
+/* the resident paid at the office: record that payment (it gets a receipt) and the slot is assigned */
+function parkOfficePay(unit) {
+  var rq = getRow("request", unit); if (!rq || !rq.value.slot) return;
+  openForm({
+    title: "Paid at the office",
+    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a receipt and assigns the slot.",
+    fields: [{ name: "amount", label: "Amount received (₱)", type: "number", value: String(rq.value.amount || "") }, { name: "ref", label: "Office receipt no. (optional)", placeholder: "e.g. OR-1042" }],
+    submit: "Record payment and assign",
+    onSubmit: async function (d) {
+      var amt = Number(d.amount); if (!(amt > 0)) return { error: "Enter the amount received." };
+      var cur = getRow("request", unit); if (!cur || cur.value.confirmed) return { error: "This request was already handled." };
+      var sl = getRow("slot", cur.value.slot); if (!sl || sl.value.unit) return { error: cur.value.slot + " is already taken." };
+      var id = nextId(), today = shortDate(new Date());
+      await put("proof", id, unit, { id: id, unit: unit, payer: cur.value.who || whoOf(unit), forText: PARK_FOR, method: PAY_OFFICE, reference: String(d.ref || "").trim() || "OFFICE-" + id, amount: amt, date: today, at: Date.now(), status: "Pending", paidOn: today, slot: cur.value.slot });
+      toast(await postProof(id, false));
+    }
+  });
+}
+// Change a resident's request: the slot, the rental and the amount.
+function editParkReq(unit) {
+  var rq = getRow("request", unit); if (!rq) return;
+  var v = rq.value, held = heldSlots();
+  var free = sortedSlots().filter(function (s) { return !s.v.unit && (!held[s.id] || held[s.id] === unit); });
+  var opts = free.map(function (s) { var r = parkRatesFor(s.v.size || "Regular"); return [s.id, s.id + " · " + (s.v.size || "Regular") + (r.month ? " · " + peso(r.month) + "/month" : "")]; });
+  if (v.slot && !opts.some(function (o) { return o[0] === v.slot; })) opts.unshift([v.slot, v.slot]);
+  openForm({
+    title: "Edit request · " + unit,
+    intro: "Change the slot or the rental. The amount follows the slot size and rental unless you type a different one. If the resident already sent a payment, it moves to the new slot.",
+    fields: [{ name: "slot", label: "Slot", type: "select", options: opts.length ? opts : [["", "No free slot"]], value: v.slot || "" },
+      { name: "plan", label: "Rental", type: "select", options: [["month", "Monthly (1 month)"], ["day", "Daily (by the day)"]], value: v.plan === "day" ? "day" : "month" },
+      { name: "days", label: "Number of days (daily only)", type: "number", value: String(v.days || 1) },
+      { name: "amount", label: "Amount (₱)", type: "number", value: String(v.amount || "") }],
+    submit: "Save changes",
+    onSubmit: async function (d) {
+      var cur = getRow("request", unit); if (!cur || cur.value.confirmed) return { error: "This request was already handled." };
+      var o = cur.value, slot = d.slot || o.slot, plan = d.plan === "day" ? "day" : "month", days = parseInt(d.days, 10) || 1;
+      if (plan === "day" && !(days >= 1 && days <= 365)) return { error: "Enter 1 to 365 days." };
+      if (slot && slot !== o.slot) { var sl = getRow("slot", slot); if (!sl || sl.value.unit || (heldSlots()[slot] && heldSlots()[slot] !== unit)) return { error: slot + " is not free." }; }
+      var q = parkQuote(plan, days, slot ? slotSize(slot) : "Regular"), typed = Number(d.amount);
+      var changed = slot !== o.slot || plan !== (o.plan || "month") || (plan === "day" && days !== (o.days || 1));
+      var amount = typed > 0 && typed !== Number(o.amount) ? typed : changed ? q.amount : Number(o.amount) || q.amount;
+      await put("request", unit, cur.unit, Object.assign({}, o, { slot: slot, plan: q.plan, days: q.days, amount: amount }));
+      if (slot !== o.slot) {
+        var pr = o.slot ? parkProof(unit, o.slot) : null;
+        if (pr && pr.v.status === "Pending") await put("proof", pr.id, pr.unit, Object.assign({}, pr.v, { slot: slot }));
+      }
+      logAct("Parking request edited, " + unit + " (" + (slot || "no slot") + ", " + parkPlanText(q.plan, q.days) + ", " + peso(amount) + ")", "Parking");
+      toast("Request updated.");
+    }
+  });
+}
+// Change a current rental: who has the slot, monthly or daily, the dates and the amount.
+function editRental(id) {
+  var s = getRow("slot", id); closeModal(); if (!s || !s.value.unit) return;
+  var v = s.value, taken = {};
+  vals("slot").forEach(function (x) { if (x.unit && x.id !== id) taken[x.unit] = 1; });
+  var units = unitNames().filter(function (u) { return !taken[u] || u === v.unit; });
+  openForm({
+    title: "Edit rental · " + id,
+    intro: "Change who rents " + esc(id) + ", whether it is monthly or daily, the dates and the amount. The change applies right away.",
+    fields: [{ name: "unit", label: "Unit", type: "select", options: units, value: v.unit },
+      { name: "plan", label: "Rental", type: "select", options: [["month", "Monthly"], ["day", "Daily"]], value: v.plan === "day" ? "day" : "month" },
+      { name: "from", label: "Starts", type: "date", value: v.from || dayKey(new Date()) },
+      { name: "until", label: "Ends", type: "date", value: v.until || "" },
+      { name: "amount", label: "Amount (₱)", type: "number", value: String(v.amount || "") }],
+    submit: "Save changes",
+    onSubmit: async function (d) {
+      if (!d.from) return { error: "Choose the start date." };
+      if (d.until && d.until < d.from) return { error: "The end date must be on or after the start date." };
+      var amt = Number(d.amount); if (d.amount !== "" && !(amt >= 0)) return { error: "Enter a valid amount." };
+      await put("slot", id, "", Object.assign({}, v, { unit: d.unit, plan: d.plan === "day" ? "day" : "month", from: d.from, until: d.until || parkUntil(d.plan === "day" ? "day" : "month", 1, d.from), amount: amt || 0 }));
+      logAct("Parking rental edited: " + id + " · " + d.unit + " (" + (d.plan === "day" ? "daily" : "monthly") + ", " + usageDate(d.from) + " to " + usageDate(d.until || "") + ")", "Parking");
+      toast("Rental updated.");
+    }
+  });
 }
 // Declines a parking request.
 function declineParking(unit) {
