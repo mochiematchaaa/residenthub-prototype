@@ -544,17 +544,18 @@ function payChargeHtml(i) {
     (c ? '<div><small>Status</small><span class="chip ' + tone + '">' + esc(c.text) + "</span></div>" : "") + (i.billed ? '<div><small>Billed</small><b>' + esc(i.billed) + "</b></div>" : "") + "</div>";
 }
 // The form to send a payment proof.
-function payFormHtml() {
-  var payable = dueItems().filter(function (i) { return i.st === "open" || i.st === "overdue"; }), chosen = payable.filter(function (i) { return i.id === state.payFor; })[0];
+function payFormHtml(fixed) {
+  var payable = dueItems().filter(function (i) { return i.st === "open" || i.st === "overdue"; }), chosen = fixed || payable.filter(function (i) { return i.id === state.payFor; })[0];
   var todayISO = isoDay(new Date()); if (!state.payDate) state.payDate = todayISO;
   var methods = payMethods().filter(function (m) { return m.enabled; });
   if (!methods.length) methods = [{ name: PAY_OFFICE, details: "Pay at the administration office." }];
   if (!state.payMethod || !methods.some(function (m) { return m.name === state.payMethod; })) state.payMethod = (methods.filter(function (m) { return m.name !== PAY_OFFICE; })[0] || methods[0]).name;
   var cur = methods.filter(function (m) { return m.name === state.payMethod; })[0], step = !state.payFor ? 1 : 2, walkIn = state.payMethod === PAY_OFFICE;
   var pulse = state.payPulse; state.payPulse = false;
-  return '<div class="card dz-pay' + (pulse ? " pulse" : "") + '" id="payPanel"><h2 style="font-size:19px;margin:0">I have paid</h2>' +
-    '<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5">Paid online? Send the details here, with a photo of your payment if you have one. Paid at the office? Nothing to send; the office records it.</p>' +
-    '<div class="dz-step"><span class="n ' + (state.payFor ? "ok" : "") + '">' + (state.payFor ? "✓" : "1") + '</span><div style="width:100%"><label class="dz-lab">What did you pay for?<select onchange="choosePayFor(this.value)"><option value="">' + (payable.length ? "Choose one of your charges…" : "You have no unpaid charges") + "</option>" + payable.map(function (i) { return '<option value="' + escAttr(i.id) + '" ' + (state.payFor === i.id ? "selected" : "") + ">" + esc(payOptionText(i)) + "</option>"; }).join("") + "</select></label>" + payChargeHtml(chosen) + "</div></div>" +
+  return '<div class="card dz-pay' + (pulse ? " pulse" : "") + '" id="payPanel"><h2 style="font-size:19px;margin:0">' + (fixed ? "Pay for your parking slot" : "I have paid") + '</h2>' +
+    '<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5">' + (fixed ? "Pay with GCash, Maya or bank transfer, then send the details here with a screenshot of your payment. The office checks it and confirms your rental. Paying at the office? Nothing to send; the office records it." : "Paid online? Send the details here, with a photo of your payment if you have one. Paid at the office? Nothing to send; the office records it.") + '</p>' +
+    (fixed ? '<div class="dz-step"><span class="n ok">✓</span><div style="width:100%">' + payChargeHtml(chosen) + "</div></div>" :
+    '<div class="dz-step"><span class="n ' + (state.payFor ? "ok" : "") + '">' + (state.payFor ? "✓" : "1") + '</span><div style="width:100%"><label class="dz-lab">What did you pay for?<select onchange="choosePayFor(this.value)"><option value="">' + (payable.length ? "Choose one of your charges…" : "You have no unpaid charges") + "</option>" + payable.map(function (i) { return '<option value="' + escAttr(i.id) + '" ' + (state.payFor === i.id ? "selected" : "") + ">" + esc(payOptionText(i)) + "</option>"; }).join("") + "</select></label>" + payChargeHtml(chosen) + "</div></div>") +
     '<div class="dz-step"><span class="n ok">2</span><div><div class="dz-lab">How did you pay?</div><div class="dz-methods">' + methods.map(function (m) {
       return '<button type="button" class="dz-method ' + (state.payMethod === m.name ? "on" : "") + '" onclick="pickMethod(\'' + escAttr(m.name) + '\')">' + esc(m.name) + "</button>";
     }).join("") + '</div><div class="dz-how"><b>' + esc(cur.name) + '</b><span>' + esc(cur.details || "") + "</span></div></div></div>" +
@@ -565,7 +566,7 @@ function payFormHtml() {
     '<div class="dz-lab">Photo of your payment <small style="font-weight:400;color:var(--muted)">(screenshot or receipt, optional)</small>' +
     (state.payImg ? '<div class="dz-photo"><img alt="Your payment photo" src="' + escAttr(state.payImg) + '" onclick="viewImage(state.payImg,\'Your payment photo\')"><div><button class="btn dz-mini" type="button" onclick="payPickImage()">Change</button> <button class="btn dz-mini" type="button" onclick="state.payImg=\'\';render()">Remove</button></div></div>'
       : '<button class="btn dz-addphoto" type="button" onclick="payPickImage()">+ Add a photo of your payment</button>') +
-    '<small style="display:block;margin-top:4px;color:var(--muted);font-weight:400">It helps the office check your payment faster.</small></div></div></div>') +
+    '<small style="display:block;margin-top:4px;color:var(--muted);font-weight:400">' + (fixed ? "Add the screenshot so the office can confirm your rental faster." : "It helps the office check your payment faster.") + '</small></div></div></div>') +
     (walkIn ? "" : '<button class="btn primary dz-send" onclick="submitPaymentProof()">Send payment details</button>') + "</div>";
 }
 // Chooses the photo of an online payment (shrunk so it fits).
@@ -651,9 +652,20 @@ function viewParkingPage() {
     var steps = '<div class="rental-steps" style="margin:14px 0 8px"><div class="rental-step done"><div class="dot">✓</div><div class="lbl">Slot chosen</div></div><div class="rental-step ' + (st === 1 ? "current" : "done") + '"><div class="dot">' + (st === 1 ? "2" : "✓") + '</div><div class="lbl">Pay ' + (amount ? peso(amount) : "the rental") + '</div></div><div class="rental-step ' + (st === 3 ? "done" : st === 2 ? "current" : "") + '"><div class="dot">' + (st === 3 ? "✓" : "3") + '</div><div class="lbl">Office approves</div></div></div>';
     var msg = st === 1 ? "Pay the rental, then send the payment details. The slot is held for you until the office decides." : st === 2 ? "Payment details sent (ref. " + esc(proof.v.reference) + "). The office will verify and assign the slot." : "Payment verified. The office will assign the slot.";
     hero = '<div class="card"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="park-big" style="width:72px;height:72px;font-size:22px;background:var(--warn-bg);color:var(--warn-fg)">' + esc(pick) + '</div><div style="flex:1 1 220px"><h2 style="font-size:19px;margin:0 0 2px">Slot ' + esc(pick) + ' reserved for you</h2><p class="hint" style="margin:0">' + (amount ? "Charge: <b>" + peso(amount) + "</b> · " + esc(parkPlanText(rv.plan, rv.days)) : "No rate set yet") + "</p></div></div>" + steps +
-      '<p class="hint" style="margin:0 0 12px">' + msg + '</p><div style="display:flex;gap:10px;flex-wrap:wrap">' + (st === 1 && amount ? '<button class="btn primary" onclick="payForParking()">Pay now</button>' : "") + (st === 1 ? '<button class="btn" onclick="cancelParkingRequest()">Cancel reservation</button>' : "") + "</div></div>";
+      '<p class="hint" style="margin:0 0 12px">' + msg + '</p><div style="display:flex;gap:10px;flex-wrap:wrap">' + (st === 1 && amount ? '<button class="btn primary" onclick="parkPayScroll()">Pay now</button>' : "") + (st === 1 ? '<button class="btn" onclick="cancelParkingRequest()">Cancel reservation</button>' : "") + "</div></div>";
   } else if (req) hero = '<div class="card park-hero warn"><div class="park-big">…</div><div><h2 style="font-size:19px;margin:0 0 2px">Request sent</h2><p class="hint" style="margin:0 0 10px">The office will assign you a slot when one is free. You will get a notice here.</p><button class="btn" onclick="cancelParkingRequest()">Cancel my request</button></div></div>';
   else hero = '<div class="card park-hero"><div class="park-big">P</div><div><h2 style="font-size:19px;margin:0 0 2px">You do not have a parking slot yet</h2><p class="hint" style="margin:0">' + (slots.length ? "Tap a free slot on the map to reserve it. The rental depends on the size of the slot (see the price list). You pay before the office approves it." : "The office has not set up the parking slots yet.") + "</p></div></div>";
+  // Slot reserved but not paid yet: the payment form sits right here (method, screenshot, send).
+  var payCard = "";
+  if (!mine && req && pick && !proof && amount) {
+    var pi = dueItems().filter(function (i) { return (i.park || i.title === PARK_FOR) && (i.st === "open" || i.st === "overdue"); })[0];
+    if (pi) {
+      if (state.payFor !== pi.id) { state.payFor = pi.id; state.payAmt = String(pi.amount); }
+      var shown = Object.assign({}, pi, { amount: amount, title: pi.park ? pi.title : "Motor parking rental · " + pick + " · " + parkPlanText(rv.plan, rv.days) });
+      if (state.payAmt !== String(amount)) state.payAmt = String(amount);
+      payCard = payFormHtml(shown);
+    }
+  }
   var canPick = !mine && !req && slots.length;
   var grid = slots.map(function (s) {
     var isMine = mine && s.id === mine.id, u = s.v.unit, h = held[s.id], myHold = h && h === unit;
@@ -662,7 +674,7 @@ function viewParkingPage() {
     var sz = s.v.size || "Regular", rt = parkRatesFor(sz);
     return "<" + (click ? "button" : "div") + ' class="pk ' + cls + (click ? " pick" : "") + '"' + click + ' title="' + label + " · " + sz + (rt.month ? " · " + peso(rt.month) + " per month" : "") + '"><b>' + esc(s.id) + "</b><small>" + label + "</small><small>" + esc(sz) + (!u && !h && rt.month ? " · " + peso(rt.month) : "") + "</small></" + (click ? "button" : "div") + ">";
   }).join("");
-  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero +
+  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero + payCard +
     (slots.length ? '<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="font-size:19px">Parking map</h2><span class="hint" style="margin:0">' + free + " of " + slots.length + ' free' + (canPick ? " · tap a free slot" : "") + '</span></div><div class="pk-grid">' + grid + '</div><div class="pk-legend"><span><i class="free"></i>Free</span><span><i class="held"></i>Held</span><span><i class="taken"></i>Taken</span>' + (mine || pick ? '<span><i class="mine"></i>Yours</span>' : "") + "</div></div>" : "") +
     '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Rental price by slot size</h2><p class="hint" style="margin:0 0 8px">A bigger slot costs more. Each slot on the map shows its size.</p>' + sizes.map(function (z) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border2);font-size:13.5px"><span><b>' + esc(z.name) + "</b>" + (z.sqm ? ' <span style="color:var(--muted)">· ' + z.sqm + " sqm</span>" : "") + "</span><span><b>" + (z.month ? peso(z.month) + "</b> / month" : "—</b>") + (z.day ? " · <b>" + peso(z.day) + "</b> / day" : "") + "</span></div>"; }).join("") + '</div><div class="card"><h2 style="font-size:19px;margin-bottom:4px">How it works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tap a free slot on the map. The slot is held for you.</li><li>You choose a monthly or daily rental, and it shows up as a charge. Pay at the office, by bank transfer, GCash or Maya, then send the payment details.</li><li>When the office verifies your payment, the slot is yours. You get your receipt under Dues.</li></ol></div></div></div>';
 }
@@ -692,7 +704,12 @@ function reserveSlot(id) {
     }
   });
 }
-// Goes to pay the parking charge.
+// "Pay now" on the Parking page: jump to the payment form on the same page.
+function parkPayScroll() {
+  state.payPulse = true; render();
+  var el = document.getElementById("payPanel"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+// Goes to pay the parking charge (from the Dues page).
 function payForParking() {
   var rq = getRow("request", myUnit()); if (!rq) return;
   set({ view: "dues", payFor: "parking", payAmt: String(rq.value.amount || parkRatesFor(slotSize(rq.value.slot)).month || "") });

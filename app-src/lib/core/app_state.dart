@@ -2232,17 +2232,20 @@ class AppState extends ChangeNotifier {
   }
 
   /// Resident: "I have paid" for the reserved slot.
-  String? submitParkingProof(String method, String reference) {
+  String? submitParkingProof(String method, String reference, {String image = '', String paidOn = ''}) {
     final r = myParkingReq;
     if (r == null || r.slot.isEmpty || r.amount <= 0) return 'Reserve a slot first.';
     if (reference.trim().length < 4) return 'Enter the reference number from your receipt or transaction.';
+    final paidDay = parseShortDate(paidOn.trim());
+    if (paidDay == null) return 'Enter the date you paid, like ${shortDate(DateTime.now())}.';
+    if (paidDay.isAfter(DateTime.now())) return 'The date you paid cannot be in the future.';
     if (proofs.any((p) => p.unit == myUnit && p.status != 'Rejected' && p.method == method && p.reference.toLowerCase() == reference.trim().toLowerCase())) {
       return 'That reference number was already submitted.';
     }
     proofs.insert(
         0,
         PaymentProof(nextId(), myUnit, myHousehold, method, reference.trim(), shortDate(DateTime.now()), r.amount,
-            forText: parkingPayFor, slot: r.slot, at: DateTime.now().millisecondsSinceEpoch));
+            forText: parkingPayFor, slot: r.slot, at: DateTime.now().millisecondsSinceEpoch, image: image, paidOn: shortDate(paidDay)));
     logActivity('Payment reference sent, $myUnit', 'Finance');
     _n();
     return null;
@@ -2641,6 +2644,46 @@ class AppState extends ChangeNotifier {
         Announcement(nextId(), title, body.isEmpty ? '—' : body, shortDate(DateTime.now()),
             draft ? 'Draft' : 'Published', type, sms, units: units));
     logActivity(draft ? 'Announcement saved as draft: $title' : 'Announcement published: $title', 'Announcements');
+    _n();
+  }
+
+  /// Compose window: keeps what was typed as a draft (like Gmail). Returns the draft's id (0 when there was nothing to keep).
+  /// Pass the id of an earlier save to update the same draft.
+  int saveAnnouncementDraft(int id, String title, String body, String type) {
+    final t = title.trim(), b = body.trim();
+    if (t.isEmpty && b.isEmpty) return id;
+    if (id != 0) {
+      final i = announcements.indexWhere((a) => a.id == id);
+      if (i >= 0) {
+        final a = announcements[i];
+        a.title = t.isEmpty ? '(no title)' : t;
+        a.body = b.isEmpty ? '—' : b;
+        a.type = type;
+        _n();
+        return id;
+      }
+    }
+    final n = nextId();
+    announcements.insert(0, Announcement(n, t.isEmpty ? '(no title)' : t, b.isEmpty ? '—' : b, shortDate(DateTime.now()), 'Draft', type, false));
+    logActivity('Announcement saved as draft: ${t.isEmpty ? '(no title)' : t}', 'Announcements');
+    _n();
+    return n;
+  }
+
+  /// Publishes a draft (or updates a published announcement) from the compose window.
+  void publishAnnouncementFrom(int id, String title, String body, String type, {bool sms = false}) {
+    final i = announcements.indexWhere((a) => a.id == id);
+    if (i < 0) return;
+    final a = announcements[i];
+    a.title = title.trim();
+    a.body = body.trim().isEmpty ? '—' : body.trim();
+    a.type = type;
+    a.sms = sms;
+    if (a.status != 'Published') {
+      a.status = 'Published';
+      a.date = shortDate(DateTime.now());
+      logActivity('Announcement published: ${a.title}', 'Announcements');
+    }
     _n();
   }
 

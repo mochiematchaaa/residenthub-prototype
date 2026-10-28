@@ -496,18 +496,44 @@
   }
 
   var origViewReq = window.viewReq;
+  /* Complaints & documents: two categories (Complaints, Documents). Complaints that are done are kept apart and compiled by month. */
   window.viewReq = function () {
     var names = ["Open", "In progress", "Resolved"], grs = newest(list("grievance"));
     var docsPart = origViewReq(), cut = docsPart.indexOf('<div class="card" style="padding:0;overflow:hidden;margin-top:16px">');
-    docsPart = cut >= 0 ? docsPart.slice(cut) : "";
-    var head = grs.length ? '<div class="grid cols-3">' + grs.map(function (r) {
-      var g = r.v, s = Math.min(2, Math.max(0, Number(g.stage) || 0));
-      var steps = names.map(function (n, k) { return '<span class="chip ' + (k === s ? (k === 2 ? "good" : k === 1 ? "warn" : "bad") : "info") + '" style="' + (k === s ? "" : "background:#F1E9D8;color:#6F6753") + '">' + n + "</span>"; }).join(" ");
-      return '<div class="card"><div><div style="font:700 17px \'Bricolage Grotesque\',\'Source Sans 3\',sans-serif">' + esc(g.title) + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Reported by ' + esc(g.by || r.unit) + '</div><p style="font-size:13px;color:var(--muted);margin:8px 0 0">' + esc(g.body) + "</p></div>" +
-        assignBlock(r) + '<div style="display:flex;gap:6px;margin:10px 0">' + steps + "</div>" +
-        (s < 2 ? '<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" style="flex:1" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div>" : "") + "</div>";
-    }).join("") + "</div>" : emptyCard("No complaints from residents yet.");
-    return head + docsPart;
+    docsPart = cut >= 0 ? docsPart.slice(cut).replace('overflow:hidden;margin-top:16px', 'overflow:hidden;margin-top:0') : "";
+    var stageOf = function (r) { return Math.min(2, Math.max(0, Number(r.v.stage) || 0)); };
+    var active = grs.filter(function (r) { return stageOf(r) < 2; }), done = grs.filter(function (r) { return stageOf(r) === 2; });
+    var tab = state.reqTab === "docs" ? "docs" : "complaints", fil = state.reqFilter === "done" ? "done" : "active";
+    var bar = subNav([["complaints", "Complaints", active.length || "", true], ["docs", "Documents", list("doc").length]], tab, "reqTab");
+    if (tab === "docs") return bar + docsPart;
+    var chips = '<div class="filters" style="margin-bottom:14px">' + [["active", "Active (" + active.length + ")"], ["done", "Done (" + done.length + ")"]].map(function (t) {
+      return '<button class="' + (fil === t[0] ? "active" : "") + '" onclick="set({reqFilter:\'' + t[0] + '\'})">' + t[1] + "</button>";
+    }).join("") + "</div>";
+    if (fil === "active") {
+      return bar + chips + (active.length ? '<div class="grid cols-3">' + active.map(function (r) {
+        var g = r.v, s = stageOf(r);
+        var steps = names.map(function (n, k) { return '<span class="chip ' + (k === s ? (k === 2 ? "good" : k === 1 ? "warn" : "bad") : "info") + '" style="' + (k === s ? "" : "background:#F1E9D8;color:#6F6753") + '">' + n + "</span>"; }).join(" ");
+        return '<div class="card"><div><div style="font:700 17px \'Bricolage Grotesque\',\'Source Sans 3\',sans-serif">' + esc(g.title) + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Reported by ' + esc(g.by || r.unit) + '</div><p style="font-size:13px;color:var(--muted);margin:8px 0 0">' + esc(g.body) + "</p></div>" +
+          assignBlock(r) + '<div style="display:flex;gap:6px;margin:10px 0">' + steps + "</div>" +
+          '<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" style="flex:1" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div></div>";
+      }).join("") + "</div>" : emptyCard(grs.length ? "No active complaints. Finished ones are under Done." : "No complaints from residents yet."));
+    }
+    // Done, compiled by the month it was finished
+    var cost = done.reduce(function (t, r) { return t + (Number(r.v.cost) || 0); }, 0), groups = {}, order = [];
+    done.slice().sort(function (a, b) { return String(b.v.resolvedOn || "").localeCompare(String(a.v.resolvedOn || "")) || Number(b.id) - Number(a.id); }).forEach(function (r) {
+      var k = String(r.v.resolvedOn || "").slice(0, 7) || "none"; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(r);
+    });
+    var monthName = function (k) { if (k === "none") return "Earlier"; var d = kd(k + "-01"); return d ? d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : k; };
+    var body = order.map(function (k) {
+      var rows = groups[k], mc = rows.reduce(function (t, r) { return t + (Number(r.v.cost) || 0); }, 0);
+      return '<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;background:var(--beige)"><b>' + esc(monthName(k)) + '</b><span style="color:var(--muted);font-size:13px">' + rows.length + " resolved" + (mc ? " · repair cost " + money(mc) : "") + "</span></div>" +
+        rows.map(function (r) {
+          var g = r.v;
+          return '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--border2)"><div style="flex:1 1 260px;min-width:0"><b>' + esc(g.title) + '</b><div style="font-size:13px;color:var(--muted)">' + esc(g.by || r.unit || "") + (g.assignee ? " · handled by " + esc(g.assignee) : "") + (g.equipName ? " · " + esc(g.equipName) : "") + "</div>" +
+            (g.completion ? '<div style="font-size:13px;margin-top:3px">' + esc(g.completion) + "</div>" : "") + '</div><div style="text-align:right;font-size:13px;color:var(--muted);white-space:nowrap"><span class="chip good">Resolved</span><div style="margin-top:4px">' + (g.resolvedOn ? esc(fd(g.resolvedOn)) : "") + (g.cost ? " · " + money(g.cost) : "") + "</div></div></div>";
+        }).join("") + "</div>";
+    }).join("");
+    return bar + chips + (done.length ? '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(done.length, "Complaints resolved", "good") + statTile(money(cost), "Total repair cost", "") + "</div>" + body : emptyCard("Nothing is done yet. Resolved complaints are compiled here by month."));
   };
 
   /* ==========================================================================

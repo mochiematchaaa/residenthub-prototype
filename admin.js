@@ -423,24 +423,9 @@ function publishAnn(id) {
     logAct("Announcement published: " + row.value.title, "Announcements");
   });
 }
-// Popup form to edit an announcement.
-function editAnn(id) {
-  var row = getRow("announcement", id); if (!row) return;
-  var a = row.value;
-  openForm({
-    title: "Edit announcement",
-    fields: [{ name: "title", label: "Title", value: a.title }, { name: "body", label: "Message", type: "textarea", value: a.body === "—" ? "" : a.body },
-      { name: "type", label: "Type", type: "select", options: ["General", "Maintenance", "Warning", "Emergency"], value: a.type || "General" }],
-    onSubmit: async function (d) {
-      if (!d.title) return { error: "Enter a title." };
-      await put("announcement", id, "", Object.assign({}, a, { title: d.title, body: d.body || "—", type: d.type }));
-      logAct("Announcement edited: " + d.title, "Announcements");
-    }
-  });
-}
 // Deletes an announcement.
 function deleteAnn(id) {
-  confirmBox("Delete announcement?", "Residents will no longer see it.", "Delete", async function () { await del("announcement", id); logAct("Announcement deleted", "Announcements"); }, true);
+  confirmBox("Delete announcement?", "Residents will no longer see it.", "Delete", async function () { await del("announcement", id); if (String(state.annOpen) === String(id)) state.annOpen = ""; logAct("Announcement deleted", "Announcements"); }, true);
 }
 // Popup form to add or edit an event.
 function eventForm(id) {
