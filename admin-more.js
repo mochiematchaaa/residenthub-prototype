@@ -619,8 +619,9 @@ function proofCheck(r) {
   var named = open.filter(function (d) { return d.v.note === p.forText; })[0], expected = null, parking = p.forText === PARK_FOR;
   if (named) expected = Number(named.v.amount) || 0;
   else if (parking) {
-    var prq = getRow("request", p.unit), slotId = p.slot || (prq && prq.value.slot) || "", mr = 0;
-    if (prq && prq.value.slot === slotId && Number(prq.value.amount) > 0) mr = Number(prq.value.amount);
+    var prq = getRow("request", p.unit), slotId = p.slot || (prq && prq.value.slot) || "", mr = 0, rslot = p.renew ? getRow("slot", slotId) : null;
+    if (rslot) mr = parkRenewAmount(slotId, rslot.value);
+    else if (prq && prq.value.slot === slotId && Number(prq.value.amount) > 0) mr = Number(prq.value.amount);
     else mr = parkRatesFor(slotId ? slotSize(slotId) : "Regular").month;
     expected = mr || null; if (!mr) why.push("The parking rate is not set, so the amount cannot be checked.");
   }
@@ -669,18 +670,35 @@ async function postProof(id, auto) {
   await put("proof", id, row.unit, p);
   await issuePayment(p.unit, p.payer, p.forText, p.method, p.reference, p.amount, p.receiptNo);
   logAct((auto ? "Payment posted automatically, " : "Payment recorded, ") + p.unit + (auto ? " (" + p.receiptNo + ")" : ""), "Finance");
-  // a paid parking reservation: the chosen slot goes to the resident straight away
-  var assigned = "";
+  // a paid parking reservation: the chosen slot goes to the resident straight away. A paid renewal extends the rental.
+  var assigned = "", renewedTo = "", smsNote = "";
   if (p.forText === PARK_FOR && p.slot) {
-    var rq = getRow("request", p.unit), sl = getRow("slot", p.slot);
-    if (rq && !rq.value.confirmed && rq.value.slot === p.slot && sl && !sl.value.unit) {
-      await put("slot", p.slot, "", parkSlotFromRequest(p.slot, rq.value));
-      await put("request", p.unit, rq.unit, Object.assign({}, rq.value, { confirmed: true }));
-      logAct("Parking slot " + p.slot + " assigned to " + p.unit + " (paid)", "Parking");
-      assigned = p.slot;
+    var sl = getRow("slot", p.slot);
+    if (p.renew) {
+      if (sl && sl.value.unit === p.unit) {
+        var today = dayKey(new Date()), start = sl.value.until && sl.value.until >= today ? isoPlus(sl.value.until, 1) : today;
+        var nv = Object.assign({}, sl.value, { until: parkUntil("month", 1, start) });
+        await put("slot", p.slot, "", nv);
+        if (walkinOf(p.unit, true)) await del("walkin", p.unit + "|renew");
+        if (leaveNoteOf(p.unit)) await del("renewal", p.unit);
+        logAct("Parking rental renewed: " + p.slot + " · " + p.unit + " until " + usageDate(nv.until), "Parking");
+        renewedTo = nv.until;
+        smsNote = await sendSms(p.unit, approvedSmsText(p.slot, nv, p.receiptNo, p.amount, true));
+      }
+    } else {
+      var rq = getRow("request", p.unit);
+      if (rq && !rq.value.confirmed && rq.value.slot === p.slot && sl && !sl.value.unit) {
+        var nv2 = parkSlotFromRequest(p.slot, rq.value);
+        await put("slot", p.slot, "", nv2);
+        await put("request", p.unit, rq.unit, Object.assign({}, rq.value, { confirmed: true }));
+        if (walkinOf(p.unit, false)) await del("walkin", p.unit);
+        logAct("Parking slot " + p.slot + " assigned to " + p.unit + " (paid)", "Parking");
+        assigned = p.slot;
+        smsNote = await sendSms(p.unit, approvedSmsText(p.slot, nv2, p.receiptNo, p.amount, false));
+      }
     }
   }
-  return assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Receipt " + p.receiptNo + " is ready for " + p.unit + ".";
+  return (renewedTo ? "Payment verified. " + p.slot + " is renewed until " + usageDate(renewedTo) + "." : assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Receipt " + p.receiptNo + " is ready for " + p.unit + ".") + (smsNote ? " " + smsNote : "");
 }
 // Verifies a resident's payment proof now and issues the receipt.
 function confirmProof(id) {
@@ -1021,10 +1039,10 @@ function viewParking() {
     return '<div class="card" style="display:flex;flex-direction:column;gap:10px;max-width:520px"><h2>Set up motor parking</h2><p class="hint" style="margin:0">There are no slots yet. Tell the system how many motor parking slots the building has. They are named M-01, M-02, and so on.</p>' +
       '<button class="btn primary" onclick="addSlotsForm()">Add slots</button></div>' + (reqs.length ? '<p class="hint" style="margin-top:12px">' + reqs.length + " resident request(s) are waiting for slots.</p>" : "");
   }
-  var tab = parkTab(), active = slots.filter(function (s) { return s.v.unit && !parkExpired(s.v); }).length;
+  var tab = parkTab(), active = slots.filter(function (s) { return s.v.unit && !parkExpired(s.v); }).length, nRenew = parkRenewalItems().length;
   var tools = tab === "slots" ? '<button class="btn primary" onclick="addSlotsForm()">+ Add slots</button>' : "";
-  return '<div class="grid cols-3">' + statCard("Slots in use", used + " of " + slots.length) + statCard("Monthly rentals income", peso(monthlyIncome)) + statCard("Requests waiting", String(reqs.length)) + "</div>" +
-    '<div style="height:16px"></div>' + subNav([["requests", "Requests", reqs.length || "", true], ["slots", "Slots", slots.length], ["rentals", "Current rentals", active]], tab, "parkTab", tools) +
+  return '<div class="grid cols-3">' + statCard("Slots in use", used + " of " + slots.length) + statCard("Monthly rentals income", peso(monthlyIncome)) + statCard("Requests waiting", String(reqs.length + nRenew)) + "</div>" +
+    '<div style="height:16px"></div>' + subNav([["requests", "Requests", (reqs.length + nRenew) || "", true], ["slots", "Slots", slots.length], ["rentals", "Current rentals", active]], tab, "parkTab", tools) +
     (tab === "slots" ? parkSlotsPage(slots, sizes) : tab === "rentals" ? rentalsCard(slots) : parkRequestsPage(reqs));
 }
 // Slots tab: the map of every slot.
@@ -1033,30 +1051,65 @@ function parkSlotsPage(slots, sizes) {
     '<p class="hint">Tap a slot to assign it, edit the rental, remove the resident, rename it or delete it. The price depends on the slot size: ' + sizes.map(function (z) { return "<b>" + esc(z.name) + "</b> " + (z.month ? peso(z.month) + "/month" : "not set") + (z.day ? " · " + peso(z.day) + "/day" : ""); }).join(" · ") + ". Change the rates under Finance &gt; Settings.</p>" +
     '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + '</small><small class="psz-tag">' + esc(s.v.size || "Regular") + "</small></button>"; }).join("") + "</div></div>";
 }
-// Requests tab: one card for each resident request, with the payment they sent (reference, date, screenshot).
+// The payment a resident sent for parking (method, reference, amount, date, screenshot) and the checks the office looks at.
+function parkPayBox(pr, expected) {
+  var p = pr.v, pst = p.status, chk = proofCheck(pr), match = Math.abs((Number(p.amount) || 0) - Number(expected)) <= 0.009;
+  return '<div class="park-pay"><div class="park-pay-h"><b>Payment sent by the resident</b>' + (pst === "Confirmed" ? '<span class="chip good">Verified</span>' : match ? '<span class="chip good">✓ Amount matches</span>' : '<span class="chip bad">✗ Should be ' + peso(Number(expected)) + "</span>") + "</div>" +
+    '<div class="vp-grid"><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div><div><label>Amount sent</label><b>' + peso(Number(p.amount) || 0) + '</b></div><div><label>Date paid</label><b>' + esc(p.paidOn || "Not given") + '</b></div><div><label>Sent</label><b>' + esc(clockText(proofSentAt(p))) + "</b></div>" +
+    '<div class="vp-photo"><label>Screenshot of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(pr.id) + '\')" title="Open the screenshot"><img alt="Payment screenshot" src="' + escAttr(p.image) + '"><span>View screenshot</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" +
+    (pst !== "Confirmed" && chk.checks ? '<div class="vp-checks">' + chk.checks.map(function (c) { return '<span class="chip ' + (c.ok === true ? "good" : c.ok === false ? "bad" : "") + '">' + (c.ok === true ? "✓ " : c.ok === false ? "✕ " : "• ") + esc(c.label) + "</span>"; }).join("") + "</div>" : "") + "</div>";
+}
+// Renewals: rentals whose resident sent a renewal payment, announced a walk-in, or said they will not renew.
+function parkRenewalCards() {
+  var items = parkRenewalItems();
+  if (!items.length) return "";
+  return '<h3 class="park-h">Renewals</h3><div class="park-reqs">' + items.map(function (x) {
+    var s = x.slot, v = s.v, amt = parkRenewAmount(s.id, v), sid = escAttr(s.id), d = x.info;
+    var chip = x.leave ? '<span class="chip info">Will not renew</span>' : x.proof ? '<span class="chip warn">Renewal payment sent</span>' : '<span class="chip warn">Walk-in · ' + (x.walkin.value.day === dayKey(new Date()) ? "coming today" : "expected " + esc(usageDate(x.walkin.value.day))) + "</span>";
+    var facts = '<div class="vp-grid"><div><label>Slot</label><b>' + esc(s.id) + " · " + esc(v.size || "Regular") + '</b></div><div><label>Rental runs until</label><b>' + esc(usageDate(v.until || "")) + '</b></div><div><label>Next payment due</label><b>' + (d ? esc(usageDate(d.nextDue)) + " (" + esc(parkDaysText(d.days)) + ")" : "—") + '</b></div><div><label>Renewal amount</label><b>' + peso(amt) + "</b></div></div>";
+    var body = "", btns = "";
+    if (x.leave) body = '<div class="park-pay wait"><b>The resident told the office they will not renew.</b>' + (x.leave.value.note ? " “" + esc(x.leave.value.note) + "”" : "") + " The slot stays theirs until " + esc(usageDate(v.until || "")) + ". After that, remove them from Current rentals to free it.</div>";
+    else if (x.proof) {
+      body = parkPayBox(x.proof, amt);
+      btns = '<button class="btn primary" onclick="confirmProof(\'' + escAttr(x.proof.id) + '\')">Verify and renew ' + esc(s.id) + '</button><button class="btn" onclick="rejectProof(\'' + escAttr(x.proof.id) + '\')">Reject payment</button>';
+    } else {
+      body = '<div class="park-pay wait"><b>Walk-in.</b> ' + esc(walkinText(x.walkin.value, v.unit)) + " They pay at the counter. Record it when they do (cash, check, card or e-wallet).</div>";
+      btns = '<button class="btn primary" onclick="parkRenewPay(\'' + sid + '\')">Record walk-in payment</button>';
+    }
+    return '<article class="card park-req"><div class="park-req-h"><span class="vp-av">' + esc(String(v.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(v.unit) + "</b><small>Renewal of " + esc(s.id) + "</small></div>" + chip + "</div>" + facts + body + (btns ? '<div class="vp-actions">' + btns + "</div>" : "") + "</article>";
+  }).join("") + "</div>";
+}
+// The texts sent to residents (the prototype only saves them; a real SMS service would deliver them).
+function smsLogCard() {
+  var l = newest(list("sms")).slice(0, 6);
+  return '<div class="card sms-log" style="margin-top:16px"><h2 style="margin:0 0 4px;font-size:17px">Text messages to residents</h2><p class="hint" style="margin:0 0 6px">When a parking payment is approved, the resident gets a text with the rental period and the next due date. In this prototype the text is saved here and shown on the resident\'s dashboard; connecting an SMS service would send it to their phone.</p>' +
+    (l.length ? l.map(function (r) { return '<div class="sms-row"><b>' + esc(r.unit) + "</b> · " + esc(r.v.to || "no mobile number") + " · " + esc(clockText(Number(r.v.at))) + ' <span class="chip ' + (r.v.status === "Sent" ? "good" : "warn") + '">' + esc(r.v.status) + "</span><small>" + esc(r.v.text) + "</small></div>"; }).join("") : '<p class="empty" style="margin:0">No texts yet.</p>') + "</div>";
+}
+// Requests tab: renewals first, then one card for each resident request, with the payment they sent (reference, date, screenshot).
 function parkRequestsPage(reqs) {
-  if (!reqs.length) return '<div class="card"><p class="empty" style="margin:0">No requests waiting. When a resident reserves a slot it shows up here.</p></div>';
-  return '<p class="hint" style="margin:0 0 12px">A reserved slot is assigned only after its payment is verified. Check the reference number and the screenshot, then verify.</p><div class="park-reqs">' + reqs.map(function (r) {
-    var v = r.v, id = escAttr(r.id), pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", priced = !!(v.slot && v.amount);
-    var chip = !priced ? (v.slot ? '<span class="chip info">Chose ' + esc(v.slot) + "</span>" : '<span class="chip info">Asked for a slot</span>') : pr ? (pst === "Confirmed" ? '<span class="chip good">Payment verified</span>' : '<span class="chip warn">Payment sent</span>') : '<span class="chip info">Waiting for payment</span>';
+  var renewals = parkRenewalCards();
+  if (!reqs.length) return renewals + '<div class="card"><p class="empty" style="margin:0">No new requests waiting. When a resident reserves a slot it shows up here.</p></div>' + smsLogCard();
+  return renewals + (renewals ? '<h3 class="park-h">New requests</h3>' : "") + '<p class="hint" style="margin:0 0 12px">A reserved slot is assigned only after its payment is verified. Check the reference number and the screenshot, then verify. A resident who chose Walk-in shows here too; record the payment when they come to the office.</p><div class="park-reqs">' + reqs.map(function (r) {
+    var v = r.v, id = escAttr(r.id), pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", priced = !!(v.slot && v.amount), w = walkinOf(r.id, false);
+    var wchip = '<span class="chip warn">Walk-in · ' + (w && w.value.day === dayKey(new Date()) ? "coming today" : w ? "expected " + esc(usageDate(w.value.day)) : "") + "</span>";
+    var chip = !priced ? (v.slot ? '<span class="chip info">Chose ' + esc(v.slot) + "</span>" : '<span class="chip info">Asked for a slot</span>') : pr ? (pst === "Confirmed" ? '<span class="chip good">Payment verified</span>' : '<span class="chip warn">Payment sent</span>') : w ? wchip : '<span class="chip info">Waiting for payment</span>';
     var facts = '<div class="vp-grid">' + (v.slot ? '<div><label>Slot</label><b>' + esc(v.slot) + " · " + esc(slotSize(v.slot)) + "</b></div>" : "") + (v.plan ? '<div><label>Rental</label><b>' + esc(parkPlanText(v.plan, v.days)) + "</b></div>" : "") + (v.amount ? '<div><label>Amount to pay</label><b>' + peso(Number(v.amount)) + "</b></div>" : "") + '<div><label>Requested</label><b>' + esc(v.when || "") + "</b></div></div>";
     var pay = "", btns = "";
     if (priced && pr) {
-      var p = pr.v, chk = proofCheck(pr), match = Math.abs((Number(p.amount) || 0) - Number(v.amount)) <= 0.009;
-      pay = '<div class="park-pay"><div class="park-pay-h"><b>Payment sent by the resident</b>' + (pst === "Confirmed" ? '<span class="chip good">Verified</span>' : match ? '<span class="chip good">✓ Amount matches</span>' : '<span class="chip bad">✗ Should be ' + peso(Number(v.amount)) + "</span>") + "</div>" +
-        '<div class="vp-grid"><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div><div><label>Amount sent</label><b>' + peso(Number(p.amount) || 0) + '</b></div><div><label>Date paid</label><b>' + esc(p.paidOn || "Not given") + '</b></div><div><label>Sent</label><b>' + esc(clockText(proofSentAt(p))) + "</b></div>" +
-        '<div class="vp-photo"><label>Screenshot of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(pr.id) + '\')" title="Open the screenshot"><img alt="Payment screenshot" src="' + escAttr(p.image) + '"><span>View screenshot</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" +
-        (pst !== "Confirmed" && chk.checks ? '<div class="vp-checks">' + chk.checks.map(function (c) { return '<span class="chip ' + (c.ok === true ? "good" : c.ok === false ? "bad" : "") + '">' + (c.ok === true ? "✓ " : c.ok === false ? "✕ " : "• ") + esc(c.label) + "</span>"; }).join("") + "</div>" : "") + "</div>";
+      pay = parkPayBox(pr, v.amount);
       btns = pst === "Confirmed" ? '<button class="btn primary" onclick="approveParking(\'' + id + '\')">Assign ' + esc(v.slot) + "</button>" : '<button class="btn primary" onclick="confirmProof(\'' + escAttr(pr.id) + '\')">Verify and assign ' + esc(v.slot) + '</button><button class="btn" onclick="rejectProof(\'' + escAttr(pr.id) + '\')">Reject payment</button>';
+    } else if (priced && w) {
+      pay = '<div class="park-pay wait"><b>Walk-in.</b> ' + esc(walkinText(w.value, v.who || v.unit)) + " They pay at the counter. Record it when they do (cash, check, card or e-wallet). The slot is assigned and they get a text with the next due date.</div>";
+      btns = '<button class="btn primary" onclick="parkOfficePay(\'' + id + '\')">Record walk-in payment</button>';
     } else if (priced) {
-      pay = '<div class="park-pay wait"><b>No payment yet.</b> The slot can only be assigned after the payment is verified. The resident sends the reference number and a screenshot from their Parking page. If they paid at the office, record it below.</div>';
-      btns = '<button class="btn primary" onclick="parkOfficePay(\'' + id + '\')">Paid at the office</button>';
+      pay = '<div class="park-pay wait"><b>No payment yet.</b> The slot can only be assigned after the payment is verified. The resident sends the reference number and a screenshot from their Parking page, or taps Walk-in to pay at the office.</div>';
+      btns = '<button class="btn primary" onclick="parkOfficePay(\'' + id + '\')">Record walk-in payment</button>';
     } else {
       btns = '<button class="btn primary" onclick="approveParking(\'' + id + '\')">Assign' + (v.slot ? " " + esc(v.slot) : "") + "</button>";
     }
     return '<article class="card park-req"><div class="park-req-h"><span class="vp-av">' + esc(String(v.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(v.unit) + "</b><small>" + esc(v.who || "") + "</small></div>" + chip + "</div>" + facts + pay +
       '<div class="vp-actions">' + btns + '<span style="flex:1"></span><button class="btn" onclick="editParkReq(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="declineParking(\'' + id + '\')">Decline</button></div></article>';
-  }).join("") + "</div>";
+  }).join("") + "</div>" + smsLogCard();
 }
 /* who has a slot: one row each, with how long the rental runs and a Remove button */
 function rentalsCard(slots) {
@@ -1064,8 +1117,9 @@ function rentalsCard(slots) {
   return '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="padding:14px 18px"><h2 style="margin:0">Current rentals</h2><p class="hint" style="margin:4px 0 0">Everyone who has a slot, and whether it is rented for a month or by the day. Remove ends the rental and frees the slot.</p></div>' +
     tableRows(rows.map(function (s) {
       var v = s.v, exp = parkExpired(v);
-      return '<tr><td style="font-weight:700">' + esc(v.unit) + "</td><td>" + esc(s.id) + '<div class="cell-sub">' + esc(v.size || "Regular") + ' · ' + (v.amount ? peso(Number(v.amount)) : "") + '</div></td><td>' + (v.plan === "day" ? "Daily" : "Monthly") + '</td><td style="color:var(--muted)">' + (v.until ? esc(usageDate(v.from)) + " – " + esc(usageDate(v.until)) : "No end date") + "</td><td>" +
-        (exp ? '<span class="chip bad">Ended</span>' : '<span class="chip good">Active</span>') + ' <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="editRental(\'' + escAttr(s.id) + '\')">Edit</button> <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeRental(\'' + escAttr(s.id) + '\')">Remove</button></td></tr>';
+      var di = parkDueInfo(v), leaveN = leaveNoteOf(v.unit);
+      return '<tr><td style="font-weight:700">' + esc(v.unit) + "</td><td>" + esc(s.id) + '<div class="cell-sub">' + esc(v.size || "Regular") + ' · ' + (v.amount ? peso(Number(v.amount)) : "") + '</div></td><td>' + (v.plan === "day" ? "Daily" : "Monthly") + '</td><td style="color:var(--muted)">' + (v.until ? esc(usageDate(v.from)) + " – " + esc(usageDate(v.until)) : "No end date") + (di ? '<div class="cell-sub">Next payment due ' + esc(usageDate(di.nextDue)) + " (" + esc(parkDaysText(di.days)) + ")</div>" : "") + "</td><td>" +
+        (exp ? '<span class="chip bad">Ended</span>' : di && di.soon ? '<span class="chip warn">Renewal due soon</span>' : '<span class="chip good">Active</span>') + (leaveN ? ' <span class="chip info">Will not renew</span>' : "") + ' ' + (v.plan === "day" ? "" : '<button class="btn primary" style="min-height:32px;padding:0 10px;font-size:12px" onclick="parkRenewPay(\'' + escAttr(s.id) + '\')">Renew</button> ') + '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="editRental(\'' + escAttr(s.id) + '\')">Edit</button> <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeRental(\'' + escAttr(s.id) + '\')">Remove</button></td></tr>';
     }), ["UNIT", "SLOT", "PLAN", "RENTAL PERIOD", "STATUS"], "No slot is rented yet.") + "</div>";
 }
 /* the next n slot names (M-01, M-02, ...) that no slot uses yet, so adding never overwrites a slot */
@@ -1125,6 +1179,8 @@ function removeRental(id) {
   confirmBox("Remove " + unit + " from " + id + "?", "The " + (s.value.plan === "day" ? "daily" : "monthly") + " rental ends now and " + id + " becomes free for other residents. Nothing is refunded automatically.", "Remove", async function () {
     await put("slot", id, "", { id: id });
     if (getRow("request", unit)) await del("request", unit);
+    if (walkinOf(unit, true)) await del("walkin", unit + "|renew");
+    if (leaveNoteOf(unit)) await del("renewal", unit);
     logAct("Parking rental ended: " + unit + " removed from " + id, "Parking");
     toast(unit + " removed. " + id + " is free.");
   }, true);
@@ -1185,20 +1241,46 @@ function approveParking(unit) {
     toast(target + " assigned to " + unit + ".");
   });
 }
-/* the resident paid at the office: record that payment (it gets a receipt) and the slot is assigned */
+/* walk-in: the resident pays at the counter. The form asks how (cash, check, card, e-wallet) and how much. */
+function officePayFields(amount) {
+  return [
+    { name: "via", label: "Paid at the counter by", type: "select", options: WALKIN_VIA.map(function (x) { return x[0]; }), value: WALKIN_VIA[0][0] },
+    { name: "amount", label: "Amount received (₱)", type: "number", value: String(amount || "") },
+    { name: "ref", label: "Receipt or reference no. (optional)", placeholder: "e.g. OR-1042, or the card or e-wallet reference" }
+  ];
+}
+// A walk-in payment for a reserved slot: record it (receipt), assign the slot, text the resident.
 function parkOfficePay(unit) {
   var rq = getRow("request", unit); if (!rq || !rq.value.slot) return;
   openForm({
-    title: "Paid at the office",
-    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a receipt and assigns the slot.",
-    fields: [{ name: "amount", label: "Amount received (₱)", type: "number", value: String(rq.value.amount || "") }, { name: "ref", label: "Office receipt no. (optional)", placeholder: "e.g. OR-1042" }],
+    title: "Walk-in payment",
+    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a receipt, assigns the slot and sends the resident a text with the rental period and the next due date.",
+    fields: officePayFields(rq.value.amount),
     submit: "Record payment and assign",
     onSubmit: async function (d) {
       var amt = Number(d.amount); if (!(amt > 0)) return { error: "Enter the amount received." };
       var cur = getRow("request", unit); if (!cur || cur.value.confirmed) return { error: "This request was already handled." };
       var sl = getRow("slot", cur.value.slot); if (!sl || sl.value.unit) return { error: cur.value.slot + " is already taken." };
       var id = nextId(), today = shortDate(new Date());
-      await put("proof", id, unit, { id: id, unit: unit, payer: cur.value.who || whoOf(unit), forText: PARK_FOR, method: PAY_OFFICE, reference: String(d.ref || "").trim() || "OFFICE-" + id, amount: amt, date: today, at: Date.now(), status: "Pending", paidOn: today, slot: cur.value.slot });
+      await put("proof", id, unit, { id: id, unit: unit, payer: cur.value.who || whoOf(unit), forText: PARK_FOR, method: walkinMethod(d.via), via: d.via, reference: String(d.ref || "").trim() || "OFFICE-" + id, amount: amt, date: today, at: Date.now(), status: "Pending", paidOn: today, slot: cur.value.slot });
+      toast(await postProof(id, false));
+    }
+  });
+}
+// A walk-in payment to renew a monthly rental.
+function parkRenewPay(slotId) {
+  var sl = getRow("slot", slotId); if (!sl || !sl.value.unit) return;
+  var unit = sl.value.unit, d0 = parkDueInfo(sl.value);
+  openForm({
+    title: "Renew " + slotId + " · " + unit,
+    intro: esc(unit) + " pays to renew " + esc(slotId) + (d0 ? ". The rental now runs until " + esc(usageDate(d0.until)) + "; one more month is added" : "") + ". Recording it issues a receipt, extends the rental and sends the resident a text with the next due date.",
+    fields: officePayFields(parkRenewAmount(slotId, sl.value)),
+    submit: "Record payment and renew",
+    onSubmit: async function (d) {
+      var amt = Number(d.amount); if (!(amt > 0)) return { error: "Enter the amount received." };
+      var cur = getRow("slot", slotId); if (!cur || cur.value.unit !== unit) return { error: "This rental changed. Close this and try again." };
+      var id = nextId(), today = shortDate(new Date());
+      await put("proof", id, unit, { id: id, unit: unit, payer: whoOf(unit), forText: PARK_FOR, method: walkinMethod(d.via), via: d.via, reference: String(d.ref || "").trim() || "OFFICE-" + id, amount: amt, date: today, at: Date.now(), status: "Pending", paidOn: today, slot: slotId, renew: true });
       toast(await postProof(id, false));
     }
   });

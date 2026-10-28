@@ -642,6 +642,9 @@ class AppState extends ChangeNotifier {
     announcements.clear();
     events.clear();
     polls.clear();
+    walkins.clear();
+    leaveNotes.clear();
+    smsLog.clear();
     _ballots.clear();
     pollCats
       ..clear()
@@ -1190,7 +1193,8 @@ class AppState extends ChangeNotifier {
       expected = named.amt;
     } else if (isParking) {
       final req = p.slot.isEmpty ? null : parking.where((r) => r.unit == p.unit && r.slot == p.slot).firstOrNull;
-      final mr = (req != null && req.amount > 0) ? req.amount : parkRatesFor(p.slot.isEmpty ? 'Regular' : slotSize(p.slot)).month;
+      final rs = p.renew ? slots.where((x) => x.id == p.slot).firstOrNull : null;
+      final mr = rs != null ? parkRenewAmount(rs) : ((req != null && req.amount > 0) ? req.amount : parkRatesFor(p.slot.isEmpty ? 'Regular' : slotSize(p.slot)).month);
       if (mr > 0) {
         expected = mr;
       } else {
@@ -1294,11 +1298,28 @@ class AppState extends ChangeNotifier {
     p.forText = forText;
     final rec = _addPayment(p.unit, p.payer, forText, p.method, p.reference, p.amount, proof: p);
     logActivity(auto ? 'Payment posted automatically, ${p.unit} (${p.receiptNo})' : 'Payment recorded, ${p.unit}', 'Finance');
-    // A paid parking reservation: the chosen slot goes to the resident straight away.
+    // A paid parking reservation: the chosen slot goes to the resident straight away. A paid renewal extends the rental.
     if (isParking && p.slot.isNotEmpty) {
-      final req = parking.where((r) => r.unit == p.unit && !r.confirmed && r.slot == p.slot).firstOrNull;
-      if (req != null && assignRequest(req) == null) {
-        logActivity('Parking slot ${p.slot} assigned to ${p.unit} (paid)', 'Parking');
+      final sl = slots.where((x) => x.id == p.slot).firstOrNull;
+      if (p.renew) {
+        if (sl != null && sl.unit == p.unit) {
+          final now = DateTime.now();
+          final today = isoDay(now);
+          final cur = DateTime.tryParse(sl.until);
+          final start = (cur != null && sl.until.compareTo(today) >= 0) ? DateTime(cur.year, cur.month, cur.day + 1) : now;
+          sl.until = parkUntil('month', 1, start);
+          walkins.removeWhere((w) => w.unit == p.unit && w.renew);
+          leaveNotes.remove(p.unit);
+          logActivity('Parking rental renewed: ${sl.id} · ${p.unit} until ${isoShort(sl.until)}', 'Parking');
+          sendSms(p.unit, approvedSmsText(sl, p.receiptNo, p.amount, true));
+        }
+      } else {
+        final req = parking.where((r) => r.unit == p.unit && !r.confirmed && r.slot == p.slot).firstOrNull;
+        if (req != null && assignRequest(req) == null) {
+          walkins.removeWhere((w) => w.unit == p.unit && !w.renew);
+          logActivity('Parking slot ${p.slot} assigned to ${p.unit} (paid)', 'Parking');
+          if (sl != null) sendSms(p.unit, approvedSmsText(sl, p.receiptNo, p.amount, false));
+        }
       }
     }
     _n();
@@ -1482,6 +1503,18 @@ class AppState extends ChangeNotifier {
     }
     final mySlot = slotOf(myUnit);
     if (mySlot != null) out.add(['Motor parking slot ${mySlot.id} is assigned to your unit.', 'good']);
+    // a monthly rental that is about to end (or already ended): did they forget, or are they leaving?
+    final pd = mySlot == null ? null : parkDueOf(mySlot);
+    if (mySlot != null && pd != null && pd.soon && !leaveNotes.containsKey(myUnit) && renewProofOf(myUnit, mySlot.id) == null && walkinOf(myUnit, renew: true) == null) {
+      out.insert(0, [
+        'Your parking rental for ${mySlot.id} ${pd.late ? 'has ended or is due' : 'is almost up'}. The next payment is due ${isoShort(pd.nextDue)} (${parkDaysText(pd.days)}). Renew to keep your slot, or tell the office if you no longer plan to rent.',
+        pd.late ? 'bad' : 'warn'
+      ]);
+    }
+    // the texts the office sent (rental approved, next due date)
+    for (final m in smsLog.where((m) => m.unit == myUnit && DateTime.now().millisecondsSinceEpoch - m.at < 14 * 86400000).take(2)) {
+      out.add(['Text message to your phone: ${m.text}', 'good']);
+    }
     for (final a in myAnnouncements.take(2)) {
       out.add(['New announcement: ${a.title}.', 'info']);
     }
@@ -2229,14 +2262,14 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: the resident paid at the office. Records that payment (with a receipt) and assigns the reserved slot.
-  String? parkingOfficePayment(ParkingReq p, String amountRaw, String ref) {
+  String? parkingOfficePayment(ParkingReq p, String amountRaw, String ref, {String via = 'Cash'}) {
     if (p.confirmed || p.slot.isEmpty) return 'This request was already handled.';
     final amt = double.tryParse(amountRaw.trim().replaceAll(',', ''));
     if (amt == null || amt <= 0) return 'Enter the amount received.';
     final sl = slots.where((x) => x.id == p.slot).firstOrNull;
     if (sl == null || sl.used) return '${p.slot} is already taken.';
     final id = nextId();
-    final proof = PaymentProof(id, p.unit, p.name, officePay, ref.trim().isEmpty ? 'OFFICE-$id' : ref.trim(), shortDate(DateTime.now()), amt,
+    final proof = PaymentProof(id, p.unit, p.name, walkinMethod(via), ref.trim().isEmpty ? 'OFFICE-$id' : ref.trim(), shortDate(DateTime.now()), amt,
         forText: parkingPayFor, slot: p.slot, at: DateTime.now().millisecondsSinceEpoch, paidOn: shortDate(DateTime.now()));
     proofs.insert(0, proof);
     confirmProof(proof);
@@ -2318,6 +2351,152 @@ class AppState extends ChangeNotifier {
     logActivity('Payment reference sent, $myUnit', 'Finance');
     _n();
     return null;
+  }
+
+  // ---- walk-in, renewal and text messages (motor parking) ----
+
+  /// Residents who said they will pay at the office, residents who said they will not renew (unit -> note), and the texts sent.
+  final List<Walkin> walkins = [];
+  final Map<String, String> leaveNotes = {};
+  final List<SmsMsg> smsLog = [];
+
+  /// What the last text did, for the message shown to the administrator ("A text was sent to 0917 ...").
+  String lastSmsNote = '';
+
+  /// How the office can take a walk-in payment, and the method name written on the receipt.
+  static const walkinOptions = ['Cash', 'Check', 'Card (debit or credit)', 'E-wallet (GCash or Maya)'];
+  static String walkinMethod(String via) => via.startsWith('Card') ? 'Card at the office' : (via.startsWith('E-wallet') ? 'E-wallet at the office' : officePay);
+
+  Walkin? walkinOf(String unit, {bool renew = false}) {
+    for (final w in walkins) {
+      if (w.unit == unit && w.renew == renew) return w;
+    }
+    return null;
+  }
+
+  /// "Unit 3B will come to the office today." / "... said they would come on Oct 27, 2026 and has not been recorded yet."
+  String walkinText(Walkin w, String who) =>
+      w.day == isoDay(DateTime.now()) ? '$who will come to the office today.' : '$who said they would come on ${isoShort(w.day)} and has not been recorded yet.';
+
+  /// The renewal payment of a unit that waits for the office, or null.
+  PaymentProof? renewProofOf(String unit, String slot) {
+    for (final p in proofs) {
+      if (p.unit == unit && p.forText == parkingPayFor && p.renew && p.slot == slot && p.status == 'Pending') return p;
+    }
+    return null;
+  }
+
+  /// What a monthly renewal costs: what the unit pays now, else the rate of the slot size.
+  num parkRenewAmount(ParkingSlot s) => s.amount > 0 ? s.amount : parkRatesFor(s.size).month;
+
+  /// Resident: "I'll walk in today". Tells the office to expect them (for the reserved slot, or [renew] for the rental).
+  String? parkWalkIn({bool renew = false}) {
+    final String slotId;
+    final num amount;
+    if (renew) {
+      final s = slotOf(myUnit);
+      if (s == null) return 'You do not have a parking slot to renew.';
+      slotId = s.id;
+      amount = parkRenewAmount(s);
+    } else {
+      final r = myParkingReq;
+      if (r == null || r.slot.isEmpty) return 'Reserve a slot first.';
+      slotId = r.slot;
+      amount = r.amount;
+    }
+    walkins.removeWhere((w) => w.unit == myUnit && w.renew == renew);
+    walkins.add(Walkin(myUnit, myHousehold, slotId, amount, renew, isoDay(DateTime.now()), DateTime.now().millisecondsSinceEpoch));
+    logActivity('Walk-in payment announced, $myUnit ($slotId)', 'Parking');
+    _n();
+    return null;
+  }
+
+  void parkWalkInCancel({bool renew = false}) {
+    walkins.removeWhere((w) => w.unit == myUnit && w.renew == renew);
+    _n();
+  }
+
+  /// Resident: "I won't renew". The slot stays theirs until the rental ends.
+  String? parkLeave(String note) {
+    final s = slotOf(myUnit);
+    if (s == null) return 'You do not have a parking slot.';
+    leaveNotes[myUnit] = note.trim();
+    logActivity('Will not renew parking: $myUnit (${s.id})', 'Parking');
+    _n();
+    return null;
+  }
+
+  void parkLeaveUndo() {
+    leaveNotes.remove(myUnit);
+    _n();
+  }
+
+  /// Resident: "I have paid" to renew the monthly rental.
+  String? submitParkingRenewProof(String method, String reference, {String image = '', String paidOn = ''}) {
+    final s = slotOf(myUnit);
+    if (s == null) return 'You do not have a parking slot to renew.';
+    if (renewProofOf(myUnit, s.id) != null) return 'Your renewal payment was already sent. The office will check it.';
+    if (reference.trim().length < 4) return 'Enter the reference number from your receipt or transaction.';
+    final paidDay = parseShortDate(paidOn.trim());
+    if (paidDay == null) return 'Enter the date you paid, like ${shortDate(DateTime.now())}.';
+    if (paidDay.isAfter(DateTime.now())) return 'The date you paid cannot be in the future.';
+    if (proofs.any((p) => p.unit == myUnit && p.status != 'Rejected' && p.method == method && p.reference.toLowerCase() == reference.trim().toLowerCase())) {
+      return 'That reference number was already submitted.';
+    }
+    proofs.insert(
+        0,
+        PaymentProof(nextId(), myUnit, myHousehold, method, reference.trim(), shortDate(DateTime.now()), parkRenewAmount(s),
+            forText: parkingPayFor, slot: s.id, renew: true, at: DateTime.now().millisecondsSinceEpoch, image: image, paidOn: shortDate(paidDay)));
+    logActivity('Renewal payment sent, $myUnit', 'Finance');
+    _n();
+    return null;
+  }
+
+  /// Admin: rentals that need the office: a renewal payment waiting, a walk-in announced, or a resident who will not renew.
+  List<({ParkingSlot slot, PaymentProof? proof, Walkin? walkin, String? leave})> get parkRenewals {
+    final out = <({ParkingSlot slot, PaymentProof? proof, Walkin? walkin, String? leave})>[];
+    for (final s in slots) {
+      if (!s.used || s.daily) continue;
+      final pr = renewProofOf(s.unit, s.id);
+      final w = walkinOf(s.unit, renew: true);
+      final l = leaveNotes[s.unit];
+      if (pr != null || w != null || l != null) out.add((slot: s, proof: pr, walkin: w, leave: l));
+    }
+    return out;
+  }
+
+  /// "Sends" a text to a unit. The prototype only saves it; a real SMS service would deliver it from here.
+  void sendSms(String unit, String text) {
+    final phone = unitPhone(unit);
+    smsLog.insert(0, SmsMsg(nextId(), unit, phone, text, DateTime.now().millisecondsSinceEpoch, phone.isEmpty ? 'No number' : 'Sent'));
+    lastSmsNote = phone.isEmpty ? 'No mobile number is on file for $unit, so no text was sent.' : 'A text was sent to $phone.';
+    logActivity('Text ${phone.isEmpty ? 'not sent to $unit (no mobile number)' : 'sent to $unit ($phone)'}: $text', 'Parking');
+  }
+
+  /// The text a resident gets when their parking payment is approved: the rental period and the next due date.
+  String approvedSmsText(ParkingSlot s, String receipt, num amount, bool renewed) {
+    final d = parkDueOf(s);
+    return 'ResidentHub: Your parking payment of ${peso(amount)} is approved. Slot ${s.id} is ${renewed ? 'renewed' : 'yours'} until ${isoShort(s.until)}.'
+        '${d != null ? ' Next payment due: ${isoShort(d.nextDue)}.' : ' This daily rental ends on ${isoShort(s.until)}.'} Receipt $receipt. Thank you!';
+  }
+
+  /// Admin: a resident renews at the office. Records the payment (receipt), extends the rental and texts the resident.
+  String? parkingRenewOfficePayment(ParkingSlot s, String amountRaw, String via, String ref) {
+    if (!s.used || s.daily) return 'This rental changed. Close this and try again.';
+    final amt = double.tryParse(amountRaw.trim().replaceAll(',', ''));
+    if (amt == null || amt <= 0) return 'Enter the amount received.';
+    final id = nextId();
+    final proof = PaymentProof(id, s.unit, whoOfUnit(s.unit), walkinMethod(via), ref.trim().isEmpty ? 'OFFICE-$id' : ref.trim(), shortDate(DateTime.now()), amt,
+        forText: parkingPayFor, slot: s.id, renew: true, at: DateTime.now().millisecondsSinceEpoch, paidOn: shortDate(DateTime.now()));
+    proofs.insert(0, proof);
+    confirmProof(proof);
+    return null;
+  }
+
+  /// The household name of a unit (or the unit name).
+  String whoOfUnit(String unit) {
+    final u = units.where((x) => x.unit == unit).firstOrNull;
+    return (u == null || u.name.isEmpty || u.name == '—') ? unit : u.name;
   }
 
   /// How many parking slots are rented.
@@ -2413,6 +2592,8 @@ class AppState extends ChangeNotifier {
       ..until = ''
       ..amount = 0;
     if (unit.isNotEmpty) parking.removeWhere((r) => r.unit == unit);
+    walkins.removeWhere((w) => w.unit == unit && w.renew);
+    leaveNotes.remove(unit);
     logActivity('Parking rental ended: $unit removed from ${s.id}', 'Parking');
     _n();
   }

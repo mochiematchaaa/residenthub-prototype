@@ -94,6 +94,11 @@ function notifs() {
   else if (u.usageStatus === "pending") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " is waiting for the administrator.", "info", "rental"]);
   var slot = list("slot").filter(function (r) { return r.v.unit === unit; })[0];
   if (slot) out.push(["Motor parking slot " + slot.id + " is assigned to your unit.", "good", "parking"]);
+  // a monthly rental that is about to end (or already ended): did they forget, or are they leaving?
+  var pd = slot ? parkDueInfo(slot.v) : null;
+  if (pd && pd.soon && !leaveNoteOf(unit) && !renewProofOf(unit, slot.id) && !walkinOf(unit, true)) out.unshift(["Your parking rental for " + slot.id + " " + (pd.late ? "has ended or is due" : "is almost up") + ". The next payment is due " + usageDate(pd.nextDue) + " (" + parkDaysText(pd.days) + "). Renew to keep your slot, or tell the office if you no longer plan to rent.", pd.late ? "bad" : "warn", "parking"]);
+  // the texts the office sent (rental approved, next due date)
+  newest(list("sms")).filter(function (r) { return r.unit === unit && Date.now() - Number(r.v.at || 0) < 14 * 86400000; }).slice(0, 2).forEach(function (r) { out.push(["Text message to your phone: " + r.v.text, "good", "parking"]); });
   var a = publishedAnns()[0];
   if (a) out.push(["New announcement: " + a.v.title + ".", "info", "home"]);
   var toVote = pollsAll().filter(function (p) { return p.open && myVote(p.id) === undefined; }).length;
@@ -206,7 +211,7 @@ function viewHome() {
   var quick = [["Book a facility", "book"], ["Vote in polls", "polls"], ["See events", "events"], ["Declare unit usage", "rental"], ["Submit a complaint", "gr"]];
   var anns = publishedAnns().slice(0, 4), ns = notifs().slice(0, 5);
   var unitNo = String(myUnit()).replace(/^Unit\s*/i, "");
-  return '<div class="sc-grid">' +
+  return parkSoonBanner(false) + '<div class="sc-grid">' +
     summaryCard("yellow", "Dues", [[bal ? peso(bal) : "None", "Balance", "dues"], [open.length, "Open items", "dues"]], "cross", '<p class="sc-note">' + (next ? "Next due " + esc(next.v.dueDate || "on receipt") : "All dues settled") + "</p>") +
     summaryCard("pink", "Next reservation", [[nb ? esc(nb.v.place) : "None", nb ? esc(nb.v.status) : "Book a facility", nb ? "res" : "book"]], "heart", '<p class="sc-note">' + (nb ? esc(nb.v.when) : "No upcoming reservation") + "</p>") +
     summaryCard("green", "My unit", [[esc(unitNo), "Unit"], [esc(usageLabel(u.usage || "owner")), "Usage", "rental"]], "triangle", '<div class="avatar-stack"><span class="av">' + avatarInner(myPhoto(), myName()) + "</span></div>") +
@@ -540,7 +545,7 @@ function payOptionText(i) {
 function payChargeHtml(i) {
   if (!i) return "";
   var c = i.park ? null : dueCountdown(i.d), tone = c && c.n < 0 ? "bad" : c && c.n <= 2 ? "warn" : "info";
-  return '<div class="dz-chg"><div><small>Charge</small><b>' + esc(i.title) + '</b></div><div><small>Amount to pay</small><b>' + peso(i.amount) + '</b></div><div><small>Due date</small><b>' + esc(i.park ? "On reservation" : i.due || "Upon receipt") + '</b></div>' +
+  return '<div class="dz-chg"><div><small>Charge</small><b>' + esc(i.title) + '</b></div><div><small>Amount to pay</small><b>' + peso(i.amount) + '</b></div><div><small>Due date</small><b>' + esc(i.dueText || (i.park ? "On reservation" : i.due || "Upon receipt")) + '</b></div>' +
     (c ? '<div><small>Status</small><span class="chip ' + tone + '">' + esc(c.text) + "</span></div>" : "") + (i.billed ? '<div><small>Billed</small><b>' + esc(i.billed) + "</b></div>" : "") + "</div>";
 }
 // The form to send a payment proof.
@@ -552,14 +557,14 @@ function payFormHtml(fixed) {
   if (!state.payMethod || !methods.some(function (m) { return m.name === state.payMethod; })) state.payMethod = (methods.filter(function (m) { return m.name !== PAY_OFFICE; })[0] || methods[0]).name;
   var cur = methods.filter(function (m) { return m.name === state.payMethod; })[0], step = !state.payFor ? 1 : 2, walkIn = state.payMethod === PAY_OFFICE;
   var pulse = state.payPulse; state.payPulse = false;
-  return '<div class="card dz-pay' + (pulse ? " pulse" : "") + '" id="payPanel"><h2 style="font-size:19px;margin:0">' + (fixed ? "Pay for your parking slot" : "I have paid") + '</h2>' +
-    '<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5">' + (fixed ? "Pay with GCash, Maya or bank transfer, then send the details here with a screenshot of your payment. The office checks it and confirms your rental. Paying at the office? Nothing to send; the office records it." : "Paid online? Send the details here, with a photo of your payment if you have one. Paid at the office? Nothing to send; the office records it.") + '</p>' +
+  return '<div class="card dz-pay' + (pulse ? " pulse" : "") + '" id="payPanel"><h2 style="font-size:19px;margin:0">' + (fixed ? (fixed.renew ? "Renew your parking slot" : "Pay for your parking slot") : "I have paid") + '</h2>' +
+    '<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5">' + (fixed ? "Pay with GCash, Maya or bank transfer, then send the details here with a screenshot of your payment. The office checks it and confirms your rental. Prefer to pay at the office? Choose Walk-in and tell the office you are coming." : "Paid online? Send the details here, with a photo of your payment if you have one. Paid at the office? Nothing to send; the office records it.") + '</p>' +
     (fixed ? '<div class="dz-step"><span class="n ok">✓</span><div style="width:100%">' + payChargeHtml(chosen) + "</div></div>" :
     '<div class="dz-step"><span class="n ' + (state.payFor ? "ok" : "") + '">' + (state.payFor ? "✓" : "1") + '</span><div style="width:100%"><label class="dz-lab">What did you pay for?<select onchange="choosePayFor(this.value)"><option value="">' + (payable.length ? "Choose one of your charges…" : "You have no unpaid charges") + "</option>" + payable.map(function (i) { return '<option value="' + escAttr(i.id) + '" ' + (state.payFor === i.id ? "selected" : "") + ">" + esc(payOptionText(i)) + "</option>"; }).join("") + "</select></label>" + payChargeHtml(chosen) + "</div></div>") +
     '<div class="dz-step"><span class="n ok">2</span><div><div class="dz-lab">How did you pay?</div><div class="dz-methods">' + methods.map(function (m) {
-      return '<button type="button" class="dz-method ' + (state.payMethod === m.name ? "on" : "") + '" onclick="pickMethod(\'' + escAttr(m.name) + '\')">' + esc(m.name) + "</button>";
-    }).join("") + '</div><div class="dz-how"><b>' + esc(cur.name) + '</b><span>' + esc(cur.details || "") + "</span></div></div></div>" +
-    (walkIn ? '<div class="dz-step"><span class="n ok">3</span><div class="dz-walk"><b>Nothing to send for a walk-in payment</b><span>Pay at the counter. The office records it, issues your receipt and your dues go down on this page. If you paid online (GCash, Maya or bank), choose that method above and add a photo of your payment.</span></div></div>' :
+      return '<button type="button" class="dz-method ' + (state.payMethod === m.name ? "on" : "") + '" onclick="pickMethod(\'' + escAttr(m.name) + '\')">' + esc(m.name === PAY_OFFICE ? "Walk-in (pay at the office)" : m.name) + "</button>";
+    }).join("") + '</div><div class="dz-how"><b>' + esc(cur.name === PAY_OFFICE ? "Walk-in" : cur.name) + '</b><span>' + esc(cur.details || "") + "</span></div></div></div>" +
+    (walkIn && fixed ? walkBlockHtml(fixed) : walkIn ? '<div class="dz-step"><span class="n ok">3</span><div class="dz-walk"><b>Nothing to send for a walk-in payment</b><span>Pay at the counter. The office records it, issues your receipt and your dues go down on this page. If you paid online (GCash, Maya or bank), choose that method above and add a photo of your payment.</span></div></div>' :
     '<div class="dz-step"><span class="n ' + (state.payFor && state.payRef.trim().length >= 4 ? "ok" : "") + '">3</span><div style="display:flex;flex-direction:column;gap:10px;width:100%"><label class="dz-lab">Amount paid (₱)<input id="payAmt" type="number" min="0.01" step="0.01" placeholder="e.g. 450" value="' + escAttr(state.payAmt) + '" oninput="state.payAmt=this.value"></label>' +
     '<label class="dz-lab">Date you paid<input id="payDate" type="date" max="' + todayISO + '" value="' + escAttr(state.payDate) + '" oninput="state.payDate=this.value"></label>' +
     '<label class="dz-lab">Reference number<input id="payRef" type="text" placeholder="Number on your receipt or transaction" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label>' +
@@ -583,7 +588,7 @@ function howToPayHtml() {
 }
 // Sends the payment proof (the admin verifies it).
 function submitPaymentProof() {
-  if (state.payMethod === PAY_OFFICE) return toast("Walk-in payments are recorded by the office. There is nothing to send.");
+  if (state.payMethod === PAY_OFFICE) return toast("Walk-in payments are recorded by the office. Tap \"I'll walk in today\" so the office expects you.");
   var amount = parseFloat(state.payAmt), ref = state.payRef.trim();
   if (!state.payFor) return toast("Choose what the payment is for.");
   if (!(amount > 0)) return toast("Enter the amount you paid.");
@@ -592,17 +597,21 @@ function submitPaymentProof() {
   if (!paidDay || isNaN(paidDay.getTime())) return toast("Enter the date you paid.");
   if (paidDay.getTime() > Date.now()) return toast("The date you paid cannot be in the future.");
   var open = myOpenDues().filter(function (x) { return x.id === state.payFor; })[0];
-  var forText = open ? open.v.note : state.payFor === "parking" ? PARK_FOR : "Other charge";
+  var renewing = state.payFor === "parking-renew", mineSlot = renewing ? list("slot").filter(function (s) { return s.v.unit === myUnit(); })[0] : null;
+  if (renewing && !mineSlot) return toast("You do not have a parking slot to renew.");
+  if (renewing && renewProofOf(myUnit(), mineSlot.id)) return toast("Your renewal payment was already sent. The office will check it.");
+  var forText = open ? open.v.note : (state.payFor === "parking" || renewing) ? PARK_FOR : "Other charge";
   if (myProofs().some(function (p) { return p.v.status !== "Rejected" && String(p.v.reference).toLowerCase() === ref.toLowerCase() && p.v.method === state.payMethod; })) return toast("That reference number was already submitted.");
   act(async function () {
     var id = nextId();
     var proofRec = { id: id, unit: myUnit(), payer: myHousehold(), forText: forText, method: state.payMethod, reference: ref, amount: amount, date: shortDate(new Date()), at: Date.now(), status: "Pending", paidOn: shortDate(paidDay) };
     if (state.payImg) proofRec.image = state.payImg;
     var prq = getRow("request", myUnit());
-    if (forText === PARK_FOR && prq && prq.value.slot) proofRec.slot = prq.value.slot;
+    if (forText === PARK_FOR && prq && prq.value.slot && !renewing) proofRec.slot = prq.value.slot;
+    if (renewing) { proofRec.slot = mineSlot.id; proofRec.renew = true; }
     await put("proof", id, myUnit(), proofRec);
     logAct("Payment reference sent, " + myUnit(), "Finance");
-    state.payFor = ""; state.payAmt = ""; state.payRef = ""; state.payImg = ""; state.payDate = "";
+    state.payFor = ""; state.payAmt = ""; state.payRef = ""; state.payImg = ""; state.payDate = ""; state.parkRenew = false;
     var ap = autoPostCfg();
     toast(ap.on ? "Payment details sent. It will be posted to your dues automatically by " + clockText(Date.now() + ap.hours * 3600000) + ", and your receipt will appear here." : "Payment details sent. The office will verify them and your receipt will appear here.");
   });
@@ -674,7 +683,7 @@ function viewParkingPage() {
     var sz = s.v.size || "Regular", rt = parkRatesFor(sz);
     return "<" + (click ? "button" : "div") + ' class="pk ' + cls + (click ? " pick" : "") + '"' + click + ' title="' + label + " · " + sz + (rt.month ? " · " + peso(rt.month) + " per month" : "") + '"><b>' + esc(s.id) + "</b><small>" + label + "</small><small>" + esc(sz) + (!u && !h && rt.month ? " · " + peso(rt.month) : "") + "</small></" + (click ? "button" : "div") + ">";
   }).join("");
-  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero + payCard +
+  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero + (mine ? parkRenewCardHtml(mine) : "") + payCard +
     (slots.length ? '<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="font-size:19px">Parking map</h2><span class="hint" style="margin:0">' + free + " of " + slots.length + ' free' + (canPick ? " · tap a free slot" : "") + '</span></div><div class="pk-grid">' + grid + '</div><div class="pk-legend"><span><i class="free"></i>Free</span><span><i class="held"></i>Held</span><span><i class="taken"></i>Taken</span>' + (mine || pick ? '<span><i class="mine"></i>Yours</span>' : "") + "</div></div>" : "") +
     '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Rental price by slot size</h2><p class="hint" style="margin:0 0 8px">A bigger slot costs more. Each slot on the map shows its size.</p>' + sizes.map(function (z) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border2);font-size:13.5px"><span><b>' + esc(z.name) + "</b>" + (z.sqm ? ' <span style="color:var(--muted)">· ' + z.sqm + " sqm</span>" : "") + "</span><span><b>" + (z.month ? peso(z.month) + "</b> / month" : "—</b>") + (z.day ? " · <b>" + peso(z.day) + "</b> / day" : "") + "</span></div>"; }).join("") + '</div><div class="card"><h2 style="font-size:19px;margin-bottom:4px">How it works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tap a free slot on the map. The slot is held for you.</li><li>You choose a monthly or daily rental, and it shows up as a charge. Pay at the office, by bank transfer, GCash or Maya, then send the payment details.</li><li>When the office verifies your payment, the slot is yours. You get your receipt under Dues.</li></ol></div></div></div>';
 }

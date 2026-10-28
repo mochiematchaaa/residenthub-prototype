@@ -131,6 +131,47 @@ class ParkSize {
 /// Name, size in sqm and price factor used until the office sets the rates for each size.
 const kParkSizeDefaults = [('Small', 2.0, 0.7), ('Regular', 3.0, 1.0), ('Large', 4.5, 1.5)];
 
+/// A resident who will pay for parking at the office ("Walk-in"). [renew] = for a renewal. [day] is yyyy-mm-dd.
+class Walkin {
+  final String unit, name, slot, day;
+  final num amount;
+  final bool renew;
+  final int at;
+  const Walkin(this.unit, this.name, this.slot, this.amount, this.renew, this.day, this.at);
+}
+
+/// A text message the office "sent" to a resident (saved here; a real SMS service would deliver it).
+class SmsMsg {
+  final int id, at;
+  final String unit, to, text, status;
+  const SmsMsg(this.id, this.unit, this.to, this.text, this.at, this.status);
+}
+
+/// The residents are told this many days before the next payment of a monthly rental is due.
+const parkSoonDays = 5;
+
+/// When the next monthly payment of a rental is due: [nextDue] is yyyy-mm-dd, [days] counts from today (negative = overdue).
+class ParkDue {
+  final String until, nextDue;
+  final int days;
+  const ParkDue(this.until, this.nextDue, this.days);
+  bool get soon => days <= parkSoonDays;
+  bool get late => days <= 0;
+}
+
+/// The next payment of a monthly rental, or null (free slot, daily rental, no end date).
+ParkDue? parkDueOf(ParkingSlot s) {
+  if (!s.used || s.daily || s.until.isEmpty) return null;
+  final u = DateTime.tryParse(s.until);
+  if (u == null) return null;
+  final next = DateTime.utc(u.year, u.month, u.day + 1);
+  final t = DateTime.now();
+  return ParkDue(s.until, isoDay(next), next.difference(DateTime.utc(t.year, t.month, t.day)).inDays);
+}
+
+/// "in 3 days", "tomorrow", "today", "2 days ago".
+String parkDaysText(int d) => d > 1 ? 'in $d days' : (d == 1 ? 'tomorrow' : (d == 0 ? 'today' : '${-d} day${d == -1 ? '' : 's'} ago'));
+
 /// One motor parking slot. [unit] is empty when the slot is free.
 class ParkingSlot {
   final String id;
