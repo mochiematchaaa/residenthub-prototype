@@ -338,12 +338,12 @@ class ParkingReq {
 
   /// The slot the resident picked on the map ('' for an older request without one), and the
   /// monthly rental that was charged when they picked it.
-  final String slot;
-  final num amount;
+  String slot;
+  num amount;
 
   /// 'month' or 'day', and the number of days for a daily rental (0 for monthly).
-  final String plan;
-  final int days;
+  String plan;
+  int days;
 
   /// Shown to the administrator ("Just now", "2 days ago") and used to keep requests in order.
   final String when;
@@ -2173,6 +2173,75 @@ class AppState extends ChangeNotifier {
 
   /// Confirms a parking request and assigns the slot.
   void confirmParking(ParkingReq p) => assignRequest(p);
+
+  /// Admin: changes a resident's request (the slot, the rental and the amount). Returns an error text or null.
+  String? editParkingRequest(ParkingReq p, String slotId, String plan, int days, String amountRaw) {
+    if (p.confirmed) return 'This request was already handled.';
+    final daily = plan == 'day';
+    if (daily && (days < 1 || days > 365)) return 'Enter 1 to 365 days.';
+    if (slotId.isNotEmpty && slotId != p.slot) {
+      final sl = slots.where((x) => x.id == slotId).firstOrNull;
+      final holder = heldSlots[slotId];
+      if (sl == null || sl.used || (holder != null && holder != p.unit)) return '$slotId is not free.';
+    }
+    final quote = parkAmount(plan, days, size: slotId.isEmpty ? 'Regular' : slotSize(slotId));
+    final typed = double.tryParse(amountRaw.trim().replaceAll(',', ''));
+    final changed = slotId != p.slot || plan != p.plan || (daily && days != p.days);
+    final amount = (typed != null && typed > 0 && typed != p.amount) ? typed : (changed ? quote : (p.amount > 0 ? p.amount : quote));
+    final old = p.slot;
+    p.slot = slotId;
+    p.plan = daily ? 'day' : 'month';
+    p.days = daily ? days : 0;
+    p.amount = amount;
+    if (slotId != old && old.isNotEmpty) {
+      final pr = parkingProofFor(p.unit, old);
+      if (pr != null && pr.status == 'Pending') pr.slot = slotId;
+    }
+    logActivity('Parking request edited, ${p.unit} (${slotId.isEmpty ? 'no slot' : slotId}, ${parkPlanText(p.plan, p.days)}, ${peso(amount)})', 'Parking');
+    _n();
+    return null;
+  }
+
+  /// Admin: changes a current rental (who has the slot, monthly or daily, the dates and the amount).
+  String? editRental(ParkingSlot s, {required String unitRaw, required String plan, required String fromRaw, required String untilRaw, required String amountRaw}) {
+    String norm(String t) => t.toLowerCase().replaceAll('unit', '').replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final key = norm(unitRaw);
+    final u = key.isEmpty ? null : units.where((x) => norm(x.unit) == key).firstOrNull;
+    if (u == null) return 'No unit with that name. Use a name such as "Unit 12A".';
+    if (u.unit != s.unit && slotOf(u.unit) != null) return '${u.unit} already has a slot.';
+    final from = parseShortDate(fromRaw);
+    if (from == null) return 'Enter the start date, like ${shortDate(DateTime.now())}.';
+    final untilText = untilRaw.trim();
+    final until = untilText.isEmpty ? null : parseShortDate(untilText);
+    if (untilText.isNotEmpty && until == null) return 'Enter the end date, like ${shortDate(DateTime.now())}.';
+    if (until != null && until.isBefore(from)) return 'The end date must be on or after the start date.';
+    final amt = amountRaw.trim().isEmpty ? 0.0 : double.tryParse(amountRaw.trim().replaceAll(',', ''));
+    if (amt == null || amt < 0) return 'Enter a valid amount.';
+    final daily = plan == 'day';
+    s.unit = u.unit;
+    s.plan = daily ? 'day' : 'month';
+    s.from = isoDay(from);
+    s.until = until != null ? isoDay(until) : parkUntil(s.plan, 1, from);
+    s.amount = amt;
+    logActivity('Parking rental edited: ${s.id} · ${u.unit} (${daily ? 'daily' : 'monthly'}, ${isoShort(s.from)} to ${isoShort(s.until)})', 'Parking');
+    _n();
+    return null;
+  }
+
+  /// Admin: the resident paid at the office. Records that payment (with a receipt) and assigns the reserved slot.
+  String? parkingOfficePayment(ParkingReq p, String amountRaw, String ref) {
+    if (p.confirmed || p.slot.isEmpty) return 'This request was already handled.';
+    final amt = double.tryParse(amountRaw.trim().replaceAll(',', ''));
+    if (amt == null || amt <= 0) return 'Enter the amount received.';
+    final sl = slots.where((x) => x.id == p.slot).firstOrNull;
+    if (sl == null || sl.used) return '${p.slot} is already taken.';
+    final id = nextId();
+    final proof = PaymentProof(id, p.unit, p.name, officePay, ref.trim().isEmpty ? 'OFFICE-$id' : ref.trim(), shortDate(DateTime.now()), amt,
+        forText: parkingPayFor, slot: p.slot, at: DateTime.now().millisecondsSinceEpoch, paidOn: shortDate(DateTime.now()));
+    proofs.insert(0, proof);
+    confirmProof(proof);
+    return null;
+  }
 
   /// Declines a parking request.
   void declineParking(ParkingReq p) {

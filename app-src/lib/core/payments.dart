@@ -53,7 +53,7 @@ class PaymentProof {
   final bool direct;
 
   /// For a parking payment: the slot the resident reserved.
-  final String slot;
+  String slot;
 
   /// When the resident sent it (milliseconds, 0 = unknown, then the date is used), and whether the
   /// system posted it by itself after the waiting time.

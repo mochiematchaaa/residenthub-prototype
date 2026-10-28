@@ -391,3 +391,17 @@ button.stat-t.on{border-color:var(--head)}
 @media(max-width:560px){.gm-chip{display:none}.cmp{right:0;left:0;width:auto;border-radius:16px 16px 0 0}}
 .cmp input.cmp-subj{border:0;border-bottom:1px solid var(--border2);border-radius:0;background:transparent;box-shadow:none;height:auto;min-height:0;padding:12px 0}
 .cmp .cmp-body textarea{border:0;border-radius:0;background:transparent;box-shadow:none}
+
+/* Parking: requests with the payment the resident sent */
+.park-reqs{display:flex;flex-direction:column;gap:14px}
+.park-req{display:flex;flex-direction:column;gap:14px}
+.park-req-h{display:flex;align-items:center;gap:12px}.park-req-h .vp-who{flex:1;min-width:0}
+.park-pay{border:1px solid var(--border2);border-radius:16px;padding:14px;background:var(--beige);display:flex;flex-direction:column;gap:12px}
+.park-pay.wait{background:var(--info-bg);color:var(--info-fg);border-color:transparent;font-size:13.5px;line-height:1.5}
+.park-pay-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+/* One scroll at a time: while a popup is open the page behind stays still, and a scrolling list or popup keeps its own scroll */
+html:has(.modal-back),html:has(.img-view),body:has(.modal-back),body:has(.img-view),body.rh-lock,html.rh-lock{overflow:hidden}
+.modal-back{overflow-y:auto;overscroll-behavior:contain}
+.modal{max-height:calc(100vh - 40px);overflow-y:auto;overscroll-behavior:contain}
+.img-view{overscroll-behavior:contain}
+div,form,aside,section,textarea,ul,table{overscroll-behavior:contain}
