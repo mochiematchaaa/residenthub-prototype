@@ -572,7 +572,7 @@
       if (row.kind === "activity") return "Only the administrator can change that.";
       if (row.kind === "unit") {
         var keys = {}; Object.keys(ov || {}).concat(Object.keys(nv)).forEach(function (k) { keys[k] = 1; });
-        for (var k in keys) if (JSON.stringify((ov || {})[k]) !== JSON.stringify(nv[k]) && ["usage", "usageStatus", "usageRemark", "usageInfo", "status", "statusNote", "statusDate", "residents", "members", "pets", "vehicles", "emergencyName", "emergencyRelation", "emergencyPhone", "selfUpdated", "selfBy"].indexOf(k) < 0) return "Only the administrator can change unit details. (" + k + ")";
+        for (var k in keys) if (JSON.stringify((ov || {})[k]) !== JSON.stringify(nv[k]) && ["usage", "usageStatus", "usageRemark", "usageInfo", "status", "statusNote", "statusDate", "residents", "members", "pets", "vehicles", "emergencyName", "emergencyRelation", "emergencyPhone", "selfUpdated", "selfBy", "selfLog"].indexOf(k) < 0) return "Only the administrator can change unit details. (" + k + ")";
         if (["", "pending"].indexOf(nv.usageStatus || "") < 0) return "Only the administrator can approve a usage reading.";
       }
     }

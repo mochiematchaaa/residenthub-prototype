@@ -154,7 +154,7 @@ function acctOverview() {
 
 /* --- manage profile --- */
 function acctProfile() {
-  var p = DB.profile || {}, admin = acctIsAdmin(), hist = (p.history || []).slice(0, 5);
+  var p = DB.profile || {}, admin = acctIsAdmin(), hist = (admin ? (p.history || []) : recLogOf(p.unit)).slice(0, 5);
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px"><div class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:19px">' + L("Manage profile", "Pamahalaan ang profile") + "</h2>" +
     '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span class="avatar big">' + avatarInner(p.photo, p.name || p.email) + '</span><div style="flex:1;min-width:180px"><b style="font-size:16px">' + esc(p.name || "—") + '</b><div class="hint" style="margin:0 0 8px">' + (admin ? L("Administrator", "Administrator") : esc(p.unit || "")) + '</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="acctPickPhoto()">' + (p.photo ? L("Change picture", "Palitan ang larawan") : L("Add a profile picture", "Magdagdag ng larawan")) + "</button>" + (p.photo ? '<button class="btn" type="button" onclick="acctRemovePhoto()">' + L("Remove", "Alisin") + "</button>" : "") + '</div><div class="hint" style="margin:6px 0 0">' + L("A square picture works best. It is shrunk to fit.", "Mas maganda ang parisukat na larawan. Paliliitin ito para magkasya.") + "</div></div></div>" +
     '<label class="fl">' + L("Full name", "Buong pangalan") + '<input id="acName" value="' + escAttr(p.name || "") + '" autocomplete="name"></label>' +
@@ -178,6 +178,7 @@ async function acctSavePhoto(data, msg) {
     var r = await sb.from("profiles").update({ photo: data }).eq("id", DB.user.id);
     if (r.error) throw r.error;
     DB.profile.photo = data;
+    if (!acctIsAdmin() && DB.profile.unit) { try { await recLogSelf(DB.profile.unit, [{ field: "Profile picture", from: "", to: data ? "updated" : "" }], DB.profile.name || ""); } catch (e) { /* the picture itself was saved */ } }
     try { await rhRefresh(true); } catch (e) { /* carry on */ }
     toast(msg); render();
   } catch (e) { toast(errText(e)); }
@@ -193,7 +194,10 @@ async function acctSaveProfile() {
   try {
     var r = await sb.from("profiles").update(patch).eq("id", DB.user.id);
     if (r.error) throw r.error;
+    var oldName = DB.profile.name || "";
     Object.assign(DB.profile, patch);
+    // a resident's change is written on their unit record, so the office sees it under Resident profiles
+    if (!admin && DB.profile.unit && oldName !== name) { try { await recLogSelf(DB.profile.unit, [{ field: "Name", from: oldName, to: name }], name); } catch (e) { /* the profile itself was saved */ } }
     try { await rhRefresh(true); } catch (e) { /* carry on */ }
     toast(L("Profile updated.", "Na-update ang profile."));
     render();

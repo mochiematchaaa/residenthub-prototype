@@ -195,7 +195,15 @@ function recordSelfForm() {
     onSubmit: async function (d) {
       var res = d.residents === "" || d.residents == null ? "" : parseInt(d.residents, 10);
       if (res !== "" && !(res >= 0 && res <= 99)) return { error: "Enter how many people live in the unit, e.g. 3." };
-      await put("unit", unit, unit, Object.assign({}, myRec(), {
+      var oldRec = myRec(), now = Date.now(), nv = { residents: res, members: String(d.members || "").trim(), pets: String(d.pets || "").trim(), emergencyName: String(d.emergencyName || "").trim(), emergencyRelation: String(d.emergencyRelation || "").trim(), emergencyPhone: String(d.emergencyPhone || "").trim(), vehicles: String(d.vehicles || "").trim() };
+      var labels = { residents: "People living here", members: "Household members", pets: "Pets", emergencyName: "Emergency contact", emergencyRelation: "Emergency relationship", emergencyPhone: "Emergency number", vehicles: "Vehicles" };
+      var entries = Object.keys(labels).filter(function (k) { return String(oldRec[k] == null ? "" : oldRec[k]) !== String(nv[k] == null ? "" : nv[k]); }).map(function (k) {
+        var cut = function (x) { x = String(x == null ? "" : x).replace(/\s*\n\s*/g, ", "); return x.length > 60 ? x.slice(0, 57) + "…" : x; };
+        return { field: labels[k], from: cut(oldRec[k]), to: cut(nv[k]), at: now, by: myName() };
+      });
+      var log = entries.concat(Array.isArray(oldRec.selfLog) ? oldRec.selfLog : []).slice(0, 20);
+      await put("unit", unit, unit, Object.assign({}, oldRec, {
+        selfLog: log,
         residents: res, members: String(d.members || "").trim(), pets: String(d.pets || "").trim(), emergencyName: String(d.emergencyName || "").trim(),
         emergencyRelation: String(d.emergencyRelation || "").trim(), emergencyPhone: String(d.emergencyPhone || "").trim(), vehicles: String(d.vehicles || "").trim(),
         selfUpdated: Date.now(), selfBy: myName()

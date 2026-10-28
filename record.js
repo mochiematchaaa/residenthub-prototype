@@ -12,6 +12,22 @@ function recChips(text, empty) {
   var l = recLinesOf(text);
   return l.length ? '<div class="rec2-chips">' + l.map(function (x) { return "<em>" + esc(x) + "</em>"; }).join("") + "</div>" : recNone(empty);
 }
+/* The log of what the resident changed (kept on the unit record as "selfLog", newest first, last 20): [{field, from, to, at, by}] */
+function recLogOf(unit) { var u = unitRec(unit) || {}; return Array.isArray(u.selfLog) ? u.selfLog : []; }
+// Adds entries to the log and stamps the record as edited by the resident. Used by the profile page; the household form builds its own entries.
+async function recLogSelf(unit, entries, by) {
+  var old = unitRec(unit) || {}, now = Date.now();
+  var log = entries.map(function (e) { return { field: e.field, from: e.from || "", to: e.to || "", at: now, by: by || "" }; }).concat(Array.isArray(old.selfLog) ? old.selfLog : []).slice(0, 20);
+  await put("unit", unit, unit, Object.assign({}, old, { selfLog: log, selfUpdated: now, selfBy: by || old.selfBy || "" }));
+}
+// "Recent changes" list under the record.
+function recLogHtml(unit) {
+  var l = recLogOf(unit).slice(0, 6);
+  if (!l.length) return "";
+  return '<div class="rec2-log"><h3>Recent changes by the resident</h3>' + l.map(function (h) {
+    return '<div class="rec2-row"><span>' + esc(h.field) + "</span><b>" + (h.from ? esc(h.from) + " → " : "") + esc(h.to || "removed") + ' <small style="color:var(--muted);font-weight:400">· ' + esc(shortDate(new Date(Number(h.at)))) + (h.by ? " · " + esc(h.by) : "") + "</small></b></div>";
+  }).join("") + "</div>";
+}
 // Who changed the record last: the office or the resident.
 function recStamp(u) {
   var off = Number(u.profileUpdated) || 0, self = Number(u.selfUpdated) || 0;
@@ -37,5 +53,5 @@ function recordSheetHtml(unit, o) {
     recRow("Floor area", d.area ? esc(String(d.area)) + " sqm" : recNone("Not set")) + recRow("Parking slot", slot ? esc(slot.id) + " · " + esc(slot.v.size || "Regular") : recNone("None")) + "</div>" +
     '<div class="rec2-col"><h3>Household</h3>' + recRow("People living here", u.residents ? esc(String(u.residents)) : recNone(), self) + recRow("Pets", u.pets ? esc(u.pets) : recNone("None on file"), self) + '<div class="rec2-row stack"><span>Members' + (self ? ' <i class="rec2-pen">✎</i>' : "") + "</span>" + recChips(u.members) + "</div></div>" +
     '<div class="rec2-col"><h3>Emergency contact</h3>' + (u.emergencyName || u.emergencyPhone ? '<div class="rec2-person"><span class="rec2-av sm">' + esc(initials(u.emergencyName || "?")) + "</span><div><b>" + esc(emer || "Emergency contact") + "</b><small>" + (u.emergencyPhone ? esc(u.emergencyPhone) : "No number") + "</small></div></div>" : recNone()) + "</div>" +
-    '<div class="rec2-col"><h3>Vehicles' + (self ? ' <i class="rec2-pen">✎</i>' : "") + "</h3>" + recChips(u.vehicles, "None on file") + "</div></div></section>";
+    '<div class="rec2-col"><h3>Vehicles' + (self ? ' <i class="rec2-pen">✎</i>' : "") + "</h3>" + recChips(u.vehicles, "None on file") + "</div></div>" + recLogHtml(unit) + "</section>";
 }
