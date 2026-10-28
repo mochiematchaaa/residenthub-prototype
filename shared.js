@@ -97,39 +97,158 @@ function pageTabs(tabs, current, key){   // small pill buttons that switch a sec
   return `<div class="filters">${tabs.map(t=>`<button class="${current===t[0]?"active":""}" onclick="set({${key}:'${t[0]}'})">${t[1]}</button>`).join("")}</div>`;
 }
 
-/* 4 ---------- Calendar + "coming up" (right column on Home) ---------- */
-function eventDays(texts){
-  const month = new Date().toLocaleDateString("en-US",{month:"short"});
-  return texts.map(t => {
-    const m = String(t).match(/^([A-Za-z]{3})[a-z]* (\d{1,2})/);
-    return m && m[1] === month ? Number(m[2]) : 0;
-  }).filter(Boolean);
+/* 4 ---------- Calendar + "coming up" (right column on Home) ----------
+   One calendar for events, facility bookings, polls and elections (their closing day) and Philippine holidays.
+   It is built from the saved records every time it is drawn, so a new event or poll shows up at once (also from
+   another tab). A clock ticks every second and the calendar refreshes by itself every 30 seconds. */
+var CAL_KINDS = { event: ["Event", "#2fa88a"], booking: ["Booking", "#e8914a"], poll: ["Poll", "#3b82d6"], election: ["Election", "#7b5bd6"], holiday: ["Holiday", "#d64a5a"] };
+var calView = null;   // { y, m, sel }: the month on show and the picked day
+
+// Easter Sunday of a year (the church holidays move with it).
+function calEaster(y){
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3),
+    h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+    mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, mo - 1, da);
 }
-// Small month calendar; markDays are the days with events.
-function calendarHtml(markDays){
-  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-  const offset = (new Date(y, m, 1).getDay() + 6) % 7;            // week starts on Monday
-  const total = new Date(y, m + 1, 0).getDate();
+// Philippine regular and special non-working days of a year. Holidays set by proclamation each year (the Muslim holidays,
+// the Chinese New Year) are not included because their dates are announced late.
+function phHolidays(y){
+  const k = (m, d) => y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0"), out = [];
+  const add = (key, title, regular) => out.push({ key: key, title: title, regular: regular });
+  const easter = calEaster(y), off = n => { const d = new Date(easter); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  let last = new Date(y, 8, 0); while (last.getDay() !== 1) last.setDate(last.getDate() - 1);   // last Monday of August
+  add(k(1, 1), "New Year's Day", true); add(off(-3), "Maundy Thursday", true); add(off(-2), "Good Friday", true); add(off(-1), "Black Saturday", false);
+  add(k(4, 9), "Araw ng Kagitingan", true); add(k(5, 1), "Labor Day", true); add(k(6, 12), "Independence Day", true); add(k(8, 21), "Ninoy Aquino Day", false);
+  add(y + "-08-" + String(last.getDate()).padStart(2, "0"), "National Heroes Day", true); add(k(11, 1), "All Saints' Day", false); add(k(11, 2), "All Souls' Day", false);
+  add(k(11, 30), "Bonifacio Day", true); add(k(12, 8), "Feast of the Immaculate Conception", false); add(k(12, 24), "Christmas Eve", false);
+  add(k(12, 25), "Christmas Day", true); add(k(12, 30), "Rizal Day", true); add(k(12, 31), "New Year's Eve", false);
+  return out;
+}
+// "6:00 PM" in a text -> minutes after midnight, or -1.
+function calMinutes(t){
+  t = String(t || "");
+  let m = /(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i.exec(t);
+  if (!m) return -1;
+  const r = /^\s*(\d{1,2})(?::(\d{2}))?\s*[–-]\s*\d{1,2}(?::\d{2})?\s*(AM|PM)/i.exec(t);   // "12–2 PM": the start has no AM/PM of its own
+  let h = Number(m[1]) % 12; if (/pm/i.test(m[3])) h += 12;
+  if (r && m[1] !== r[1]) { const mer = /pm/i.test(r[3]) ? 12 : 0; h = (Number(r[1]) % 12) + mer; if (Number(r[1]) > 12 || (/pm/i.test(r[3]) && Number(r[1]) > Number(m[1]) && Number(r[1]) !== 12)) h = (Number(r[1]) % 12) + (Number(r[1]) > Number(m[1]) ? 0 : mer); m = r; }
+  return h * 60 + Number(m[2] || 0);
+}
+// The time part of "Oct 30, 2026 · 6:00 PM" or "Oct 28, 2026, 2:00 PM – 4:00 PM".
+function calTimeText(t){
+  const r = String(t || "").replace(/^[A-Za-z]{3}[A-Za-z]*\.?\s+\d{1,2},?\s+\d{4}[\s,·]*/, "").trim();
+  return calMinutes(r) >= 0 ? r : "";
+}
+function calPlain(html){ const d = document.createElement("div"); d.innerHTML = String(html || ""); return (d.textContent || "").trim(); }
+// Everything that goes on the calendar, as { key, min, time, title, sub, kind }.
+function calItems(){
+  const out = [], isAdmin = typeof accountOfUnit === "function", me = isAdmin ? "" : myUnit();
+  const push = (key, min, time, title, sub, kind) => { if (key) out.push({ key: key, min: min, time: time, title: title, sub: sub || "", kind: kind }); };
+  try {
+    list("event").forEach(r => {
+      const e = r.v, d = parseShort(e.date); if (!d) return;
+      const t = calTimeText(e.date);
+      push(dayKey(d), calMinutes(t), t, e.title, e.place, "event");
+    });
+    list("booking").forEach(r => {
+      const b = r.v; if (b.status === "Denied" || b.status === "Cancelled" || b.status === "Rejected") return;
+      if (!isAdmin && b.unit !== me) return;
+      const d = parseShort(b.when), key = b.day || (d ? dayKey(d) : ""), t = calTimeText(b.when);
+      push(key, calMinutes(t), t, (b.place || "Facility") + " booking", (isAdmin ? (b.who || b.unit) + " · " : "") + b.status, "booking");
+    });
+    if (typeof pollsAll === "function") pollsAll().forEach(p => {
+      if (!p.closeKey) return;
+      const name = calPlain(p.titleHtml) || p.q || "Poll", el = p.kind === "election";
+      push(p.closeKey, 24 * 60 - 1, "", (el ? "Election " : "Poll ") + (p.open ? "closes: " : "closed: ") + name, p.open ? "Voting ends at the end of this day" : "Voting has ended", el ? "election" : "poll");
+    });
+  } catch (e) { }
+  const y = new Date().getFullYear();
+  [y - 1, y, y + 1].forEach(yr => phHolidays(yr).forEach(h => push(h.key, -1, "", h.title, h.regular ? "Regular holiday" : "Special non-working day", "holiday")));
+  return out;
+}
+function calSort(a, b){ return a.key < b.key ? -1 : a.key > b.key ? 1 : (a.min < 0 ? -1 : a.min) - (b.min < 0 ? -1 : b.min); }
+function calDayLabel(key){
+  const t = new Date(), today = dayKey(t), tm = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+  if (key === today) return "Today";
+  if (key === dayKey(tm)) return "Tomorrow";
+  const p = key.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+function calClockHtml(){
+  const n = new Date();
+  return `<div class="cal-clock"><b id="calClock">${n.toLocaleTimeString("en-US")}</b><small id="calDate">${n.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</small></div>`;
+}
+function calItemHtml(it, withDay){
+  const k = CAL_KINDS[it.kind];
+  return `<div class="cal-item"><i style="background:${k[1]}"></i><div><b>${esc(it.title)}</b><small>${withDay ? esc(calDayLabel(it.key)) + (it.time ? " · " + esc(it.time) : "") : (it.time ? esc(it.time) : it.kind === "holiday" ? "All day" : "")}${it.sub ? " · " + esc(it.sub) : ""}</small></div><span class="cal-tag" style="color:${k[1]}">${k[0]}</span></div>`;
+}
+// The month grid, the picked day and the legend.
+function calendarHtml(){
+  const now = new Date(), todayKey = dayKey(now);
+  if (!calView) calView = { y: now.getFullYear(), m: now.getMonth(), sel: todayKey };
+  const y = calView.y, m = calView.m, items = calItems(), by = {};
+  items.forEach(i => { (by[i.key] = by[i.key] || []).push(i); });
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7, total = new Date(y, m + 1, 0).getDate();
   let cells = "";
-  for (let i = 0; i < offset; i++) cells += "<span></span>";
+  for (let i = 0; i < offset; i++) cells += "<span class='blank'></span>";
   for (let d = 1; d <= total; d++){
-    cells += `<span class="${d===now.getDate()?"today":""} ${markDays.indexOf(d)>-1?"mark":""}">${d}</span>`;
+    const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"), its = by[key] || [], kinds = [];
+    its.forEach(i => { if (kinds.indexOf(i.kind) < 0) kinds.push(i.kind); });
+    cells += `<button type="button" class="cal-d ${key === todayKey ? "today" : ""} ${key === calView.sel ? "sel" : ""} ${its.some(i => i.kind === "holiday") ? "hol" : ""}" onclick="calPick('${key}')" title="${esc(its.map(i => i.title).join(" · "))}">${d}<em>${kinds.slice(0, 3).map(k => `<u style="background:${CAL_KINDS[k][1]}"></u>`).join("")}</em></button>`;
   }
-  const label = now.toLocaleDateString("en-US",{month:"long",year:"numeric"});
-  return `<div class="cal"><div class="cal-title"><span>${label}</span></div>
-    <div class="cal-week">${["Mo","Tu","We","Th","Fr","Sa","Su"].map(d=>`<span>${d}</span>`).join("")}</div>
-    <div class="cal-days">${cells}</div></div>`;
+  const sel = calView.sel, day = (by[sel] || []).slice().sort(calSort);
+  const label = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return `<div class="cal">${calClockHtml()}
+    <div class="cal-title"><button type="button" class="cal-nav" onclick="calShift(-1)" aria-label="Previous month">&#8249;</button><span>${label}</span><button type="button" class="cal-nav" onclick="calShift(1)" aria-label="Next month">&#8250;</button><button type="button" class="cal-today" onclick="calToday()">Today</button></div>
+    <div class="cal-week">${["Mo","Tu","We","Th","Fr","Sa","Su"].map(d => `<span>${d}</span>`).join("")}</div>
+    <div class="cal-days">${cells}</div>
+    <div class="cal-legend">${Object.keys(CAL_KINDS).map(k => `<span><u style="background:${CAL_KINDS[k][1]}"></u>${CAL_KINDS[k][0]}</span>`).join("")}</div>
+    <div class="cal-day"><h3>${esc(calDayLabel(sel) === "Today" || calDayLabel(sel) === "Tomorrow" ? calDayLabel(sel) + " · " + new Date(+sel.slice(0, 4), +sel.slice(5, 7) - 1, +sel.slice(8)).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : calDayLabel(sel))}</h3>${day.length ? day.map(i => calItemHtml(i, false)).join("") : '<p class="cal-none">Nothing scheduled on this day.</p>'}</div></div>`;
 }
-// items: [[title, place, when], ...]
+// What is next: the coming events, bookings and polls, with the next holiday.
+function comingUpHtml(){
+  const now = new Date(), today = dayKey(now), mins = now.getHours() * 60 + now.getMinutes();
+  const all = calItems().filter(i => i.key > today || (i.key === today && (i.min < 0 || i.min >= mins - 60))).sort(calSort);
+  const hol = all.filter(i => i.kind === "holiday").slice(0, 1), rest = all.filter(i => i.kind !== "holiday").slice(0, 4);
+  const show = rest.concat(hol).sort(calSort).slice(0, 5);
+  return `<h2 class="tl-head">Coming up</h2><div class="timeline">${show.length ? show.map((it, i) => {
+    const k = CAL_KINDS[it.kind];
+    return `<div class="tl-card ${i === 0 ? "next" : ""}"><b>${esc(it.title)}</b><small>${k[0]}${it.sub ? " · " + esc(it.sub) : ""}</small><em>${esc(calDayLabel(it.key))}${it.time ? " · " + esc(it.time) : ""}</em></div>`;
+  }).join("") : '<div class="tl-card"><b>Nothing coming up</b><small>New events, bookings and polls appear here.</small></div>'}</div>`;
+}
+function calInner(buttonText, buttonView){
+  return `${calendarHtml()}<button class="btn-dark" onclick="set({view:'${buttonView}'})">${buttonText}</button>${comingUpHtml()}`;
+}
+var calAsideArgs = ["", ""];
+// The right column of the Home pages. (items is no longer needed: the calendar reads the records itself.)
 function asideHtml(items, buttonText, buttonView){
-  return `<aside class="side-col">
-    ${calendarHtml(eventDays(items.map(i=>i[2])))}
-    <button class="btn-dark" onclick="set({view:'${buttonView}'})">${buttonText}</button>
-    <h2 class="tl-head">Coming up</h2>
-    <div class="timeline">
-      ${items.map((it,i)=>`<div class="tl-card ${i===0?"next":""}"><b>${it[0]}</b><small>${it[1]}</small><em>${it[2]}</em></div>`).join("")}
-    </div>
-  </aside>`;
+  calAsideArgs = [buttonText, buttonView];
+  return `<aside class="side-col" id="calAside">${calInner(buttonText, buttonView)}</aside>`;
+}
+function refreshCal(){
+  const el = document.getElementById("calAside"); if (!el) return;
+  el.innerHTML = calInner(calAsideArgs[0], calAsideArgs[1]);
+}
+function calPick(key){ if (calView) calView.sel = key; refreshCal(); }
+function calShift(n){
+  if (!calView) return;
+  const d = new Date(calView.y, calView.m + n, 1); calView.y = d.getFullYear(); calView.m = d.getMonth();
+  const t = new Date(); calView.sel = (calView.y === t.getFullYear() && calView.m === t.getMonth()) ? dayKey(t) : calView.y + "-" + String(calView.m + 1).padStart(2, "0") + "-01";
+  refreshCal();
+}
+function calToday(){ const t = new Date(); calView = { y: t.getFullYear(), m: t.getMonth(), sel: dayKey(t) }; refreshCal(); }
+// The clock ticks every second; the whole calendar is redrawn every 30 seconds (and when the day changes).
+if (!window.__calTick) {
+  window.__calTick = 1;
+  let ticks = 0, lastDay = new Date().getDate();
+  setInterval(function(){
+    const c = document.getElementById("calClock"); if (!c) return;
+    const n = new Date(); c.textContent = n.toLocaleTimeString("en-US");
+    const dt = document.getElementById("calDate"); if (dt) dt.textContent = n.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    ticks++;
+    if (n.getDate() !== lastDay) { lastDay = n.getDate(); calView = null; }
+    if (ticks % 30 === 0 || lastDay !== n.getDate()) refreshCal();
+  }, 1000);
 }
 
 /* 5 ---------- Charts (plain HTML + CSS, no library) ---------- */

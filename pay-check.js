@@ -9,6 +9,8 @@
    Loaded by admin.html after admin-more.js.
    ========================================================================== */
 
+var PC_PAGE = 8;           // charges shown on one page of "Did they pay?"
+function goPcPage(n) { state.pcPage = Math.max(0, n); render(); }
 var PC_RECHECK_DAYS = 7;   // after a "No", the same charge is not asked about again for this many days
 function pcDayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
 // Late charge setting: a percentage of the unpaid charge.
@@ -38,7 +40,19 @@ function pcWhen(days) { return days <= 0 ? "Due today" : "Overdue by " + days + 
 function payCheckPanel(limit) {
   var l = payCheckList(); if (!l.length) return "";
   var units = {}, total = 0; l.forEach(function (x) { units[x.r.v.unit] = 1; total += Number(x.r.v.amount) || 0; });
-  var nu = Object.keys(units).length, shown = limit && !state.pcAll ? l.slice(0, limit) : l;
+  var nu = Object.keys(units).length, shown = limit && !state.pcAll ? l.slice(0, limit) : l, pager = "";
+  if (!limit) {   // the Finance page: a page of its own, a few charges at a time
+    var q = (state.pcQ || "").trim().toLowerCase();
+    var f = state.pcFilter || "all";
+    var all = l.filter(function (x) { return (f === "all" || (f === "over" ? x.days > 0 : x.days <= 0)) && (!q || (x.r.v.unit + " " + (x.r.v.name || "") + " " + x.r.v.note).toLowerCase().indexOf(q) >= 0); });
+    var pages = Math.max(1, Math.ceil(all.length / PC_PAGE)), pg = Math.min(Math.max(0, state.pcPage || 0), pages - 1);
+    shown = all.slice(pg * PC_PAGE, (pg + 1) * PC_PAGE);
+    var nOver = l.filter(function (x) { return x.days > 0; }).length;
+    pager = '<div class="filters" style="padding:4px 0 12px"><button class="' + (f === "all" ? "active" : "") + '" onclick="set({pcFilter:\'all\',pcPage:0})">All (' + l.length + ')</button><button class="' + (f === "over" ? "active" : "") + '" onclick="set({pcFilter:\'over\',pcPage:0})">Overdue (' + nOver + ')</button><button class="' + (f === "today" ? "active" : "") + '" onclick="set({pcFilter:\'today\',pcPage:0})">Due today (' + (l.length - nOver) + ')</button>' +
+      '<input type="search" id="pcSearchInput" value="' + escAttr(state.pcQ || "") + '" oninput="set({pcQ:this.value,pcPage:0})" placeholder="Search unit or charge..." autocomplete="off" class="fin-search"></div>';
+    var pagerEnd = all.length > PC_PAGE ? pagerHtml(all.length, pg, PC_PAGE, "goPcPage") : "";
+    state._pcEnd = pagerEnd + (all.length ? "" : '<div style="padding:22px;text-align:center;color:var(--muted)">No charge matches.</div>');
+  }
   var rows = shown.map(function (x) {
     var d = x.r.v, id = escAttr(x.r.id), ph = unitPhone(d.unit), digits = ph.replace(/[^\d+]/g, ""), tone = x.days >= 3 ? "bad" : "warn";
     var sms = "Good day! This is the administration office. Our records show " + d.note + " (" + peso(Number(d.amount)) + ") is still unpaid. If you already paid, please send your payment details under Dues in the ResidentHub app so your balance updates. Thank you!";
@@ -48,8 +62,8 @@ function payCheckPanel(limit) {
       (digits ? '<a class="btn" href="tel:' + escAttr(digits) + '" title="Call ' + escAttr(ph) + '">Call</a><a class="btn" href="sms:' + escAttr(digits) + "?body=" + encodeURIComponent(sms) + '" title="Text ' + escAttr(ph) + '">SMS</a>' : "") + "</div></div>";
   }).join("");
   return '<div class="card pc"><div class="pc-head"><div><h2>Did they pay?</h2><p class="hint" style="margin:4px 0 0"><b>' + l.length + " charge" + (l.length === 1 ? "" : "s") + "</b> from <b>" + nu + " unit" + (nu === 1 ? "" : "s") + "</b> (" + peso(total) + ") " + (l.length === 1 ? "is" : "are") + " due or past due with no payment on record. They may have paid without updating the app. Residents who send their payment details are handled by themselves, so only these are left.</p></div>" +
-    '<button class="btn" onclick="payCheckAskAll()">Ask everyone to send proof</button></div><div class="pc-list">' + rows + "</div>" +
-    (limit && l.length > limit ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="set({pcAll:' + !state.pcAll + '})">' + (state.pcAll ? "Show fewer" : "Show all " + l.length) + '</button><button class="btn" onclick="set({view:\'fin\',finTab:\'overview\'})">Open in Finance</button></div>' : "") + "</div>";
+    '<button class="btn" onclick="payCheckAskAll()">Ask everyone to send proof</button></div>' + pager + '<div class="pc-list">' + rows + "</div>" + (limit ? "" : state._pcEnd || "") +
+    (limit && l.length > limit ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="set({pcAll:' + !state.pcAll + '})">' + (state.pcAll ? "Show fewer" : "Show all " + l.length) + '</button><button class="btn" onclick="set({view:\'fin\',finTab:\'paycheck\',pcPage:0})">Open in Finance</button></div>' : "") + "</div>";
 }
 // YES: mark it paid. The office enters what was really paid; anything short stays as a balance.
 function payCheckYes(id) {

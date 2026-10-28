@@ -19,6 +19,9 @@ import 'price_calculator.dart';
 /// What the reminder says until the office edits it.
 const kReminderDefault = 'Please settle your dues when you can. Thank you!';
 
+/// Another screen (the dashboard) asks Finance to open on a tab: 'Verify' or 'Check' (Did they pay?).
+final ValueNotifier<String?> financeTabRequest = ValueNotifier<String?>(null);
+
 class AdminFinance extends StatefulWidget {
   const AdminFinance({super.key});
 
@@ -28,6 +31,25 @@ class AdminFinance extends StatefulWidget {
 
 class _AdminFinanceState extends State<AdminFinance> {
   String tab = 'Overview';
+
+  void _onTabRequest() {
+    final t = financeTabRequest.value;
+    if (t == null) return;
+    financeTabRequest.value = null;
+    if (mounted) setState(() => tab = t);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final t = financeTabRequest.value;
+    if (t != null) {
+      tab = t;
+      financeTabRequest.value = null;
+    }
+    financeTabRequest.addListener(_onTabRequest);
+  }
+
   String filter = 'Unpaid';
   static const _pageSize = 10;
   int page = 0;
@@ -39,6 +61,7 @@ class _AdminFinanceState extends State<AdminFinance> {
 
   @override
   void dispose() {
+    financeTabRequest.removeListener(_onTabRequest);
     rate.dispose();
     rateDay.dispose();
     duesRate.dispose();
@@ -349,9 +372,12 @@ class _AdminFinanceState extends State<AdminFinance> {
     final receiptRows = foundReceipts.sublist(filter == 'Receipts' ? from : 0, filter == 'Receipts' ? to : 0);
     final pendingProofs = app.proofs.where((p) => p.status == 'Pending').toList();
     final counts = {'Unpaid': unpaid.length, 'Paid': paid.length, 'Receipts': app.payments.length};
-    const tabs = ['Overview', 'Charges', 'Daily', 'Units', 'Settings'];
+    const tabs = ['Overview', 'Verify', 'Check', 'Charges', 'Daily', 'Units', 'Settings'];
+    final checkCount = app.payCheckList.length;
     final tabLabels = [
-      pendingProofs.isEmpty ? 'Overview' : 'Overview (${pendingProofs.length} to verify)',
+      'Overview',
+      pendingProofs.isEmpty ? 'To verify' : 'To verify (${pendingProofs.length})',
+      checkCount == 0 ? 'Did they pay?' : 'Did they pay? ($checkCount)',
       'Charges (${unpaid.length})',
       'Daily',
       'Unit dues',
@@ -388,12 +414,33 @@ class _AdminFinanceState extends State<AdminFinance> {
               ],
             ),
           ),
-          const PayCheckCard(),
-          if (pendingProofs.isNotEmpty)
-            VerifyPanel(
-              proofs: pendingProofs,
-              onReject: _reject,
-              onChangeSettings: () => go(context, const AdminSettings()),
+          if (pendingProofs.isNotEmpty || checkCount > 0)
+            RCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Needs your attention', style: hd(17)),
+                  const SizedBox(height: 8),
+                  if (pendingProofs.isNotEmpty)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const IconBadge(Icons.fact_check_outlined, accent: true),
+                      title: Text('${pendingProofs.length} payment${pendingProofs.length == 1 ? '' : 's'} to verify', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: const Text('Residents sent their payment details.'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => setState(() => tab = 'Verify'),
+                    ),
+                  if (checkCount > 0)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const IconBadge(Icons.help_outline_rounded, accent: true),
+                      title: Text('$checkCount charge${checkCount == 1 ? '' : 's'}: did they pay?', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: const Text('Due or past due with no payment on record.'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => setState(() => tab = 'Check'),
+                    ),
+                ],
+              ),
             ),
           const DailyCollectionsCard(),
           RCard(
@@ -476,6 +523,18 @@ class _AdminFinanceState extends State<AdminFinance> {
             ),
           ),
         ],
+        if (tab == 'Verify')
+          (pendingProofs.isEmpty
+              ? const EmptyBox('No payments to verify right now.', icon: Icons.fact_check_outlined)
+              : VerifyPanel(
+                  proofs: pendingProofs,
+                  onReject: _reject,
+                  onChangeSettings: () => go(context, const AdminSettings()),
+                )),
+        if (tab == 'Check')
+          (checkCount == 0
+              ? const EmptyBox('Nothing to check. Every charge that is due has a payment, or the resident already sent their details.', icon: Icons.help_outline_rounded)
+              : const PayCheckCard()),
         if (tab == 'Charges') ...[
           const ImportBar(['charges', 'payments']),
           _chargeTypes(context),

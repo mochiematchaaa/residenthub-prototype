@@ -47,7 +47,13 @@ class AdminHome extends StatelessWidget {
         ),
 
         // --- charges that may already be paid: "Did they pay?"
-        PayCheckCard(limit: 3, onOpenAll: () => adminJump(context, 3)),
+        PayCheckCard(
+          limit: 3,
+          onOpenAll: () {
+            financeTabRequest.value = 'Check';
+            adminJump(context, 3);
+          },
+        ),
 
         // --- overview
         DashSection(
