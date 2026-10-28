@@ -421,3 +421,29 @@ function mountApp(app, html){
   const curMain = cur.querySelector("main"), nextMain = next.querySelector("main");
   if (curMain && nextMain) curMain.replaceWith(nextMain); else app.innerHTML = html;
 }
+
+/* ---------- Phone tables: each row becomes a small card, so nobody has to scroll sideways ----------
+   The labels come from the table's own header. The look is in history.css (screens up to 640px wide). */
+(function () {
+  var queued = false;
+  function label() {
+    queued = false;
+    document.querySelectorAll("table:not(.rt):not(.psz):not(.imp-prev)").forEach(function (t) {
+      var ths = t.querySelectorAll("thead th");
+      if (!ths.length) return;
+      var names = Array.prototype.map.call(ths, function (th) { return (th.textContent || "").replace(/\s+/g, " ").trim(); });
+      t.querySelectorAll("tbody tr").forEach(function (tr) {
+        var i = 0;
+        Array.prototype.forEach.call(tr.children, function (td) {
+          if (td.tagName !== "TD") return;
+          td.setAttribute("data-label", names[i] || "");
+          i += td.colSpan || 1;
+        });
+      });
+      t.classList.add("rt");
+    });
+  }
+  function queue() { if (!queued) { queued = true; (window.requestAnimationFrame || setTimeout)(label); } }
+  function start() { label(); try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true }); } catch (e) { /* old browser: tables simply scroll sideways */ } }
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+})();
