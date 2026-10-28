@@ -461,3 +461,40 @@ IconData amenityIcon(String name) {
   if (has(['meeting', 'conference', 'study', 'lounge'])) return Icons.meeting_room_rounded;
   return Icons.event_available_rounded;
 }
+
+/// How many pages a list of [total] items makes when [per] fit on one page (at least 1).
+int pageCount(int total, int per) => total <= 0 ? 1 : (total + per - 1) ~/ per;
+
+/// The items of page [page] (counting from 0). A page past the end shows the last page.
+List<T> pageOf<T>(List<T> list, int page, int per) {
+  final p = page.clamp(0, pageCount(list.length, per) - 1);
+  return list.skip(p * per).take(per).toList();
+}
+
+/// "‹ Previous   Page 2 of 4   Next ›" under a long list. Shows nothing when everything fits on one page.
+class PagerBar extends StatelessWidget {
+  final int page, per, total;
+  final ValueChanged<int> onPage;
+  const PagerBar({super.key, required this.page, required this.per, required this.total, required this.onPage});
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = pageCount(total, per);
+    if (pages <= 1) return const SizedBox.shrink();
+    final p = page.clamp(0, pages - 1);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OutlinedButton(onPressed: p == 0 ? null : () => onPage(p - 1), child: const Text('‹ Previous')),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text('Page ${p + 1} of $pages', style: TextStyle(color: muted(context), fontWeight: FontWeight.w700, fontSize: 12.5)),
+          ),
+          OutlinedButton(onPressed: p >= pages - 1 ? null : () => onPage(p + 1), child: const Text('Next ›')),
+        ],
+      ),
+    );
+  }
+}

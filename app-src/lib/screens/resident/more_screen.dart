@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
-import '../../services/demo.dart' show kDemo;
 import '../../services/session.dart';
 import '../../widgets/widgets.dart';
 import 'resident_screens.dart';
@@ -42,7 +41,8 @@ class ResMore extends StatelessWidget {
         ),
         NavGroup(label: 'My unit', children: [
           NavTile(icon: Icons.calendar_month_rounded, title: 'Calendar', subtitle: 'Events, bookings and due dates', onTap: () => go(context, const CalendarScreen(admin: false))),
-          NavTile(icon: Icons.event_note_rounded, title: 'My reservations', subtitle: '${app.myBookings.length} requests and bookings', onTap: () => go(context, const ResReservations())),
+          if (!app.navHidden('res')) NavTile(icon: Icons.event_note_rounded, title: 'My reservations', subtitle: '${app.myBookings.length} requests and bookings', onTap: () => go(context, const ResReservations())),
+          if (!app.navHidden('parking'))
           NavTile(
             icon: Icons.two_wheeler_rounded,
             title: 'Motor parking',
@@ -51,17 +51,7 @@ class ResMore extends StatelessWidget {
                 : (app.parkingRequested ? 'Request sent, waiting for the office' : 'Request a parking slot'),
             onTap: () => app.setResTab(2),
           ),
-          NavTile(icon: Icons.edit_note_rounded, title: 'Complaints', subtitle: openGr == 0 ? 'Nothing open' : '$openGr open', onTap: () => go(context, const ResGrievances())),
-          if (kDemo)
-            ListenableBuilder(
-              listenable: maint,
-              builder: (context, _) => NavTile(
-                icon: Icons.handyman_outlined,
-                title: 'Maintenance',
-                subtitle: 'What the office is servicing and your repairs',
-                onTap: () => go(context, const ResMaintenance()),
-              ),
-            ),
+          if (!app.navHidden('gr')) NavTile(icon: Icons.edit_note_rounded, title: 'Complaints', subtitle: openGr == 0 ? 'Nothing open' : '$openGr open', onTap: () => go(context, const ResGrievances())),
           NavTile(
             icon: statusOf(rec?.usage ?? 'owner').icon,
             title: 'Unit status',
@@ -69,13 +59,16 @@ class ResMore extends StatelessWidget {
             onTap: () => go(context, const ResUnitStatus()),
           ),
         ]),
+        if (!(app.navHidden('events') && app.navHidden('polls') && app.navHidden('directory')))
         NavGroup(label: 'Community', children: [
+          if (!app.navHidden('events'))
           NavTile(
             icon: Icons.celebration_outlined,
             title: 'Events',
             subtitle: '${app.events.length} upcoming · say you are going',
             onTap: () => go(context, const ResEvents()),
           ),
+          if (!app.navHidden('polls'))
           NavTile(
             icon: Icons.how_to_vote_outlined,
             title: 'Polls & voting',
@@ -83,11 +76,12 @@ class ResMore extends StatelessWidget {
             onTap: () => go(context, const ResPolls()),
             trailing: app.pollsToVote > 0 ? Pill('${app.pollsToVote}', tone: Tone.warn) : null,
           ),
-          NavTile(icon: Icons.contacts_outlined, title: 'Directory & house rules', subtitle: 'Contacts, rules and common questions', onTap: () => go(context, const ResDirectory())),
+          if (!app.navHidden('directory')) NavTile(icon: Icons.contacts_outlined, title: 'Directory & house rules', subtitle: 'Contacts, rules and common questions', onTap: () => go(context, const ResDirectory())),
         ]),
+        if (!(app.navHidden('dues') && app.navHidden('docs')))
         NavGroup(label: 'Documents', children: [
-          NavTile(icon: Icons.lock_outline_rounded, title: 'Finance documents', subtitle: 'Statement, payments and receipts', onTap: () => go(context, const ResFinanceDocs())),
-          NavTile(icon: Icons.folder_copy_outlined, title: 'Community documents', subtitle: '${app.communityDocs.length} shared files', onTap: () => go(context, const ResDocuments())),
+          if (!app.navHidden('dues')) NavTile(icon: Icons.lock_outline_rounded, title: 'Finance documents', subtitle: 'Statement, payments and receipts', onTap: () => go(context, const ResFinanceDocs())),
+          if (!app.navHidden('docs')) NavTile(icon: Icons.folder_copy_outlined, title: 'Community documents', subtitle: '${app.communityDocs.length} shared files', onTap: () => go(context, const ResDocuments())),
         ]),
         NavGroup(label: 'Account', children: [
           NavTile(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Profile, password, devices, language', onTap: () => go(context, const ResSettings())),

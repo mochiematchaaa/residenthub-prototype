@@ -265,7 +265,16 @@ class _PollBallotFormState extends State<PollBallotForm> {
     msg(context, err ?? (p.isElection ? 'Your ballot was recorded. Thank you for voting!' : 'Your answers were recorded. Thank you!'));
   }
 
-  Widget _option(BuildContext context, bool on, bool radio, String text, VoidCallback onTap) {
+  /// "Ramon Dela Cruz \u2014 Unit 1B" -> "RC" (the part before the dash, first and last word).
+  static String _initials(String t) {
+    final words = t.split(RegExp(r'\s[\u2014\u2013-]\s|\(')).first.replaceAll(RegExp(r'[^A-Za-z\u00C0-\u024F ]'), ' ').trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return '?';
+    return (words.first[0] + (words.length > 1 ? words.last[0] : '')).toUpperCase();
+  }
+
+  static const _avatarColors = [Color(0xFFFFE9A8), Color(0xFFF6CFE0), Color(0xFFCDEBD5), Color(0xFFCFE0F5)];
+
+  Widget _option(BuildContext context, bool on, bool radio, String text, VoidCallback onTap, {int? avatar}) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -281,13 +290,21 @@ class _PollBallotFormState extends State<PollBallotForm> {
           ),
           child: Row(
             children: [
+              if (avatar != null) ...[
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: _avatarColors[avatar % _avatarColors.length],
+                  child: Text(_initials(text), style: const TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 14)),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5))),
+              const SizedBox(width: 8),
               Icon(
                 radio ? (on ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded) : (on ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded),
                 color: on ? lavDeep : muted(context),
-                size: 20,
+                size: 24,
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
             ],
           ),
         ),
@@ -300,7 +317,7 @@ class _PollBallotFormState extends State<PollBallotForm> {
     String hint = '';
     Widget body;
     if (q.type == 'choice') {
-      if (p.isElection) hint = 'Choose one candidate. Leave it blank to abstain.';
+      hint = p.isElection ? 'Choose 1 candidate \u00B7 or leave blank to abstain' : 'Choose 1';
       body = Column(children: [
         for (var k = 0; k < q.options.length; k++)
           _option(context, _a[q.id] == k, true, q.options[k], () => setState(() {
@@ -309,10 +326,10 @@ class _PollBallotFormState extends State<PollBallotForm> {
                 } else {
                   _a[q.id] = k;
                 }
-              })),
+              }), avatar: p.isElection ? k : null),
       ]);
     } else if (q.type == 'multi') {
-      hint = q.max > 0 ? 'Choose up to ${q.max}.${p.isElection ? ' Leave it blank to abstain.' : ''}' : 'Choose all that apply.';
+      hint = q.max > 0 ? 'Choose up to ${q.max}${p.isElection ? ' \u00B7 or leave blank to abstain' : ''}' : 'Choose all that apply';
       final cur = <int>[...((_a[q.id] as List?)?.cast<int>() ?? const <int>[])];
       body = Column(children: [
         for (var k = 0; k < q.options.length; k++)
@@ -334,7 +351,7 @@ class _PollBallotFormState extends State<PollBallotForm> {
                 _a[q.id] = next;
               }
             });
-          }),
+          }, avatar: p.isElection ? k : null),
       ]);
     } else if (q.type == 'rating') {
       body = Column(
@@ -381,8 +398,13 @@ class _PollBallotFormState extends State<PollBallotForm> {
         decoration: const InputDecoration(hintText: 'Your answer'),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -402,7 +424,15 @@ class _PollBallotFormState extends State<PollBallotForm> {
                 ],
               ),
             ),
-          if (hint.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(hint, style: TextStyle(color: muted(context), fontSize: 12.5))),
+          if (hint.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: lav.withAlpha(45), borderRadius: BorderRadius.circular(99)),
+                child: Text(hint, style: TextStyle(color: muted(context), fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+            ),
           body,
         ],
       ),

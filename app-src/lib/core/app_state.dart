@@ -63,6 +63,12 @@ String usageLabel(String u) =>
 
 // ---------------------------------------------------------------- models
 
+/// How many people are listed in a household's members text (one person per line).
+int memberCount(String members) => members.split(RegExp(r'[\r\n]+')).where((l) => l.trim().isNotEmpty).length;
+
+/// The number of people living in a unit: counted from the listed members (the older typed number is used only when no one is listed).
+int houseCount(Unit u) => memberCount(u.members) > 0 ? memberCount(u.members) : u.residents;
+
 String dayKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -662,6 +668,9 @@ class AppState extends ChangeNotifier {
     book.clear();
     remParking = RemCfg(days: 5, freq: 'every');
     remDues = RemCfg(days: 2, freq: 'daily');
+    customRems = [];
+    complaintLimit = 1;
+    hiddenNav = {};
     parkSoonDays = 5;
     smsLog.clear();
     _ballots.clear();
@@ -1250,6 +1259,74 @@ class AppState extends ChangeNotifier {
   RemCfg remParking = RemCfg(days: 5, freq: 'every');
   RemCfg remDues = RemCfg(days: 2, freq: 'daily');
 
+  /// Reminders the office wrote itself.
+  List<CustomRem> customRems = [];
+
+  /// How many open complaints one unit may have at the same time (the office changes it in Settings).
+  int complaintLimit = 1;
+
+  /// Resident pages the office switched off: book, res, dues, parking, events, polls, directory, gr, docs.
+  Set<String> hiddenNav = {};
+  bool navHidden(String key) => hiddenNav.contains(key);
+
+  /// Custom reminders that apply to the signed-in resident today.
+  List<CustomRem> get customRemsForMe {
+    final today = dayKey(DateTime.now());
+    final me = unitKey(myUnit);
+    return [
+      for (final r in customRems)
+        if (r.on &&
+            (r.from.isEmpty || r.from.compareTo(today) <= 0) &&
+            (r.to.isEmpty || r.to.compareTo(today) >= 0) &&
+            (r.aud != 'units' || r.units.split(RegExp(r'[,;\n]+')).any((u) => unitKey(u).isNotEmpty && unitKey(u) == me)))
+          r
+    ];
+  }
+
+  void saveCustomRem(CustomRem r) {
+    r.edited = DateTime.now().millisecondsSinceEpoch;
+    final i = customRems.indexWhere((x) => x.id == r.id);
+    if (i >= 0) {
+      customRems[i] = r;
+    } else {
+      customRems.add(r);
+    }
+    logActivity('Reminder ${i >= 0 ? 'changed' : 'added'}: ${r.title}', 'Settings');
+    _n();
+  }
+
+  void toggleCustomRem(String id) {
+    for (final r in customRems.where((x) => x.id == id)) {
+      r.on = !r.on;
+      r.edited = DateTime.now().millisecondsSinceEpoch;
+      logActivity('Reminder switched ${r.on ? 'on' : 'off'}: ${r.title}', 'Settings');
+    }
+    _n();
+  }
+
+  void deleteCustomRem(String id) {
+    final r = customRems.where((x) => x.id == id).firstOrNull;
+    customRems.removeWhere((x) => x.id == id);
+    if (r != null) logActivity('Reminder deleted: ${r.title}', 'Settings');
+    _n();
+  }
+
+  void setComplaintLimit(int n) {
+    complaintLimit = n.clamp(1, 10);
+    logActivity('Complaint limit set to $complaintLimit open per unit', 'Settings');
+    _n();
+  }
+
+  void setHiddenNav(Set<String> hidden) {
+    hiddenNav = {...hidden};
+    logActivity('Resident menu changed (${hidden.isEmpty ? 'all pages shown' : 'hidden: ${(hidden.toList()..sort()).join(', ')}'})', 'Settings');
+    _n();
+  }
+
+  /// My unit's complaints that are not resolved yet, and whether the limit is reached.
+  int get myOpenGrievances => myGrievances.where((g) => g.stage < 2).length;
+  bool get grievanceFull => myOpenGrievances >= complaintLimit;
+
   /// Read marks and "shown today" marks of the notification list and the reminder pop-up.
   final NotifBook book = NotifBook();
 
@@ -1348,14 +1425,22 @@ class AppState extends ChangeNotifier {
       }
     }
     out.sort((a, b) => a.n.compareTo(b.n));
-    return out.take(4).toList();
+    final mine = [
+      for (final c in customRemsForMe)
+        if (c.freq != 'bell') Reminder('cust:${c.id}:${c.edited}', 'custom', c.title, c.text, 'Got it', false, -1000, null, c.freq),
+    ];
+    return [...mine, ...out].take(5).toList();
   }
 
   /// The reminders to pop up now. Asking marks them as shown today.
   List<Reminder> remPopupItems() {
     final today = dayKey(DateTime.now());
     if (book.snoozed[myUnit] == today) return [];
-    final items = remCandidates.where((r) => remOf(r.kind).freq == 'every' || book.shown['$myUnit|${r.key}'] != today).toList();
+    final items = remCandidates.where((r) {
+      final f = r.freq ?? remOf(r.kind).freq;
+      final seen = book.shown['$myUnit|${r.key}'];
+      return f == 'every' || (f == 'once' ? seen == null : seen != today);
+    }).toList();
     for (final r in items) {
       book.shown['$myUnit|${r.key}'] = today;
     }
@@ -1760,8 +1845,13 @@ class AppState extends ChangeNotifier {
     for (final m in smsLog.where((m) => m.unit == myUnit && DateTime.now().millisecondsSinceEpoch - m.at < 14 * 86400000).take(2)) {
       out.add(['Text message to your phone: ${m.text}', 'good']);
     }
-    for (final a in myAnnouncements.take(2)) {
-      out.add(['New announcement: ${a.title}.', 'info']);
+    // what the office reminds everyone of, then its announcements (maintenance news reaches residents here)
+    for (final c in customRemsForMe) {
+      out.insert(0, ['${c.title}: ${c.text}', 'info']);
+    }
+    for (final a in myAnnouncements.take(4)) {
+      final maintenance = a.type == 'Maintenance', emergency = a.type == 'Emergency';
+      out.add(['${maintenance ? 'Maintenance notice' : emergency ? 'Emergency' : 'New announcement'}: ${a.title}.', emergency ? 'bad' : maintenance ? 'warn' : 'info']);
     }
     return out;
   }
@@ -1825,6 +1915,7 @@ class AppState extends ChangeNotifier {
 
   /// Sends a new grievance.
   void addGrievance(String title, String body) {
+    if (grievanceFull) return;
     grievances.insert(0,
         Grievance(nextId(), title, body.isEmpty ? 'No further details.' : body, myUnit, 0));
     logActivity('Complaint opened: $title', 'Requests');
@@ -2391,7 +2482,7 @@ class AppState extends ChangeNotifier {
       if (a != b) changes.add((label, a, b));
     }
 
-    diff('People living here', u.residents > 0 ? '${u.residents}' : '', residents > 0 ? '$residents' : '');
+    diff('People living here', houseCount(u) > 0 ? '${houseCount(u)}' : '', memberCount(t('members')) > 0 ? '${memberCount(t('members'))}' : '');
     diff('Household members', u.members, t('members'));
     diff('Pets', u.pets, t('pets'));
     diff('Emergency contact', u.emergencyName, t('emergencyName'));
@@ -2405,7 +2496,7 @@ class AppState extends ChangeNotifier {
     u.emergencyName = t('emergencyName');
     u.emergencyRelation = t('emergencyRelation');
     u.emergencyPhone = t('emergencyPhone');
-    u.residents = residents;
+    u.residents = memberCount(t('members'));
     u.selfUpdated = DateTime.now().millisecondsSinceEpoch;
     u.selfBy = me?.name ?? 'the resident';
     logActivity('Resident updated household record, ${u.unit}', 'Units');
@@ -2444,7 +2535,7 @@ class AppState extends ChangeNotifier {
     u.emergencyPhone = t('emergencyPhone');
     u.noteResident = t('noteResident');
     u.noteOffice = t('noteOffice');
-    u.residents = residents;
+    u.residents = memberCount(t('members'));
     u.profileUpdated = DateTime.now().millisecondsSinceEpoch;
     u.profileBy = adminName;
     logActivity('Resident record updated, ${u.unit}', 'Units');

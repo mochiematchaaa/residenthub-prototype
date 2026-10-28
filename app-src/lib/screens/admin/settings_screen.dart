@@ -22,10 +22,25 @@ class _AdminSettingsState extends State<AdminSettings> {
   late final lateDays = TextEditingController(text: '${app.lateFeeDays}');
   late final latePctC = TextEditingController(text: '${app.latePct}');
   late final autoHours = TextEditingController(text: '${app.autoPostHours}');
+  late final limitC = TextEditingController(text: '${app.complaintLimit}');
+  late Set<String> hid = {...app.hiddenNav};
+  int _custPage = 0;
+
+  static const _navPages = [
+    ['book', 'Book a facility'],
+    ['res', 'My reservations'],
+    ['dues', 'Dues and finance documents'],
+    ['parking', 'Parking'],
+    ['events', 'Events'],
+    ['polls', 'Polls'],
+    ['directory', 'Directory'],
+    ['gr', 'Complaints'],
+    ['docs', 'Community documents'],
+  ];
 
   @override
   void dispose() {
-    for (final c in [autoHours]) {
+    for (final c in [autoHours, limitC]) {
       c.dispose();
     }
     super.dispose();
@@ -54,8 +69,88 @@ class _AdminSettingsState extends State<AdminSettings> {
     );
   }
 
+  void _editCustom([CustomRem? cur]) {
+    showFormSheet(
+      context,
+      title: cur == null ? 'Add a reminder' : 'Edit reminder',
+      subtitle: 'Residents see this as a pop-up on their home screen and in the notification bell.',
+      fields: [
+        FieldSpec('title', 'Title', hint: 'e.g. Water interruption on Friday', initial: cur?.title ?? ''),
+        FieldSpec('text', 'Message', lines: 4, hint: 'What should residents know or do?', initial: cur?.text ?? ''),
+        FieldSpec('units', 'Units (only if you chose certain units)', hint: 'e.g. 12C, 8A, 15B', initial: cur?.units ?? '', onlyWhenKey: 'aud', onlyWhenValue: 'Only certain units', belowChoice: true),
+      ],
+      choices: [
+        ChoiceSpec('aud', 'Who gets it', const ['All residents', 'Only certain units'], cur?.aud == 'units' ? 'Only certain units' : 'All residents'),
+        ChoiceSpec('freq', 'Pop-up on the resident\u2019s home screen', customFreqLabels.values.toList(), customFreqLabels[cur?.freq ?? 'once']!),
+      ],
+      dates: [
+        DateSpec('from', 'Start showing on', cur?.from ?? dayKey(DateTime.now())),
+        DateSpec('to', 'Stop showing after (optional)', cur?.to ?? '', clearable: true, emptyText: 'No end date'),
+      ],
+      submit: cur == null ? 'Add reminder' : 'Save',
+      onSubmit: (v) {
+        final title = '${v['title']}'.trim(), text = '${v['text']}'.trim();
+        final from = '${v['from'] ?? ''}', to = '${v['to'] ?? ''}';
+        final units = v['aud'] == 'Only certain units';
+        if (title.isEmpty) return 'Write a title.';
+        if (text.isEmpty) return 'Write the message residents will read.';
+        if (to.isNotEmpty && from.isNotEmpty && to.compareTo(from) < 0) return 'The end date is before the start date.';
+        if (units && '${v['units']}'.replaceAll(RegExp(r'[,;\s]'), '').isEmpty) return 'Type at least one unit, or choose all residents.';
+        final freq = customFreqLabels.entries.firstWhere((e) => e.value == v['freq'], orElse: () => customFreqLabels.entries.first).key;
+        app.saveCustomRem(CustomRem(
+          id: cur?.id ?? 'c${DateTime.now().millisecondsSinceEpoch}',
+          title: title,
+          text: text,
+          from: from,
+          to: to,
+          freq: freq,
+          aud: units ? 'units' : 'all',
+          units: units ? '${v['units']}'.trim() : '',
+          on: cur?.on ?? true,
+        ));
+        return null;
+      },
+    );
+  }
+
+  Future<void> _saveLimit() async {
+    final n = int.tryParse(limitC.text.trim());
+    if (n == null || n < 1 || n > 10) {
+      msg(context, 'Enter a whole number from 1 to 10.');
+      return;
+    }
+    if (n == app.complaintLimit) {
+      msg(context, 'The limit is already $n.');
+      return;
+    }
+    final ok = await confirmDialog(
+      context,
+      'Change the complaint limit?',
+      'Each unit will be allowed $n open complaint${n == 1 ? '' : 's'} at a time (now ${app.complaintLimit}). ${n > app.complaintLimit ? 'A higher limit can invite spam. ' : ''}Complaints that are already open stay as they are.',
+      confirm: 'Yes, change it',
+      destructive: n > app.complaintLimit,
+    );
+    if (!ok || !mounted) return;
+    app.setComplaintLimit(n);
+    msg(context, 'Saved. Each unit can have $n open complaint${n == 1 ? '' : 's'}.');
+  }
+
+  Future<void> _saveNav() async {
+    final names = [for (final p in _navPages) if (hid.contains(p[0])) p[1]];
+    final ok = await confirmDialog(
+      context,
+      'Save the resident menu?',
+      names.isEmpty ? 'Residents will see every page.' : 'Residents will no longer see: ${names.join(', ')}.',
+      confirm: 'Save',
+    );
+    if (!ok || !mounted) return;
+    app.setHiddenNav(hid);
+    msg(context, 'Saved. Residents see the new menu straight away.');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final customs = app.customRems.reversed.toList();
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) => SubPage(
@@ -69,8 +164,8 @@ class _AdminSettingsState extends State<AdminSettings> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(L('Account & security', 'Account at seguridad'), style: hd(18)),
-                  Text(L('Profile, password, devices, language, appearance', 'Profile, password, device, wika, hitsura'), style: TextStyle(color: muted(context), fontSize: 12.5)),
+                  Text(L('Account & security', 'Account at security'), style: hd(18)),
+                  Text(L('Profile, password, devices, language, appearance', 'Profile, password, devices, language, itsura'), style: TextStyle(color: muted(context), fontSize: 12.5)),
                 ]),
               ),
               const Icon(Icons.chevron_right_rounded),
@@ -127,6 +222,104 @@ class _AdminSettingsState extends State<AdminSettings> {
                     OutlinedButton(onPressed: () => showReminderPreview(context, k), child: const Text('Preview')),
                   ]),
                 ],
+              ],
+            ),
+          ),
+          RCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Expanded(child: Text('Your own reminders', style: hd(18))),
+                  FilledButton.icon(onPressed: () => _editCustom(), icon: const Icon(Icons.add_rounded, size: 18), label: const Text('Add')),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  'Write any reminder you like (a meeting, a water interruption, a deadline). Residents see it as a pop-up and in their notification bell between the dates you choose.',
+                  style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                ),
+                if (customs.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text('No reminders of your own yet. Tap Add to write one.', style: TextStyle(color: muted(context))),
+                  ),
+                for (final r in pageOf(customs, _custPage, 5)) ...[
+                  const Divider(height: 24),
+                  Row(children: [
+                    Expanded(child: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+                    Pill(r.on ? 'On' : 'Off', tone: r.on ? Tone.good : Tone.info),
+                  ]),
+                  const SizedBox(height: 2),
+                  Text(r.text, style: const TextStyle(fontSize: 13, height: 1.35)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${r.from.isEmpty ? 'Starts now' : 'From ${shortDate((DateTime.tryParse(r.from) ?? DateTime.now()))}'}${r.to.isEmpty ? ', no end date' : ' until ${shortDate((DateTime.tryParse(r.to) ?? DateTime.now()))}'} \u00B7 '
+                    '${r.aud == 'units' ? 'Only ${r.units}' : 'All residents'} \u00B7 ${(customFreqLabels[r.freq] ?? '').toLowerCase()}',
+                    style: TextStyle(color: muted(context), fontSize: 12),
+                  ),
+                  Wrap(spacing: 6, children: [
+                    TextButton(onPressed: () => _editCustom(r), child: const Text('Edit')),
+                    TextButton(onPressed: () => app.toggleCustomRem(r.id), child: Text(r.on ? 'Turn off' : 'Turn on')),
+                    TextButton(
+                      onPressed: () async {
+                        final ok = await confirmDialog(context, 'Delete this reminder?', '\u201C${r.title}\u201D will no longer be shown to residents.', confirm: 'Delete', destructive: true);
+                        if (ok) app.deleteCustomRem(r.id);
+                      },
+                      child: const Text('Delete', style: TextStyle(color: danger)),
+                    ),
+                  ]),
+                ],
+                PagerBar(page: _custPage, per: 5, total: customs.length, onPage: (p) => setState(() => _custPage = p)),
+              ],
+            ),
+          ),
+          RCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Complaints', style: hd(18)),
+                const SizedBox(height: 4),
+                Text(
+                  'How many open complaints one unit may have at the same time. A resident can send another one only after you resolve one of theirs. The usual limit is 1.',
+                  style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                TextField(controller: limitC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Open complaints allowed per unit')),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: toneOf(context, Tone.warn).bg, borderRadius: BorderRadius.circular(14)),
+                  child: Text(
+                    'Be careful with this number. A higher limit lets one unit send many complaints at once. That can fill your list with spam and hide the real problems.',
+                    style: TextStyle(color: toneOf(context, Tone.warn).fg, fontSize: 12.5, height: 1.4),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: FilledButton(onPressed: _saveLimit, child: const Text('Save limit'))),
+              ],
+            ),
+          ),
+          RCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Resident menu', style: hd(18)),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose which pages residents see. A page you switch off disappears for every resident until you switch it on again. Home, Unit status and Settings always stay.',
+                  style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                ),
+                for (final p in _navPages)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(p[1], style: const TextStyle(fontWeight: FontWeight.w700)),
+                    value: !hid.contains(p[0]),
+                    activeThumbColor: lavDeep,
+                    onChanged: (v) => setState(() => v ? hid.remove(p[0]) : hid.add(p[0])),
+                  ),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: FilledButton(onPressed: _saveNav, child: const Text('Save menu'))),
               ],
             ),
           ),

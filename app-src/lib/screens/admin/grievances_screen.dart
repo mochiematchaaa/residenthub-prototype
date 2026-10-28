@@ -16,6 +16,7 @@ class AdminGrievances extends StatefulWidget {
 
 class _AdminGrievancesState extends State<AdminGrievances> {
   bool showDone = false;
+  int _activePage = 0, _donePage = 0;
 
   static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -31,7 +32,7 @@ class _AdminGrievancesState extends State<AdminGrievances> {
         if (db != null) return 1;
         return b.id.compareTo(a.id);
       });
-    for (final g in sorted) {
+    for (final g in pageOf(sorted, _donePage, 8)) {
       final d = maint.repairs[g.id]?.resolvedOn;
       final k = d == null ? 'Earlier' : '${_months[d.month - 1]} ${d.year}';
       groups.putIfAbsent(k, () {
@@ -51,6 +52,7 @@ class _AdminGrievancesState extends State<AdminGrievances> {
         SectionHeader('$k · ${groups[k]!.length} resolved'),
         for (final g in groups[k]!) _doneRow(context, g),
       ],
+      PagerBar(page: _donePage, per: 8, total: done.length, onPage: (p) => setState(() => _donePage = p)),
     ];
   }
 
@@ -103,7 +105,8 @@ class _AdminGrievancesState extends State<AdminGrievances> {
               ..._done(context, done)
             else ...[
               if (active.isEmpty) EmptyBox(app.grievances.isEmpty ? 'No complaints from residents yet.' : 'No active complaints. Finished ones are under Done.', icon: Icons.task_alt_rounded),
-              for (final g in active) _GrievanceCard(g),
+              for (final g in pageOf(active, _activePage, 6)) _GrievanceCard(g),
+              PagerBar(page: _activePage, per: 6, total: active.length, onPage: (p) => setState(() => _activePage = p)),
             ],
           ],
         );

@@ -16,8 +16,7 @@ class MyRecordCard extends StatelessWidget {
       title: 'Edit my details',
       subtitle: 'The office sees what you save. Your name, mobile number and unit are kept by the office, so ask them if one of those is wrong.',
       fields: [
-        FieldSpec('residents', 'How many people live here', type: TextInputType.number, initial: u.residents > 0 ? '${u.residents}' : ''),
-        FieldSpec('members', 'Household members', hint: 'One per line, e.g. Ana Reyes, spouse', lines: 3, initial: u.members),
+        FieldSpec('members', 'People living here (one per line, e.g. Ana Reyes, spouse)', hint: 'The number of people is counted from this list.', lines: 4, initial: u.members),
         FieldSpec('pets', 'Pets', hint: 'e.g. 1 dog', initial: u.pets),
         FieldSpec('emergencyName', 'Emergency contact name', initial: u.emergencyName),
         FieldSpec('emergencyRelation', 'Relationship', hint: 'e.g. Sister', initial: u.emergencyRelation),
@@ -26,14 +25,7 @@ class MyRecordCard extends StatelessWidget {
       ],
       submit: 'Save my details',
       onSubmit: (v) {
-        final raw = (v['residents'] ?? '').toString().trim();
-        var n = 0;
-        if (raw.isNotEmpty) {
-          final p = int.tryParse(raw);
-          if (p == null || p < 0 || p > 99) return 'People living here must be a number from 0 to 99.';
-          n = p;
-        }
-        app.saveMyRecord({for (final e in v.entries) e.key: (e.value ?? '').toString()}, residents: n);
+        app.saveMyRecord({for (final e in v.entries) e.key: (e.value ?? '').toString()});
         return null;
       },
     );

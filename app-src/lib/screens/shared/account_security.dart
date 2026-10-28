@@ -40,7 +40,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
     super.dispose();
   }
 
-  List<String> get _tabs => [L('All settings', 'Lahat ng setting'), L('Profile', 'Profile'), L('Password', 'Password'), L('Devices', 'Mga device'), L('Language', 'Wika')];
+  List<String> get _tabs => [L('All settings', 'Lahat ng settings'), L('Profile', 'Profile'), L('Password', 'Password'), L('Devices', 'Devices'), L('Language', 'Language')];
 
   String _date(DateTime d) => shortDate(d);
 
@@ -61,20 +61,20 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
     final mail = widget.admin ? app.adminEmail : app.me?.email ?? '';
     final pw = app.passwordChangedAt;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _tile(Icons.person_outline_rounded, L('Manage profile', 'Pamahalaan ang profile'), '$who · $mail', goTab: 1),
+      _tile(Icons.person_outline_rounded, L('Manage profile', 'I-manage ang profile'), '$who · $mail', goTab: 1),
       const SizedBox(height: 10),
-      _tile(Icons.key_rounded, L('Password', 'Password'), pw == null ? L('Not changed on this device yet', 'Hindi pa nababago sa device na ito') : '${L('Last changed', 'Huling binago')} ${_date(pw)}', goTab: 2),
+      _tile(Icons.key_rounded, L('Password', 'Password'), pw == null ? L('Not changed on this device yet', 'Hindi pa nababago sa device na ito') : '${L('Last changed', 'Last na binago noong')} ${_date(pw)}', goTab: 2),
       const SizedBox(height: 10),
-      _tile(Icons.devices_other_rounded, L('Devices', 'Mga device'), '${app.sessions.length} ${L('signed in', 'naka-sign in')}', goTab: 3),
+      _tile(Icons.devices_other_rounded, L('Devices', 'Devices'), '${app.sessions.length} ${L('signed in', 'naka-sign in')}', goTab: 3),
       const SizedBox(height: 10),
-      _tile(Icons.language_rounded, L('Language', 'Wika'), '${lang.name} · ${lang.native}', goTab: 4),
+      _tile(Icons.language_rounded, L('Language', 'Language'), '${lang.name} · ${lang.native}', goTab: 4),
       const SizedBox(height: 10),
       RCard(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(L('Dark mode', 'Dark mode'), style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(L('Easier on the eyes at night', 'Mas banayad sa mata sa gabi')),
+          subtitle: Text(L('Easier on the eyes at night', 'Mas madali sa mata kapag gabi')),
           value: app.dark,
           activeThumbColor: lavDeep,
           onChanged: (_) => app.toggleDark(),
@@ -82,7 +82,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
       ),
       if (widget.admin) ...[
         const SizedBox(height: 10),
-        _tile(Icons.admin_panel_settings_outlined, L('Access', 'Access'), '${app.trusted.length + 1} ${L('accounts · who can sign in', 'account · sino ang makakapag-sign in')}', onTap: () => go(context, const AdminAccess())),
+        _tile(Icons.admin_panel_settings_outlined, L('Access', 'Access'), '${app.trusted.length + 1} ${L('accounts · who can sign in', 'accounts · sino ang puwedeng mag-sign in')}', onTap: () => go(context, const AdminAccess())),
       ],
       const SizedBox(height: 16),
       SizedBox(
@@ -106,9 +106,9 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
     final mail = admin ? app.adminEmail : app.me?.email ?? '';
     return RCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(L('Manage profile', 'Pamahalaan ang profile'), style: hd(18)),
+        Text(L('Manage profile', 'I-manage ang profile'), style: hd(18)),
         const SizedBox(height: 4),
-        Text(admin ? L('Your name and mobile number. The email is what you sign in with.', 'Ang iyong pangalan at mobile number. Ang email ang gamit mo sa pag-sign in.') : L('Your unit assignment and mobile number can only be changed by the administrator.', 'Ang unit at mobile number mo ay ang administrator lang ang makakapagbago.'), style: TextStyle(color: muted(context), fontSize: 12.5)),
+        Text(admin ? L('Your name and mobile number. The email is what you sign in with.', 'Ang name at mobile number mo. Ang email ang gamit mo sa pag-sign in.') : L('Your unit assignment and mobile number can only be changed by the administrator.', 'Ang administrator lang ang puwedeng magpalit ng unit at mobile number mo.'), style: TextStyle(color: muted(context), fontSize: 12.5)),
         const SizedBox(height: 14),
         ProfilePhotoEditor(
           initials: initialsOf(admin ? app.adminName : app.me?.name ?? ''),
@@ -116,21 +116,21 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           onChange: admin ? app.setAdminPhoto : app.setMyPhoto,
         ),
         const SizedBox(height: 14),
-        TextField(controller: name, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: L('Full name', 'Buong pangalan'))),
+        TextField(controller: name, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: L('Full name', 'Full name'))),
         const SizedBox(height: 10),
-        TextField(enabled: false, controller: TextEditingController(text: mail), decoration: InputDecoration(labelText: L('Email address (used to sign in)', 'Email (para sa pag-sign in)'))),
+        TextField(enabled: false, controller: TextEditingController(text: mail), decoration: InputDecoration(labelText: L('Email address (used to sign in)', 'Email (pang-sign in)'))),
         const SizedBox(height: 10),
         TextField(
           controller: phone,
           enabled: admin,
           keyboardType: TextInputType.phone,
-          decoration: InputDecoration(labelText: admin ? L('Mobile number (optional)', 'Mobile number (opsyonal)') : L('Mobile number (verified; ask the administrator to change it)', 'Mobile number (beripikado; hilingin sa administrator na baguhin)')),
+          decoration: InputDecoration(labelText: admin ? L('Mobile number (optional)', 'Mobile number (optional)') : L('Mobile number (verified; ask the administrator to change it)', 'Mobile number (verified na; sa administrator ka magpabago nito)')),
         ),
         const SizedBox(height: 10),
         TextField(
           enabled: false,
-          controller: TextEditingController(text: admin ? L('Owner · Administrator', 'May-ari · Administrator') : app.me?.unit ?? ''),
-          decoration: InputDecoration(labelText: admin ? L('Role', 'Tungkulin') : L('Unit (set by administrator)', 'Unit (itinakda ng administrator)')),
+          controller: TextEditingController(text: admin ? L('Owner · Administrator', 'Owner · Administrator') : app.me?.unit ?? ''),
+          decoration: InputDecoration(labelText: admin ? L('Role', 'Role') : L('Unit (set by administrator)', 'Unit (itinakda ng administrator)')),
         ),
         const SizedBox(height: 14),
         SizedBox(
@@ -138,9 +138,9 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           child: FilledButton(
             onPressed: () async {
               final err = await session.saveProfile(name.text, phone.text);
-              if (context.mounted) msg(context, err ?? L('Profile updated.', 'Na-update ang profile.'));
+              if (context.mounted) msg(context, err ?? L('Profile updated.', 'Na-update na ang profile mo.'));
             },
-            child: Text(L('Save changes', 'I-save ang mga pagbabago')),
+            child: Text(L('Save changes', 'I-save ang changes')),
           ),
         ),
       ]),
@@ -164,12 +164,12 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
       conf.text = pw;
       show = true;
     });
-    msg(context, L('Strong password made. Copy it and keep it somewhere safe.', 'Nakagawa ng matibay na password. Kopyahin at itago sa ligtas na lugar.'));
+    msg(context, L('Strong password made. Copy it and keep it somewhere safe.', 'Nakagawa na ng matibay na password. I-copy ito at itago sa safe na lugar.'));
   }
 
   Future<void> _savePassword() async {
     if (cur.text.isNotEmpty && nw.text == cur.text) {
-      msg(context, L('Choose a password that is different from the current one.', 'Pumili ng ibang password sa kasalukuyan.'));
+      msg(context, L('Choose a password that is different from the current one.', 'Pumili ng password na iba sa current mo.'));
       return;
     }
     setState(() => busy = true);
@@ -184,7 +184,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
     nw.clear();
     conf.clear();
     app.passwordChangedNow(signOutOthers: signOutOthers);
-    msg(context, kDemo ? L('Password checked. This is the prototype, so your real sign-in password is not changed.', 'Nasuri ang password. Prototype ito, kaya hindi nagbabago ang totoong password mo.') : L('Password updated.', 'Napalitan na ang password.'));
+    msg(context, kDemo ? L('Password checked. This is the prototype, so your real sign-in password is not changed.', 'Na-check na ang password. Prototype lang ito, kaya hindi nagbabago ang totoong password mo.') : L('Password updated.', 'Napalitan na ang password mo.'));
   }
 
   Widget _password(BuildContext context) {
@@ -192,18 +192,18 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
     return Column(children: [
       RCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(L('Password manager', 'Tagapamahala ng password'), style: hd(18)),
+          Text(L('Password manager', 'Password manager'), style: hd(18)),
           const SizedBox(height: 4),
-          Text(pw == null ? L('Change it now and then, and never reuse it on other sites.', 'Palitan paminsan-minsan at huwag gamitin sa ibang site.') : '${L('Last changed', 'Huling binago')} ${_date(pw)}.', style: TextStyle(color: muted(context), fontSize: 12.5)),
+          Text(pw == null ? L('Change it now and then, and never reuse it on other sites.', 'Palitan paminsan-minsan, at huwag gamitin sa ibang sites.') : '${L('Last changed', 'Last na binago noong')} ${_date(pw)}.', style: TextStyle(color: muted(context), fontSize: 12.5)),
           const SizedBox(height: 14),
-          TextField(controller: cur, obscureText: !show, decoration: InputDecoration(labelText: L('Current password', 'Kasalukuyang password'))),
+          TextField(controller: cur, obscureText: !show, decoration: InputDecoration(labelText: L('Current password', 'Current password'))),
           const SizedBox(height: 10),
-          TextField(controller: nw, obscureText: !show, decoration: InputDecoration(labelText: L('New password', 'Bagong password'))),
+          TextField(controller: nw, obscureText: !show, decoration: InputDecoration(labelText: L('New password', 'New password'))),
           ListenableBuilder(
             listenable: nw,
             builder: (context, _) {
               final s = _score(nw.text);
-              final label = nw.text.isEmpty ? '' : s <= 2 ? L('Weak', 'Mahina') : s <= 4 ? L('Fair', 'Katamtaman') : s == 5 ? L('Good', 'Mabuti') : L('Strong', 'Matibay');
+              final label = nw.text.isEmpty ? '' : s <= 2 ? L('Weak', 'Mahina') : s <= 4 ? L('Fair', 'Okay lang') : s == 5 ? L('Good', 'Maganda') : L('Strong', 'Matibay');
               final color = s <= 2 ? const Color(0xFFD8584A) : s <= 4 ? const Color(0xFFE5A33A) : const Color(0xFF14A38B);
               return Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -221,21 +221,21 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           ),
           PasswordRulesList(controller: nw),
           const SizedBox(height: 10),
-          TextField(controller: conf, obscureText: !show, decoration: InputDecoration(labelText: L('Confirm new password', 'Kumpirmahin ang bagong password'))),
+          TextField(controller: conf, obscureText: !show, decoration: InputDecoration(labelText: L('Confirm new password', 'Confirm new password'))),
           const SizedBox(height: 6),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             value: show,
             onChanged: (v) => setState(() => show = v ?? false),
-            title: Text(L('Show passwords', 'Ipakita ang mga password'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            title: Text(L('Show passwords', 'Ipakita ang passwords'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             value: signOutOthers,
             onChanged: (v) => setState(() => signOutOthers = v ?? false),
-            title: Text(L('Sign out my other devices after changing', 'I-sign out ang iba kong device pagkatapos magpalit'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            title: Text(L('Sign out my other devices after changing', 'I-sign out ang iba kong devices pagkatapos magpalit'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -244,19 +244,19 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           ),
           const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: _generate, icon: const Icon(Icons.auto_awesome_rounded, size: 18), label: Text(L('Make a strong one', 'Gumawa ng matibay')))),
+            Expanded(child: OutlinedButton.icon(onPressed: _generate, icon: const Icon(Icons.auto_awesome_rounded, size: 18), label: Text(L('Make a strong one', 'Gumawa ng matibay na password')))),
             const SizedBox(width: 10),
             OutlinedButton.icon(
               onPressed: () async {
                 if (nw.text.isEmpty) {
-                  msg(context, L('Nothing to copy yet.', 'Wala pang makokopya.'));
+                  msg(context, L('Nothing to copy yet.', 'Wala pang puwedeng i-copy.'));
                   return;
                 }
                 await Clipboard.setData(ClipboardData(text: nw.text));
-                if (context.mounted) msg(context, L('Copied.', 'Nakopya na.'));
+                if (context.mounted) msg(context, L('Copied.', 'Na-copy na.'));
               },
               icon: const Icon(Icons.copy_rounded, size: 18),
-              label: Text(L('Copy', 'Kopyahin')),
+              label: Text(L('Copy', 'I-copy')),
             ),
           ]),
         ]),
@@ -264,13 +264,13 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
       const SizedBox(height: 14),
       RCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(L('Keep it safe', 'Panatilihing ligtas'), style: hd(17)),
+          Text(L('Keep it safe', 'Ingatan ito'), style: hd(17)),
           const SizedBox(height: 8),
           for (final t in [
-            L('Use a password only you know, at least 12 characters.', 'Gumamit ng password na ikaw lang ang nakakaalam, hindi bababa sa 12 character.'),
-            L('The office and the app will never ask you for your password.', 'Hindi hihingin ng opisina o ng app ang iyong password.'),
-            L('Use a password manager on your phone to store it.', 'Gumamit ng password manager sa phone para itago ito.'),
-            L('Lost a phone? Sign out that device under Devices.', 'Nawala ang phone? I-sign out ang device na iyon sa Mga device.'),
+            L('Use a password only you know, at least 12 characters.', 'Gumamit ng password na ikaw lang ang may alam, at at least 12 characters.'),
+            L('The office and the app will never ask you for your password.', 'Hindi hihingin ng office o ng app ang password mo kahit kailan.'),
+            L('Use a password manager on your phone to store it.', 'Gumamit ng password manager sa phone para hindi mo makalimutan.'),
+            L('Lost a phone? Sign out that device under Devices.', 'Nawala ang phone mo? I-sign out ang device na \'yon sa Devices.'),
           ])
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
@@ -302,13 +302,13 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(children: [
-              Expanded(child: Text(L('Manage devices', 'Pamahalaan ang mga device'), style: hd(18))),
+              Expanded(child: Text(L('Manage devices', 'I-manage ang devices'), style: hd(18))),
               Pill('${list.length}'),
             ]),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-            child: Align(alignment: Alignment.centerLeft, child: Text(L('Where this account is signed in. Sign out any device you do not recognise.', 'Kung saan naka-sign in ang account na ito. I-sign out ang device na hindi mo kilala.'), style: TextStyle(color: muted(context), fontSize: 12.5))),
+            child: Align(alignment: Alignment.centerLeft, child: Text(L('Where this account is signed in. Sign out any device you do not recognise.', 'Dito naka-sign in ang account na ito. I-sign out ang device na hindi mo kilala.'), style: TextStyle(color: muted(context), fontSize: 12.5))),
           ),
           for (final s in list)
             ListTile(
@@ -316,7 +316,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
               title: Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 Text(s.device, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 if (s.current) Pill(L('This device', 'Ang device na ito'), tone: Tone.good),
-                if (s.sample) Pill(L('Sample', 'Halimbawa')),
+                if (s.sample) Pill(L('Sample', 'Sample')),
               ]),
               subtitle: Text('${s.location} · ${s.when}'),
               trailing: s.current
@@ -333,7 +333,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           if (hasSample)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(L('In this prototype the other devices are samples so you can try the buttons. A live system lists real sessions.', 'Sa prototype na ito, halimbawa lang ang ibang device para masubukan ang mga button. Totoong session ang ipapakita ng live na sistema.'), style: TextStyle(color: muted(context), fontSize: 12)),
+              child: Text(L('In this prototype the other devices are samples so you can try the buttons. A live system lists real sessions.', 'Sa prototype na ito, sample lang ang ibang devices para masubukan ang mga button. Totoong sessions ang makikita sa live na system.'), style: TextStyle(color: muted(context), fontSize: 12)),
             ),
         ]),
       ),
@@ -347,7 +347,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
                   ? null
                   : () {
                       app.signOutOtherSessions();
-                      msg(context, L('Signed out on all other devices.', 'Na-sign out ang lahat ng ibang device.'));
+                      msg(context, L('Signed out on all other devices.', 'Na-sign out na ang lahat ng ibang devices.'));
                     },
               child: Text(L('Sign out all other devices', 'I-sign out ang lahat ng ibang device')),
             ),
@@ -358,7 +358,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(foregroundColor: danger),
               onPressed: () async {
-                if (await confirmDialog(context, L('Log out on all devices?', 'Mag-log out sa lahat ng device?'), L('You will need to sign in again everywhere.', 'Kailangan mong mag-sign in ulit sa lahat.'), confirm: L('Log out', 'Mag-log out'), destructive: true)) {
+                if (await confirmDialog(context, L('Log out on all devices?', 'Mag-log out sa lahat ng devices?'), L('You will need to sign in again everywhere.', 'Kailangan mong mag-sign in ulit sa lahat ng devices.'), confirm: L('Log out', 'Mag-log out'), destructive: true)) {
                   await session.signOut();
                 }
               },
@@ -367,7 +367,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(L('Tell me when a new device signs in', 'Abisuhan ako kapag may bagong device'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            title: Text(L('Tell me when a new device signs in', 'I-notify ako kapag may bagong device na nag-sign in'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             value: app.newDeviceAlert,
             activeThumbColor: lavDeep,
             onChanged: app.setNewDeviceAlert,
@@ -382,9 +382,9 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
     return Column(children: [
       RCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(L('Language', 'Wika'), style: hd(18)),
+          Text(L('Language', 'Language'), style: hd(18)),
           const SizedBox(height: 4),
-          Text(L('Choose the language for the menus and page titles.', 'Piliin ang wika para sa mga menu at pamagat ng pahina.'), style: TextStyle(color: muted(context), fontSize: 12.5)),
+          Text(L('Choose the language for the menus and page titles.', 'Piliin ang language para sa mga menu at page titles.'), style: TextStyle(color: muted(context), fontSize: 12.5)),
           const SizedBox(height: 12),
           for (final l in kLanguages)
             Padding(
@@ -423,7 +423,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
           Text(L('What changes', 'Ano ang magbabago'), style: hd(17)),
           const SizedBox(height: 6),
           Text(
-            L('Menus, page titles and this Account & security area change language. Other screens, such as lists and forms, stay in English for now. The choice is kept while the app is open.', 'Magbabago ang wika ng mga menu, pamagat at ng Account at seguridad na ito. Ang ibang screen, tulad ng mga listahan at form, ay nasa English muna. Nananatili ang pinili mo habang bukas ang app.'),
+            L('Menus, page titles and this Account & security area change language. Other screens, such as lists and forms, stay in English for now. The choice is kept while the app is open.', 'Magbabago ang language ng mga menu, page titles, at ng Account at security na ito. Ang ibang screens, gaya ng lists at forms, ay English muna sa ngayon. Nananatili ang pinili mo habang bukas ang app.'),
             style: TextStyle(color: muted(context), fontSize: 13, height: 1.4),
           ),
         ]),
@@ -439,7 +439,7 @@ class _AccountSecurityState extends State<AccountSecurityScreen> {
         final tabs = _tabs;
         return SubPage(
           title: 'Settings',
-          subtitle: L('All your settings, profile, password, devices and language.', 'Lahat ng iyong setting, profile, password, device at wika.'),
+          subtitle: L('All your settings, profile, password, devices and language.', 'Lahat ng settings mo: profile, password, devices at language.'),
           children: [
             FilterRow(options: tabs, selected: tabs[tab], onSelect: (v) => setState(() => tab = tabs.indexOf(v))),
             switch (tab) {

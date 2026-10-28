@@ -17,21 +17,106 @@ class MaintStat extends StatelessWidget {
   final String label;
   final int value;
   final Tone? tone;
-  const MaintStat(this.label, this.value, {super.key, this.tone});
+
+  /// When set, the card can be tapped and shows a "View" hint.
+  final VoidCallback? onTap;
+  const MaintStat(this.label, this.value, {super.key, this.tone, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final c = tone == null ? null : toneOf(context, tone!).fg;
     return RCard(
       padding: const EdgeInsets.all(14),
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('$value', style: hd(26, color: c)),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(color: muted(context), fontSize: 12, fontWeight: FontWeight.w600)),
+          if (onTap != null) ...[
+            const SizedBox(height: 4),
+            Text('View details \u203A', style: TextStyle(color: c ?? lavDeep, fontSize: 11.5, fontWeight: FontWeight.w800)),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// The page behind one of the three Maintenance numbers: [which] is 'overdue', 'week' or 'fix'.
+class MaintStatPage extends StatelessWidget {
+  final String which;
+  const MaintStatPage(this.which, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([app, maint]),
+      builder: (context, _) {
+        final fix = which == 'fix';
+        final tasks = maint.sortedTasks.where((t) {
+          final n = daysFromToday(t.due);
+          return which == 'overdue' ? n < 0 : (n >= 0 && n <= 7);
+        }).toList();
+        final equip = maint.equipment.where((e) => e.status != 'Working').toList()..sort((a, b) => a.name.compareTo(b.name));
+        final title = which == 'overdue' ? 'Overdue tasks' : fix ? 'Equipment to fix' : 'Due in 7 days';
+        final sub = which == 'overdue'
+            ? 'Tasks whose due date has passed. Mark them done, or move the date by editing the task.'
+            : fix
+                ? 'Equipment that is not working. A facility tied to it cannot be booked until it works again.'
+                : 'Tasks coming up in the next 7 days.';
+        return SubPage(
+          title: title,
+          subtitle: sub,
+          children: [
+            if (!fix && tasks.isEmpty) const EmptyBox('Nothing here. All caught up.', icon: Icons.check_circle_outline_rounded),
+            if (fix && equip.isEmpty) const EmptyBox('Everything is working.', icon: Icons.check_circle_outline_rounded),
+            if (!fix)
+              for (final t in tasks)
+                RCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: Text(t.title, style: hd(16))),
+                      Pill(taskState(t).$1, tone: toneFromLevel(taskState(t).$2)),
+                    ]),
+                    const SizedBox(height: 3),
+                    Text('${maint.equipOf(t).isEmpty ? 'No equipment' : maint.equipOf(t)} \u00B7 ${t.every}', style: TextStyle(color: muted(context), fontSize: 12.5)),
+                    const SizedBox(height: 6),
+                    Text('Next due ${shortDate(t.due)}', style: const TextStyle(fontSize: 13)),
+                    Text(maint.assigneeOf(t).isEmpty ? 'Not assigned yet' : 'Assigned to ${maint.assigneeOf(t)}', style: TextStyle(color: muted(context), fontSize: 13)),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: FilledButton(onPressed: () => showDoneSheet(context, t), child: const Text('Mark done'))),
+                      IconButton(tooltip: 'Edit', onPressed: () => showTaskSheet(context, task: t), icon: const Icon(Icons.edit_outlined)),
+                    ]),
+                  ]),
+                ),
+            if (fix)
+              for (final e in equip)
+                RCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: Text(e.name, style: hd(16))),
+                      Pill(e.status, tone: equipmentTone(e.status)),
+                    ]),
+                    const SizedBox(height: 3),
+                    Text('${e.category} \u00B7 ${e.location}${e.vendor.isEmpty ? '' : ' \u00B7 ${e.vendor}'}', style: TextStyle(color: muted(context), fontSize: 12.5)),
+                    if (maint.openRepairsFor(app, e.id) > 0) ...[
+                      const SizedBox(height: 6),
+                      Pill('${maint.openRepairsFor(app, e.id)} open repair', tone: Tone.warn),
+                    ],
+                    if (e.facility.isNotEmpty && e.closes) ...[
+                      const SizedBox(height: 4),
+                      Text('${e.facility} is closed to booking while this is not working.', style: TextStyle(color: muted(context), fontSize: 12.5)),
+                    ],
+                    const SizedBox(height: 6),
+                    TextButton.icon(onPressed: () => showEquipmentSheet(context, item: e), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit or change status')),
+                  ]),
+                ),
+          ],
+        );
+      },
     );
   }
 }
