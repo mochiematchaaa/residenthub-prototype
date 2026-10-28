@@ -73,6 +73,8 @@ function notifs() {
   openDues.filter(function (r) { var d = parseShort(billedOn(r.id, r.v)); return d && Date.now() - d.getTime() < 14 * 86400000; }).slice(0, 3).forEach(function (r) {
     out.push(["New charge from the office: " + r.v.note + " (" + peso(Number(r.v.amount)) + "), billed " + billedOn(r.id, r.v) + (r.v.dueDate ? ", due " + r.v.dueDate : "") + ".", "info", "dues"]);
   });
+  // reminders the office wrote itself
+  if (typeof custForMe === "function") custForMe().forEach(function (r) { out.unshift([r.title + ": " + r.text, "info", "home"]); });
   // reminders sent by the office, and charges that fall due in the next 3 days
   myOpenDues().forEach(function (r) {
     var rem = parseShort(r.v.remindedOn || ""), due = parseShort(r.v.dueDate || ""), days = due ? Math.round((due.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null;
@@ -99,8 +101,11 @@ function notifs() {
   if (pd && pd.soon && !leaveNoteOf(unit) && !renewProofOf(unit, slot.id) && !walkinOf(unit, true)) out.unshift(["Your parking rental for " + slot.id + " " + (pd.late ? "has ended or is due" : "is almost up") + ". The next payment is due " + usageDate(pd.nextDue) + " (" + parkDaysText(pd.days) + "). Renew to keep your slot, or tell the office if you no longer plan to rent.", pd.late ? "bad" : "warn", "parking"]);
   // the texts the office sent (rental approved, next due date)
   newest(list("sms")).filter(function (r) { return r.unit === unit && Date.now() - Number(r.v.at || 0) < 14 * 86400000; }).slice(0, 2).forEach(function (r) { out.push(["Text message to your phone: " + r.v.text, "good", "parking"]); });
-  var a = publishedAnns()[0];
-  if (a) out.push(["New announcement: " + a.v.title + ".", "info", "home"]);
+  // every recent announcement from the office is a notification (maintenance notices are announcements too)
+  publishedAnns().filter(function (r) { var d = parseShort(r.v.date || ""); return !d || Date.now() - d.getTime() < 14 * 86400000; }).slice(0, 4).forEach(function (r) {
+    var m = r.v.type === "Maintenance", em = r.v.type === "Emergency", t = String(r.v.title || "").replace(/^Maintenance notice:\s*/i, "").replace(/[.\s]+$/, "");
+    out.push([(m ? "Maintenance notice: " : em ? "Emergency: " : "New announcement: ") + t + ".", em ? "bad" : m ? "warn" : "info", "home"]);
+  });
   var toVote = pollsAll().filter(function (p) { return p.open && myVote(p.id) === undefined; }).length;
   if (toVote) out.push([toVote + " poll" + (toVote > 1 ? "s" : "") + " waiting for your vote.", "info", "polls"]);
   return out;
@@ -125,7 +130,13 @@ function titles() {
   }[state.view] || ["", ""];
 }
 // Picks the page function to draw for state.view.
+// Pages the administrator switched off for residents (Settings > Resident menu).
+function navHidden(key) {
+  if (key === "home" || key === "rental" || key === "settings") return false;
+  var h = setting("resident_nav").hidden; return Array.isArray(h) && h.indexOf(key) >= 0;
+}
 function view() {
+  if (navHidden(state.view)) state.view = "home";
   return ({ home: viewHome, book: viewBook, res: viewRes, dues: viewDues, parking: viewParkingPage, gr: viewGr, docs: viewDocs, rental: viewRental, settings: viewSettings, events: viewEvents, polls: viewPolls, directory: viewDirectory }[state.view] || viewHome)();
 }
 // Red banner shown when an Emergency announcement exists.
@@ -184,8 +195,7 @@ function recordSelfForm() {
     intro: "Keep your household up to date. The office sees what you save. Your name, mobile number and unit are kept by the office, so ask them if one of those is wrong.",
     submit: "Save my details",
     fields: [
-      { name: "residents", label: "How many people live here", type: "number", step: "1", value: u.residents || "" },
-      { name: "members", label: "Household members (one per line, e.g. Ana Reyes, spouse)", type: "textarea", value: u.members || "" },
+      { name: "members", label: "People living here (one per line, e.g. Ana Reyes, spouse). The number of people is counted from this list.", type: "textarea", value: u.members || "" },
       { name: "pets", label: "Pets", value: u.pets || "", placeholder: "e.g. 1 dog" },
       { name: "emergencyName", label: "Emergency contact name", value: u.emergencyName || "" },
       { name: "emergencyRelation", label: "Relationship", value: u.emergencyRelation || "", placeholder: "e.g. Sister" },
@@ -193,8 +203,7 @@ function recordSelfForm() {
       { name: "vehicles", label: "Vehicles (one per line, e.g. Motorcycle · ABC 1234)", type: "textarea", value: u.vehicles || "" }
     ],
     onSubmit: async function (d) {
-      var res = d.residents === "" || d.residents == null ? "" : parseInt(d.residents, 10);
-      if (res !== "" && !(res >= 0 && res <= 99)) return { error: "Enter how many people live in the unit, e.g. 3." };
+      var res = recMemberLines({ members: d.members }).length || "";
       var oldRec = myRec(), now = Date.now(), nv = { residents: res, members: String(d.members || "").trim(), pets: String(d.pets || "").trim(), emergencyName: String(d.emergencyName || "").trim(), emergencyRelation: String(d.emergencyRelation || "").trim(), emergencyPhone: String(d.emergencyPhone || "").trim(), vehicles: String(d.vehicles || "").trim() };
       var labels = { residents: "People living here", members: "Household members", pets: "Pets", emergencyName: "Emergency contact", emergencyRelation: "Emergency relationship", emergencyPhone: "Emergency number", vehicles: "Vehicles" };
       var entries = Object.keys(labels).filter(function (k) { return String(oldRec[k] == null ? "" : oldRec[k]) !== String(nv[k] == null ? "" : nv[k]); }).map(function (k) {
@@ -690,7 +699,7 @@ function viewParkingPage() {
     var cls = isMine ? "mine" : u ? "taken" : myHold ? "held mine-held" : h ? "held" : "free", label = isMine ? "Yours" : u ? "Taken" : myHold ? "Yours" : h ? "Held" : "Free";
     var click = (canPick && !u && !h) ? ' onclick="reserveSlot(\'' + escAttr(s.id) + '\')"' : "";
     var sz = s.v.size || "Regular", rt = parkRatesFor(sz);
-    return "<" + (click ? "button" : "div") + ' class="pk ' + cls + (click ? " pick" : "") + '"' + click + ' title="' + label + " · " + sz + (rt.month ? " · " + peso(rt.month) + " per month" : "") + '"><b>' + esc(s.id) + "</b><small>" + label + "</small><small>" + esc(sz) + (!u && !h && rt.month ? " · " + peso(rt.month) : "") + "</small></" + (click ? "button" : "div") + ">";
+    return "<" + (click ? "button" : "div") + ' class="pk ' + cls + (click ? " pick" : "") + '"' + click + ' title="' + label + " · " + sz + (rt.month ? " · " + peso(rt.month) + " per month" : "") + '"><b>' + esc(s.id) + "</b><small>" + label + "</small><small>" + esc(sz) + "</small>" + (!u && !h && rt.month ? "<small>" + peso(rt.month) + "</small>" : "") + "</" + (click ? "button" : "div") + ">";
   }).join("");
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero + (mine ? parkRenewCardHtml(mine) : "") + payCard +
     (slots.length ? '<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="font-size:19px">Parking map</h2><span class="hint" style="margin:0">' + free + " of " + slots.length + ' free' + (canPick ? " · tap a free slot" : "") + '</span></div><div class="pk-grid">' + grid + '</div><div class="pk-legend"><span><i class="free"></i>Free</span><span><i class="held"></i>Held</span><span><i class="taken"></i>Taken</span>' + (mine || pick ? '<span><i class="mine"></i>Yours</span>' : "") + "</div></div>" : "") +
@@ -767,10 +776,10 @@ function viewPolls() {
     '<div class="poll-list">' + (shown.map(function (p) {
       var voted = myVote(p.id), election = p.kind === "election";
       var canSee = !p.open || (voted !== undefined && p.showResults !== "closed");
-      var body = p.open && voted === undefined ? pollBallotHtml(p) + '<button class="btn primary" style="margin-top:6px" onclick="castVote(' + p.id + ')">' + (election ? "Submit my ballot" : "Submit my answers") + "</button>"
+      var body = p.open && voted === undefined ? pollBallotHtml(p) + '<div class="ballot-submit"><button class="btn primary" onclick="castVote(' + p.id + ')">' + (election ? "Submit my ballot" : "Submit my answers") + "</button></div>"
         : canSee ? pollResultsHtml(p, voted, false) + '<p class="hint" style="margin:12px 0 0">' + p.ballots + (election ? " ballot" : " response") + (p.ballots === 1 ? "" : "s") + " so far" + (voted !== undefined ? " · thank you for voting" : "") + "</p>"
         : '<p class="poll-note">Your ballot was recorded. The results are shown when voting closes on <b>' + esc(p.closes) + "</b>.</p>";
-      return '<div class="card poll-card' + (p.questions.length > 1 ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0">' + pollChips(p) + '<h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
+      return '<div class="card poll-card' + (p.questions.length > 1 || (p.open && voted === undefined) ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0">' + pollChips(p) + '<h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
         (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes" : "Closed") + " " + esc(p.closes) + (election ? " · secret ballot, one ballot per unit" : "") + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" + body + "</div>";
     }).join("") || '<p class="empty">No polls here.</p>') + "</div>";
 }
@@ -799,22 +808,30 @@ function viewDirectory() {
 // PAGE: Complaints.
 function viewGr() {
   var all = newest(list("grievance")).filter(function (r) { return r.unit === myUnit(); }), names = ["Open", "In progress", "Resolved"];
-  return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a complaint</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed.</p>' +
-    '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"></textarea></label><button class="btn primary" style="margin-top:4px" onclick="submitGr()">Submit complaint</button></div></div>' +
+  var limit = grLimit(), open = all.filter(function (r) { return !(Number(r.v.stage) >= 2); }).length, full = open >= limit;
+  var shown = pageSlice(all, 5, "grPage");
+  var fullNote = full ? '<div class="gr-full"><b>You have ' + open + " open complaint" + (open === 1 ? "" : "s") + ".</b>Each unit can have " + limit + " open at a time, so the office can answer them properly. You can send a new one as soon as the office resolves one of yours.</div>" : "";
+  return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a complaint</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed. Open complaints: ' + open + " of " + limit + ".</p>" + fullNote +
+    '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"' + (full ? " disabled" : "") + '></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"' + (full ? " disabled" : "") + '></textarea></label><button class="btn primary" style="margin-top:4px"' + (full ? " disabled" : "") + ' onclick="submitGr()">Submit complaint</button></div></div>' +
     '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">My complaints</h2>' + (all.length === 0 ? '<div style="padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)">No complaints submitted yet.</div>' :
-      all.map(function (r) {
+      shown.map(function (r) {
         var g = r.v, s = Math.min(2, Math.max(0, Number(g.stage) || 0));
-        return '<div style="padding:12px 0;border-top:1px solid var(--border2)"><div style="font-weight:700;font-size:15px">' + esc(g.title) + '</div><div style="font-size:13px;color:var(--muted);margin:2px 0 6px">' + esc(g.body) + '</div><span class="chip ' + (s === 2 ? "good" : s === 1 ? "warn" : "info") + '">' + names[s] + "</span></div>";
-      }).join("")) + "</div></div>";
+        var info = g.assignee ? '<div style="margin-top:8px;font-size:13px;line-height:1.5">Assigned to <b>' + esc(g.assignee) + "</b>" + (g.target && s < 2 ? " · target " + esc(g.target) : "") +
+          (g.equipName ? '<div style="color:var(--muted)">Related to: ' + esc(g.equipName) + "</div>" : "") + (g.notes && s < 2 ? '<div style="color:var(--muted)">Update from the office: ' + esc(g.notes) + "</div>" : "") + "</div>" : "";
+        return '<div style="padding:12px 0;border-top:1px solid var(--border2)"><div style="font-weight:700;font-size:15px">' + esc(g.title) + '</div><div style="font-size:13px;color:var(--muted);margin:2px 0 6px">' + esc(g.body) + '</div><span class="chip ' + (s === 2 ? "good" : s === 1 ? "warn" : "info") + '">' + names[s] + "</span>" + info + "</div>";
+      }).join("") + pagerHtml(all.length, 5, "grPage")) + "</div></div>";
 }
 // Sends a complaint to the admin.
 function submitGr() {
   var title = document.getElementById("grTitle").value.trim();
   if (!title) return toast("Enter a subject first.");
   var body = document.getElementById("grBody").value.trim() || "No further details.";
+  var open = list("grievance").filter(function (r) { return r.unit === myUnit() && !(Number(r.v.stage) >= 2); }).length;
+  if (open >= grLimit()) return toast("You already have " + open + " open complaint" + (open === 1 ? "" : "s") + ". Wait until the office resolves one before sending another.");
   act(async function () {
     var id = nextId();
     await put("grievance", id, myUnit(), { id: id, title: title, body: body, by: myUnit(), stage: 0 });
+    state.grPage = 0;
     logAct("Complaint sent, " + myUnit() + ": " + title, "Requests");
     toast("Complaint sent. The office will review it.");
   });

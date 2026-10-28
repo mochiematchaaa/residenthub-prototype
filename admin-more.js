@@ -1588,7 +1588,7 @@ function directory() { var d = setting("directory"); return { contacts: d.contac
 // PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (automatic posting).
 function viewSettings() {
   var tab = state.setTab || "general";
-  var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at seguridad")], ["access", "Access"], ["payments", "Payments"], ["reminders", "Reminders"]];
+  var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at security")], ["access", "Access"], ["payments", "Payments"], ["reminders", "Reminders"]];
   var bar = '<div class="filters" role="tablist" style="margin-bottom:16px">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({setTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
   return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : tab === "reminders" ? remSettingsHtml() : tab === "account" ? acctView() : viewSettingsGeneral());
 }
@@ -1614,11 +1614,47 @@ function demoDataCard() {
 function resetDemoNow() {
   confirmBox("Reset to the sample data?", "Everything you added or changed while testing is dropped and the original sample data comes back. The sign-in accounts stay.", "Reset", async function () { if (typeof rhDemoSample === "function") rhDemoSample(); });
 }
+// Settings > General: how many open complaints one unit may have at once. Changing it asks first, because a high number invites spam.
+function grLimitCardHtml() {
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Complaints</h2><p class="hint" style="margin:0">How many open complaints one unit may have at the same time. A resident can send another one only after you resolve one of theirs. The usual limit is <b>1</b>.</p>' +
+    '<label class="fl" style="max-width:240px">Open complaints allowed per unit<input id="grLimitIn" type="number" min="1" max="10" step="1" value="' + grLimit() + '"></label>' +
+    '<div class="gr-warn"><span>\u26A0</span><div><b>Be careful with this number</b>A higher limit lets one unit send many complaints at once. That can fill your list with spam and hide the real problems.</div></div>' +
+    '<div><button class="btn primary" onclick="saveGrLimit()">Save limit</button></div></div>';
+}
+function saveGrLimit() {
+  var n = parseInt((document.getElementById("grLimitIn") || {}).value, 10);
+  if (!(n >= 1 && n <= 10)) return toast("Enter a whole number from 1 to 10.");
+  if (n === grLimit()) return toast("The limit is already " + n + ".");
+  confirmBox("Change the complaint limit?", "Each unit will be allowed " + n + " open complaint" + (n === 1 ? "" : "s") + " at a time (now " + grLimit() + "). " + (n > grLimit() ? "A higher limit can invite spam. " : "") + "Complaints that are already open stay as they are.", "Yes, change it", async function () {
+    await put("setting", "complaint_limit", "", { n: n });
+    logAct("Complaint limit set to " + n + " open per unit", "Settings");
+    toast("Saved. Each unit can have " + n + " open complaint" + (n === 1 ? "" : "s") + ".");
+  }, n > grLimit());
+}
+// Settings > General: which pages residents can open. Home, Unit status and Settings always stay.
+var RES_NAV = [["book", "Book a facility"], ["res", "Reservations"], ["dues", "Dues"], ["parking", "Parking"], ["events", "Events"], ["polls", "Polls"], ["directory", "Directory"], ["gr", "Complaints"], ["docs", "Documents"]];
+function resNavHidden() { var h = setting("resident_nav").hidden; return Array.isArray(h) ? h : []; }
+function resNavCardHtml() {
+  var hid = resNavHidden();
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Resident menu</h2><p class="hint" style="margin:0">Choose which pages residents see in their menu. A page you switch off disappears for every resident until you switch it on again. Home, Unit status and Settings always stay.</p>' +
+    '<div class="nav-ctl">' + RES_NAV.map(function (n) {
+      return '<label class="nav-opt"><input type="checkbox" data-nav="' + n[0] + '"' + (hid.indexOf(n[0]) < 0 ? " checked" : "") + '><span>' + icon(n[0]) + n[1] + "</span></label>";
+    }).join("") + '</div><div><button class="btn primary" onclick="saveResNav()">Save menu</button></div></div>';
+}
+function saveResNav() {
+  var off = Array.prototype.filter.call(document.querySelectorAll("[data-nav]"), function (e) { return !e.checked; }).map(function (e) { return e.getAttribute("data-nav"); });
+  var names = off.map(function (k) { return (RES_NAV.filter(function (n) { return n[0] === k; })[0] || [k, k])[1]; });
+  confirmBox("Save the resident menu?", off.length ? "Residents will no longer see: " + names.join(", ") + "." : "Residents will see every page.", "Save", async function () {
+    await put("setting", "resident_nav", "", { hidden: off });
+    logAct("Resident menu changed" + (off.length ? " (hidden: " + names.join(", ") + ")" : " (all pages shown)"), "Settings");
+    toast("Saved. Residents see the new menu straight away.");
+  });
+}
 function viewSettingsGeneral() {
   var d = directory();
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' +
     '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Billing</h2><p class="hint" style="margin:0">Monthly dues: <b>' + (setting("dues_rate_sqm").rate ? peso(setting("dues_rate_sqm").rate) + " per sqm" : "not set") + "</b> · Motor parking: <b>" + (setting("motor_rate").rate ? peso(setting("motor_rate").rate) : "not set") + '</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\'})">Open Finance</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Your preferences</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn primary" onclick="set({setTab:\'account\',acctTab:\'overview\'})">Account &amp; security</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div></div></div>' +
+    grLimitCardHtml() + resNavCardHtml() + '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Your preferences</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn primary" onclick="set({setTab:\'account\',acctTab:\'overview\'})">Account &amp; security</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div></div></div>' +
     '<div style="display:flex;flex-direction:column;gap:16px">' + demoDataCard() + '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
     (d.contacts.map(function (c, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(c.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(c.note || "") + " · " + esc(c.tel || "") + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'contacts\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No contacts yet.</p>') + "</div>" +
     '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>House rules</h2><button class="btn primary" onclick="ruleForm()">+ Add</button></div>' +

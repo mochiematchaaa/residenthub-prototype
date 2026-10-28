@@ -87,8 +87,7 @@ function recordForm(unit) {
       { name: "contact", label: "Mobile number", value: u.contact && u.contact !== "—" ? u.contact : "" },
       { name: "email", label: "Email address", type: "email", value: u.email || (acc ? acc.email : "") },
       { name: "moveIn", label: "Moved in on", type: "date", value: u.moveIn || "" },
-      { name: "residents", label: "How many people live here", type: "number", step: "1", value: u.residents || "" },
-      { name: "members", label: "Household members (one per line, e.g. Ana Reyes, spouse)", type: "textarea", value: u.members || "" },
+      { name: "members", label: "People living here (one per line, e.g. Ana Reyes, spouse). The number of people is counted from this list.", type: "textarea", value: u.members || "" },
       { name: "pets", label: "Pets", value: u.pets || "", placeholder: "e.g. 1 dog" },
       { name: "emergencyName", label: "Emergency contact name", value: u.emergencyName || "" },
       { name: "emergencyRelation", label: "Relationship", value: u.emergencyRelation || "", placeholder: "e.g. Sister" },
@@ -99,8 +98,7 @@ function recordForm(unit) {
     ],
     submit: "Save record",
     onSubmit: async function (d) {
-      var res = d.residents === "" || d.residents == null ? "" : parseInt(d.residents, 10);
-      if (res !== "" && !(res >= 0 && res <= 99)) return { error: "Enter how many people live in the unit, e.g. 3." };
+      var res = recMemberLines({ members: d.members }).length || "";
       var old = unitRec(unit) || {}, me = (DB.user && (DB.user.name || DB.user.email)) || "the office";
       await put("unit", unit, unit, Object.assign({}, old, {
         unit: unit, name: String(d.name || "").trim() || "—", type: d.type, contact: String(d.contact || "").trim() || "—", email: String(d.email || "").trim(), moveIn: d.moveIn || "",

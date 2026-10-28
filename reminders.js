@@ -38,6 +38,77 @@ function remText(kind, vars) {
 // "due today", "due tomorrow", "due in 3 days", "overdue by 2 days".
 function remWhen(n) { return n < 0 ? "overdue by " + (-n) + " day" + (n === -1 ? "" : "s") : n === 0 ? "due today" : n === 1 ? "due tomorrow" : "due in " + n + " days"; }
 
+
+/* ---------- your own reminders (added by the office, shown to residents) ----------
+   Saved as the "custom_reminders" setting: {list:[{id,title,text,from,to,freq,aud,units,on,edited}]}.
+   freq: "once" (pop up one time), "daily" (once a day), "every" (every dashboard visit), "bell" (bell only). */
+var CREM_FREQ = [["once", "One time only"], ["daily", "Once a day"], ["every", "Every time they open the dashboard"], ["bell", "Do not pop up (bell only)"]];
+function custList() { var l = setting("custom_reminders").list; return Array.isArray(l) ? l : []; }
+function custUnitKey(u) { return String(u || "").toLowerCase().replace(/^unit\s*/, "").replace(/\s+/g, ""); }
+// Reminders that apply to this resident today.
+function custForMe() {
+  var today = dayKey(new Date()), me = custUnitKey(myUnit());
+  return custList().filter(function (r) {
+    if (r.on === "no" || (r.from && r.from > today) || (r.to && r.to < today)) return false;
+    if (r.aud === "units") return String(r.units || "").split(/[,;\n]+/).some(function (u) { return custUnitKey(u) && custUnitKey(u) === me; });
+    return true;
+  });
+}
+function custKey(r) { return "cust:" + r.id + ":" + (r.edited || 0); }
+function custSave(listNew, note) {
+  return put("setting", "custom_reminders", "", { list: listNew }).then(function () { if (note) logAct(note, "Settings"); });
+}
+function custAudText(r) { return r.aud === "units" ? "Only " + String(r.units || "").split(/[,;\n]+/).map(function (u) { return u.trim(); }).filter(Boolean).join(", ") : "All residents"; }
+function custWhenText(r) { return (r.from ? "From " + usageDate(r.from) : "Starts now") + (r.to ? " until " + usageDate(r.to) : ", no end date"); }
+function custSettingsHtml() {
+  var l = custList().slice().reverse(), shown = pageSlice(l, 5, "custPage");
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Your own reminders</h2><button class="btn primary" onclick="custForm()">+ Add reminder</button></div>' +
+    '<p class="hint" style="margin:0">Write any reminder you like (a meeting, a water interruption, a deadline). Residents see it as a pop-up and in their notification bell between the dates you choose.</p>' +
+    (l.length ? shown.map(function (r) {
+      var freq = CREM_FREQ.filter(function (f) { return f[0] === r.freq; })[0];
+      return '<div class="rem-row"><div style="min-width:0;flex:1 1 240px"><b>' + esc(r.title) + '</b> <span class="chip ' + (r.on === "no" ? "" : "good") + '">' + (r.on === "no" ? "Off" : "On") + '</span><div class="hint" style="margin:2px 0 0">' + esc(r.text) + '</div><small class="hint">' + esc(custWhenText(r)) + " · " + esc(custAudText(r)) + " · " + esc(freq ? freq[1] : "") + '</small></div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="custForm(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" onclick="custToggle(\'' + escAttr(r.id) + '\')">' + (r.on === "no" ? "Turn on" : "Turn off") + '</button><button class="btn" onclick="custDelete(\'' + escAttr(r.id) + '\')">Delete</button></div></div>';
+    }).join("") + pagerHtml(l.length, 5, "custPage") : '<div class="rem-empty">No reminders of your own yet. Press “Add reminder” to write one.</div>') + "</div>";
+}
+function custForm(id) {
+  var cur = id ? custList().filter(function (r) { return String(r.id) === String(id); })[0] : null, today = dayKey(new Date());
+  openForm({
+    title: cur ? "Edit reminder" : "Add a reminder",
+    intro: "Residents see this as a pop-up on their dashboard and in the notification bell.",
+    submit: cur ? "Save" : "Add reminder",
+    fields: [
+      { name: "title", label: "Title", value: cur ? cur.title : "", placeholder: "e.g. Water interruption on Friday" },
+      { name: "text", label: "Message", type: "textarea", value: cur ? cur.text : "", placeholder: "What should residents know or do?" },
+      { name: "from", label: "Start showing on", type: "date", value: cur ? cur.from || "" : today },
+      { name: "to", label: "Stop showing after (optional)", type: "date", value: cur ? cur.to || "" : "" },
+      { name: "freq", label: "Pop-up on the resident's dashboard", type: "select", options: CREM_FREQ, value: cur ? cur.freq : "once" },
+      { name: "aud", label: "Who gets it", type: "select", options: [["all", "All residents"], ["units", "Only certain units"]], value: cur ? cur.aud || "all" : "all" },
+      { name: "units", label: "Units (only if you chose certain units)", value: cur ? cur.units || "" : "", placeholder: "e.g. 12C, 8A, 15B" }
+    ],
+    onSubmit: async function (d) {
+      if (!d.title) return { error: "Write a title." };
+      if (!d.text) return { error: "Write the message residents will read." };
+      if (d.to && d.from && d.to < d.from) return { error: "The end date is before the start date." };
+      if (d.aud === "units" && !String(d.units || "").replace(/[,;\s]/g, "")) return { error: "Type at least one unit, or choose all residents." };
+      var l = custList().slice(), item = { id: cur ? cur.id : "c" + Date.now(), title: d.title, text: d.text, from: d.from || "", to: d.to || "", freq: d.freq, aud: d.aud === "units" ? "units" : "all", units: d.aud === "units" ? d.units : "", on: cur ? cur.on || "yes" : "yes", edited: Date.now() };
+      if (cur) l = l.map(function (r) { return String(r.id) === String(cur.id) ? item : r; }); else l.push(item);
+      await custSave(l, (cur ? "Reminder changed: " : "Reminder added: ") + d.title);
+      state.custPage = 0;
+      toast(cur ? "Reminder saved." : "Reminder added. Residents will see it from " + (d.from ? usageDate(d.from) : "now") + ".");
+    }
+  });
+}
+function custToggle(id) {
+  var l = custList().map(function (r) { return String(r.id) === String(id) ? Object.assign({}, r, { on: r.on === "no" ? "yes" : "no", edited: Date.now() }) : r; });
+  act(async function () { await custSave(l, "Reminder switched: " + (l.filter(function (r) { return String(r.id) === String(id); })[0] || {}).title); toast("Saved."); });
+}
+function custDelete(id) {
+  var r = custList().filter(function (x) { return String(x.id) === String(id); })[0]; if (!r) return;
+  confirmBox("Delete this reminder?", "“" + r.title + "” will no longer be shown to residents.", "Delete", async function () {
+    await custSave(custList().filter(function (x) { return String(x.id) !== String(id); }), "Reminder deleted: " + r.title); toast("Reminder deleted.");
+  }, true);
+}
+
 /* ---------- resident: the pop-up ---------- */
 function remStore(unit) { try { var s = JSON.parse(localStorage.getItem("rh_rem_" + unit) || "null"); if (s && s.shown) return s; } catch (e) { /* storage blocked */ } return { snooze: "", shown: {} }; }
 function remSave(unit, s) { try { localStorage.setItem("rh_rem_" + unit, JSON.stringify(s)); } catch (e) { /* storage blocked */ } }
@@ -58,7 +129,11 @@ function remCandidates() {
         text: remText("dues", { item: r.v.note, amount: peso(Number(r.v.amount) || 0), when: remWhen(cd.n), date: r.v.dueDate || "" }), btn: "Pay now", pay: r.id });
     });
   }
-  return out.sort(function (a, b) { return (a.n == null ? 0 : a.n) - (b.n == null ? 0 : b.n); }).slice(0, 4);
+  out.sort(function (a, b) { return (a.n == null ? 0 : a.n) - (b.n == null ? 0 : b.n); });
+  custForMe().filter(function (r) { return r.freq !== "bell"; }).forEach(function (r) {
+    out.unshift({ key: custKey(r), kind: "custom", freq: r.freq, tone: "info", title: r.title, ico: "bell", text: r.text });
+  });
+  return out.slice(0, 5);
 }
 function remCardHtml(it, i) {
   return '<div class="rem-card ' + it.tone + '"><span class="rem-ico">' + icon(it.ico) + '</span><div class="rem-main"><b>' + esc(it.title) + "</b><span>" + esc(it.text) + "</span></div>" +
@@ -69,7 +144,10 @@ function remPopup() {
   if (!state.authed || typeof myUnit !== "function" || !myUnit() || document.getElementById("modal")) return;
   var unit = myUnit(), st = remStore(unit), today = dayKey(new Date()), c = remCfg();
   if (st.snooze === today) return;
-  var items = remCandidates().filter(function (it) { return c[it.kind].freq === "every" || st.shown[it.key] !== today; });
+  var items = remCandidates().filter(function (it) {
+    var f = it.freq || c[it.kind].freq;
+    return f === "every" || (f === "once" ? !st.shown[it.key] : st.shown[it.key] !== today);
+  });
   if (!items.length) return;
   items.forEach(function (it) { st.shown[it.key] = today; });
   remSave(unit, st);
@@ -95,7 +173,7 @@ function remSettingsHtml() {
     return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">' + REM_NAME[k] + '</h2><span class="chip ' + (c[k].on === "no" ? "" : "good") + '">' + (c[k].on === "no" ? "Off" : "On") + "</span></div>" +
       '<p class="hint" style="margin:0">' + esc(remSummary(k)) + '</p><div class="rem-msg"><small>Message residents see</small><span>' + esc(String(c[k].msg || "").trim() || REM_TEXT[k]) + "</span></div>" +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="remForm(\'' + k + '\')">Edit reminder</button><button class="btn" onclick="remPreview(\'' + k + '\')">Preview the pop-up</button></div></div>';
-  }).join("") + '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2>How reminders reach residents</h2><p class="hint" style="margin:6px 0 0">A reminder shows in three places: a pop-up when the resident opens their dashboard, a line in the notification bell, and a notice on the dashboard itself. “Every time” shows the pop-up on every visit to the dashboard. “Once a day” shows it the first time that day. “Bell only” turns the pop-up off. Residents can also choose “Do not show again today”.</p></div></div></div>';
+  }).join("") + '</div><div style="display:flex;flex-direction:column;gap:16px">' + custSettingsHtml() + '<div class="card"><h2>How reminders reach residents</h2><p class="hint" style="margin:6px 0 0">A reminder shows in three places: a pop-up when the resident opens their dashboard, a line in the notification bell, and a notice on the dashboard itself. “Every time” shows the pop-up on every visit to the dashboard. “Once a day” shows it the first time that day. “Bell only” turns the pop-up off. Residents can also choose “Do not show again today”.</p></div></div></div>';
 }
 function remForm(kind) {
   var c = remCfg()[kind];

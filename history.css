@@ -684,3 +684,71 @@ button[onclick^="removeDirItem"],button[onclick*="remove"]{min-width:88px;flex:n
   table.rt td[data-label=""]{justify-content:flex-end}
 }
 .rec2-log{margin-top:14px;padding-top:6px;border-top:1px dashed var(--border2)}.rec2-log h3{margin:6px 0 2px;font-size:13px;letter-spacing:.02em;color:var(--muted)}
+
+/* The calendar is redrawn on every click and every 30 seconds: no entrance animation after the first draw */
+.app.enter .side-col.cal-live>*{animation:none}
+/* "Needs attention" is red, like an alert */
+.sc.red,.panel.red{background:linear-gradient(125deg,#ffe4e1 0%,#ffb4ae 100%);color:#5c1410}
+.sc.red h3{color:#7a1b14}
+.sc.red .deco{fill:#d9534f}
+.sc.red .sc-nums b{color:#a3231a}
+.sc.red .sc-nums span{color:#6e1f19}
+.sc.red p{color:#6e1f19}
+
+/* A statistic card that opens its own page */
+.stat-link{cursor:pointer;position:relative;transition:transform .2s ease,box-shadow .2s ease;outline-offset:2px}
+.stat-link:hover,.stat-link:focus-visible{transform:translateY(-3px);box-shadow:0 12px 26px rgba(30,40,80,.16)}
+.stat-link .stat-more{margin-top:8px;font-size:12.5px;font-weight:700;color:var(--link,#3b5bdb);opacity:.85}
+
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:16px 0 4px;font-size:13.5px;color:var(--muted)}
+.pager .btn{min-height:36px;padding:0 14px;font-size:13px}
+.pager .btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+.pager b{color:var(--ink)}
+.gr-warn{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;background:var(--warn-bg);color:var(--warn-fg);font-size:13.5px;line-height:1.5}
+.gr-warn b{display:block}
+.gr-full{padding:14px 16px;border-radius:14px;background:var(--warn-bg);color:var(--warn-fg);font-size:14px;line-height:1.55;margin-bottom:12px}
+.gr-full b{display:block;margin-bottom:2px}
+
+.rem-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border2)}
+.rem-empty{padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)}
+
+/* ---------- ballot (what a resident fills in): one clear column, each question a card, answers as big tap targets ---------- */
+.ballot{display:flex;flex-direction:column;gap:14px;max-width:760px}
+.ballot .pq-block{padding:16px 18px;border-radius:20px;background:var(--card,#fff);border:1px solid var(--border2);box-shadow:none}
+.ballot .pq-title{margin-bottom:4px;font-size:16px;font-weight:700}
+.ballot-sub{display:inline-flex;align-items:center;gap:6px;margin:0 0 12px;padding:3px 10px;border-radius:999px;background:var(--beige);color:var(--muted);font-size:12.5px;font-weight:600}
+.ballot .options{display:flex;flex-direction:column;gap:8px}
+.ballot .opt,.ballot .cand{position:relative;display:flex;flex-direction:row;text-align:left;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:var(--card,#fff);border:2px solid var(--border2);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.ballot .opt:hover,.ballot .cand:hover{border-color:#7B6BD6;background:rgba(123,107,214,.07);color:var(--ink)}
+.ballot .opt input,.ballot .cand input{position:absolute;opacity:0;pointer-events:none}
+.ballot .opt:has(input:checked),.ballot .cand:has(input:checked){border-color:#5B4FB3;background:rgba(123,107,214,.14);color:var(--ink)}
+.ballot .opt:has(input:focus-visible),.ballot .cand:has(input:focus-visible){outline:2px solid #6C5CC7;outline-offset:2px}
+.ballot .opt::before,.ballot .cand::after{content:"";flex:none;width:22px;height:22px;border-radius:50%;border:2px solid #b9b4d9;background:#fff;box-sizing:border-box;transition:all .15s}
+.ballot .cand::after{order:3;margin-left:auto}
+.ballot .opt.sq::before,.ballot .cand.sq::after{border-radius:7px}
+.ballot .opt:has(input:checked)::before,.ballot .cand:has(input:checked)::after{border-color:#5B4FB3;background:#5B4FB3 radial-gradient(circle,#fff 0 28%,transparent 32%)}
+.ballot .opt.sq:has(input:checked)::before,.ballot .cand.sq:has(input:checked)::after{background:#5B4FB3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/80% no-repeat}
+.cand-av{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--yellow);color:#141414;font-weight:800;font-size:15px}
+.cand:nth-of-type(4n+2) .cand-av{background:var(--pink)}
+.cand:nth-of-type(4n+3) .cand-av{background:#cfe8d5}
+.cand:nth-of-type(4n+4) .cand-av{background:#cfe0f5}
+.cand-name{min-width:0;overflow-wrap:anywhere}
+.ballot .rate-row{gap:10px}
+.ballot .rate span{width:52px;height:52px;border:2px solid var(--border2);background:var(--card,#fff);font-size:16px}
+.ballot .rate:hover span{background:rgba(123,107,214,.1);border-color:#7B6BD6}
+.ballot .rate input:checked+span{background:#5B4FB3;border-color:#5B4FB3;color:#fff;box-shadow:none}
+.ballot .pq-input{border:2px solid var(--border2);border-radius:16px;padding:13px 15px;font-size:15px}
+.ballot .pq-input:focus{outline:none;border-color:#7B6BD6}
+.ballot-submit{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.ballot-submit .btn{min-height:46px;padding:0 26px;font-size:15px}
+:root[data-theme="dark"] .ballot .pq-block,:root[data-theme="dark"] .ballot .opt,:root[data-theme="dark"] .ballot .cand{background:#1a3556;border-color:#35567f}
+:root[data-theme="dark"] .ballot .opt:has(input:checked),:root[data-theme="dark"] .ballot .cand:has(input:checked){background:#2d3f78;border-color:#9a8cf0}
+:root[data-theme="dark"] .ballot .rate span{background:#1a3556;border-color:#35567f}
+:root[data-theme="dark"] .ballot-sub{background:#22416a;color:#c9d8ee}
+@media(max-width:560px){.ballot .pq-block{padding:14px}.cand-av{width:38px;height:38px}}
+
+.nav-ctl{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.nav-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid var(--border2);border-radius:14px;cursor:pointer;font-weight:600;font-size:14px}
+.nav-opt:has(input:checked){border-color:#5B4FB3;background:rgba(123,107,214,.1)}
+.nav-opt span{display:flex;align-items:center;gap:8px}
+.nav-opt svg{width:18px;height:18px}

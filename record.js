@@ -3,6 +3,9 @@
    The office edits everything (history.js: recordForm). The resident edits the household, emergency contact and vehicles
    from their own dashboard (resident.js: recordSelfForm). Shared by admin.html and resident.html.
    ========================================================================== */
+/* The number of people is the number of members listed (one per line), so the two can never disagree. Older records that only have a number keep it. */
+function recMemberLines(u) { return String((u && u.members) || "").split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
+function recHouseCount(u) { var n = recMemberLines(u).length; return n || Number(u && u.residents) || 0; }
 var REC_SELF_KEYS = ["residents", "members", "pets", "emergencyName", "emergencyRelation", "emergencyPhone", "vehicles"];
 
 function recLinesOf(text) { return String(text || "").split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
@@ -51,7 +54,7 @@ function recordSheetHtml(unit, o) {
     '<div class="rec2-cols">' +
     '<div class="rec2-col"><h3>Contact</h3>' + recRow("Mobile", mob) + recRow("Email", u.email || o.email ? esc(u.email || o.email) : recNone()) + (o.admin ? recRow("Sign-in account", o.email ? esc(o.email) : recNone("None yet")) : "") +
     recRow("Floor area", d.area ? esc(String(d.area)) + " sqm" : recNone("Not set")) + recRow("Parking slot", slot ? esc(slot.id) + " · " + esc(slot.v.size || "Regular") : recNone("None")) + "</div>" +
-    '<div class="rec2-col"><h3>Household</h3>' + recRow("People living here", u.residents ? esc(String(u.residents)) : recNone(), self) + recRow("Pets", u.pets ? esc(u.pets) : recNone("None on file"), self) + '<div class="rec2-row stack"><span>Members' + (self ? ' <i class="rec2-pen">✎</i>' : "") + "</span>" + recChips(u.members) + "</div></div>" +
+    '<div class="rec2-col"><h3>Household</h3>' + recRow("People living here", recHouseCount(u) ? esc(String(recHouseCount(u))) : recNone(), self) + recRow("Pets", u.pets ? esc(u.pets) : recNone("None on file"), self) + '<div class="rec2-row stack"><span>Members' + (self ? ' <i class="rec2-pen">✎</i>' : "") + "</span>" + recChips(u.members) + "</div></div>" +
     '<div class="rec2-col"><h3>Emergency contact</h3>' + (u.emergencyName || u.emergencyPhone ? '<div class="rec2-person"><span class="rec2-av sm">' + esc(initials(u.emergencyName || "?")) + "</span><div><b>" + esc(emer || "Emergency contact") + "</b><small>" + (u.emergencyPhone ? esc(u.emergencyPhone) : "No number") + "</small></div></div>" : recNone()) + "</div>" +
     '<div class="rec2-col"><h3>Vehicles' + (self ? ' <i class="rec2-pen">✎</i>' : "") + "</h3>" + recChips(u.vehicles, "None on file") + "</div></div>" + recLogHtml(unit) + "</section>";
 }
