@@ -144,14 +144,35 @@ function homeAside() {
     .map(function (r) { return [esc(r.v.place) + " booking", esc(r.v.who || r.v.unit), esc(r.v.when || "")]; });
   return asideHtml(ev.concat(bk).slice(0, 4), "Add event", "ann");
 }
+// A thin progress bar with a caption ("Occupied · 24 of 36 units").
+function meterHtml(n, total, label, tail) {
+  var pct = total > 0 ? Math.round(n / total * 100) : 0;
+  return '<div class="sc-meter" title="' + pct + '%"><div class="sc-meter-top"><span>' + esc(label) + "</span><b>" + n + esc(tail || "") + '</b></div><div class="sc-meter-bar"><i style="width:' + pct + '%"></i></div></div>';
+}
+// Money collected in each of the last 6 months, as a small bar chart with month names and the amounts.
+function earningsChart() {
+  var now = new Date(), months = [], i;
+  for (i = 5; i >= 0; i--) {
+    var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: d.getFullYear() * 12 + d.getMonth(), label: d.toLocaleDateString("en-US", { month: "short" }), full: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }), sum: 0, now: i === 0 });
+  }
+  vals("payment").forEach(function (p) {
+    var k = monthOf(p.date);
+    months.forEach(function (m) { if (m.key === k) m.sum += Number(p.amount || 0); });
+  });
+  var max = Math.max.apply(null, months.map(function (m) { return m.sum; }).concat([1])), total = months.reduce(function (t, m) { return t + m.sum; }, 0);
+  var short = function (n) { return n >= 1000000 ? (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "") + "k" : String(Math.round(n)); };
+  var hOf = function (m) { return m.sum ? Math.max(8, Math.round(m.sum / max * 100)) : 4; };
+  return '<div class="mchart" role="img" aria-label="Money collected per month, last 6 months">' + months.map(function (m) {
+    var h = hOf(m);
+    return '<div class="mc-col' + (m.now ? " now" : "") + (m.sum ? "" : " zero") + '" title="' + escAttr(m.full + ": " + peso(m.sum)) + '"><em style="--h:' + h + '%">' + (m.sum ? "₱" + short(m.sum) : "") + '</em><i style="height:' + h + '%"></i><small>' + m.label + "</small></div>";
+  }).join("") + "</div>" + (total ? "" : '<p class="sc-note">No payments recorded yet. The chart fills in as payments come in.</p>');
+}
 // PAGE: Home / overview.
 function viewHome() {
   var c = counts(), units = list("unit").length;
-  var dues = newest(list("due")).slice(0, 12).reverse();
-  var maxAmt = Math.max.apply(null, dues.map(function (d) { return Number(d.v.amount) || 0; }).concat([1]));
-  var bars = dues.map(function (d) {
-    return '<i class="' + (d.v.paid ? "on" : "") + '" style="height:' + (25 + Math.round((Number(d.v.amount) || 0) / maxAmt * 60)) + '%" title="' + escAttr(d.v.unit) + '"></i>';
-  }).join("");
+  var chart = earningsChart();
+  var allUnits = vals("unit"), occupied = allUnits.filter(function (u) { return u.status !== "Vacant"; }).length;
   var quick = [["Create Announcement", "ann"], ["New Poll", "polls"], ["Add Finance Charge", "fin"], ["View Reports", "reports"], ["Assign Parking", "parking"], ["My Profile", "profile"], ["Settings", "settings"]];
   var pendBk = newest(list("booking")).filter(function (r) { return r.v.status === "Pending"; }).slice(0, 2);
   var openGr = newest(list("grievance")).filter(function (r) { return !(r.v.stage >= 2); }).slice(0, 2);
@@ -163,10 +184,10 @@ function viewHome() {
   var act = newest(list("activity")).slice(0, 4);
   return (!units ? '<div class="card" style="margin-bottom:16px;background:var(--info-bg);color:var(--info-fg)"><b>The system is empty.</b> Nothing is sample data — you decide what goes in. Open <a href="#" onclick="set({view:\'units\'});return false" style="color:inherit;font-weight:700">Units</a> to add each unit (or import a CSV), then create the resident accounts under <a href="#" onclick="set({view:\'manage\'});return false" style="color:inherit;font-weight:700">Access</a>.</div>' : "") +
     '<div class="sc-grid">' +
-    summaryCard("yellow", "Community", [[units, "Units", "units"], [residentCount(), "Residents", "manage"], [list("doc").length, "Documents", "req"]], "cross") +
-    summaryCard("pink", "Finance", [[peso(monthEarnings()), "Earnings this month", "fin"], [c.unpaid, "Unpaid dues", "fin"]], "heart", bars ? '<div class="bars" title="One bar per recent charge. Solid bars are paid.">' + bars + "</div>" : "") +
-    summaryCard("green", "Needs attention", [[c.grievances, "Complaints", "req"], [c.bookings, "Bookings", "fac"], [c.rentals, "Unit status to review", "rentals"]], "triangle") +
-    summaryCard("blue", "Community life", [[openPolls, "Open polls", "polls"], [used + "/" + slots.length, "Parking used", "parking"]], "burst") +
+    summaryCard("yellow", "Community", [[units, "Units", "units"], [residentCount(), "Residents", "manage"], [list("doc").length, "Documents", "req"]], "cross", meterHtml(occupied, units, "Occupied", " of " + units + " units")) +
+    summaryCard("pink", "Finance", [[peso(monthEarnings()), "Earnings this month", "fin"], [c.unpaid, "Unpaid dues", "fin"]], "heart", chart) +
+    summaryCard("green", "Needs attention", [[c.grievances, "Complaints", "req"], [c.bookings, "Bookings", "fac"], [c.rentals, "Unit status to review", "rentals"]], "triangle", '<p class="sc-note">' + ((c.grievances + c.bookings + c.rentals) ? (c.grievances + c.bookings + c.rentals) + " things are waiting for a decision" : "Nothing is waiting") + "</p>") +
+    summaryCard("blue", "Community life", [[openPolls, "Open polls", "polls"], [used + "/" + slots.length, "Parking used", "parking"]], "burst", meterHtml(used, slots.length, "Parking", " of " + slots.length + " slots in use")) +
     "<!--sc-end--></div>" + (typeof payCheckPanel === "function" ? payCheckPanel(4) : "") +
     '<div class="pills-row">' + quick.map(function (q) { return '<button onclick="set({view:\'' + q[1] + '\'})">' + q[0] + "</button>"; }).join("") + "</div>" +
     '<div class="two-lists"><section><div class="sec-head"><h2>Pending requests</h2><button class="btn-dark sm" onclick="set({view:\'fac\'})">Open requests</button></div>' +
