@@ -82,6 +82,21 @@ class _ResBookState extends State<ResBook> {
       title: 'Book a facility',
       subtitle: 'Check availability and send a reservation request.',
       children: [
+        if (app.blocksFor(cur.name).isNotEmpty)
+          RCard(
+            color: toneOf(context, Tone.warn).bg,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${cur.name} is not available at these times', style: TextStyle(color: toneOf(context, Tone.warn).fg, fontWeight: FontWeight.w800)),
+                for (final b in app.blocksFor(cur.name).take(3))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('${b.reason} · ${b.whenText}${b.note.isEmpty ? '' : ' · ${b.note}'}', style: TextStyle(color: toneOf(context, Tone.warn).fg, height: 1.35, fontSize: 13)),
+                  ),
+              ],
+            ),
+          ),
         if (maint.closureOf(cur.name) != null)
           RCard(
             color: toneOf(context, Tone.warn).bg,
@@ -352,7 +367,7 @@ class _ResBookState extends State<ResBook> {
     final picked = open && pick == i;
     final tone = st == 'pending' ? Tone.warn : (st == 'booked' ? Tone.bad : (open ? Tone.good : Tone.info));
     final t = toneOf(context, tone);
-    final word = picked ? 'Selected' : (open ? 'Vacant' : (st == 'pending' ? 'Pending' : (st == 'booked' ? 'Booked' : 'Unavailable')));
+    final word = picked ? 'Selected' : (open ? 'Vacant' : (st == 'pending' ? 'Pending' : (st == 'booked' ? 'Booked' : (st == 'closed' ? (app.slotBlock(fac, i, d)?.reason ?? 'Unavailable') : 'Unavailable'))));
     return GestureDetector(
       onTap: open ? () => setState(() => pick = picked ? null : i) : null,
       child: AnimatedContainer(

@@ -281,7 +281,7 @@ function viewBook() {
   var slots = cur.slots.map(function (t, idx) {
     var st = slotState(i, idx, day), picked = pick === idx && st === "open";
     var cls = picked ? "picked" : st === "open" ? "open" : st === "pending" ? "pending" : st === "past" || st === "closed" ? "off" : "booked";
-    var lab = picked ? "Selected" : st === "open" ? "Vacant" : st === "pending" ? "Pending" : st === "past" || st === "closed" ? "Unavailable" : "Booked";
+    var lab = picked ? "Selected" : st === "open" ? "Vacant" : st === "pending" ? "Pending" : st === "closed" ? ((slotBlock(i, idx, day) || {}).reason || "Unavailable") : st === "past" ? "Unavailable" : "Booked";
     return '<button class="slot ' + cls + '" ' + (st === "open" ? "" : "disabled") + (picked ? ' title="Click again to clear"' : "") + ' onclick="pickSlot(' + idx + ')"><span style="font-size:12px;font-weight:700">' + esc(t) + '</span><span style="font-size:12px">' + lab + "</span>" + (picked ? '<span class="slot-x" aria-hidden="true">×</span>' : "") + "</button>";
   }).join("");
   var req = pick != null && slotState(i, pick, day) === "open" ? '<div class="bk-req"><div><div class="bk-req-k">Your reservation request</div><div class="bk-req-v">' + esc(cur.name) + "</div><div class=\"bk-req-s\">" + esc(bookLabel(day)) + " · " + esc(cur.slots[pick]) + '</div></div><div class="bk-req-b"><button class="btn primary" onclick="submitBooking()">Request this time</button><button class="btn" style="font-size:20px;line-height:1;min-width:44px;padding:0" aria-label="Clear selection" title="Clear selection" onclick="clearPick()">×</button></div></div>' : '<p class="hint" style="margin:6px 0 0">Pick an open time to send a request.</p>';

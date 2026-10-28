@@ -623,6 +623,7 @@ class AppState extends ChangeNotifier {
     newStatusUpdates = 0;
     blocked.clear();
     blockedDay = '';
+    fblocks.clear();
     amenities
       ..clear()
       ..addAll(Amenity.defaults());
@@ -753,9 +754,113 @@ class AppState extends ChangeNotifier {
 
   String _slotKey(int f, int i) => '${f < amenities.length ? amenities[f].id : f}-$i';
 
-  /// True if the admin blocked this time slot.
+  /// Times the administrator closed for cleaning, repairs and so on (any dates, any hours).
+  final List<FBlock> fblocks = [];
+
+  /// The block that closes one time slot of an amenity on a day, or null.
+  FBlock? slotBlock(int f, int i, String day) {
+    if (f >= amenities.length) return null;
+    final a = amenities[f];
+    final s = (toMinutes(a.open) ?? 0) + i * a.mins;
+    for (final b in fblocks) {
+      if (b.fits(a.name) && b.closes(day, s, s + a.mins)) return b;
+    }
+    return null;
+  }
+
+  /// True if the admin blocked this time slot today.
   bool slotClosed(int f, int i) =>
-      blockedDay == dayKey(DateTime.now()) && (blocked[_slotKey(f, i)] ?? false);
+      (blockedDay == dayKey(DateTime.now()) && (blocked[_slotKey(f, i)] ?? false)) || slotBlock(f, i, dayKey(DateTime.now())) != null;
+
+  /// Blocks that still matter (not finished) for an amenity, soonest first.
+  List<FBlock> blocksFor(String name) {
+    final today = dayKey(DateTime.now());
+    final l = fblocks.where((b) => b.fits(name) && (b.to.isEmpty || b.to.compareTo(today) >= 0)).toList();
+    l.sort((a, b) => a.from.compareTo(b.from));
+    return l;
+  }
+
+  /// Bookings (waiting or approved) that fall inside a block.
+  List<Booking> bookingsInBlock(FBlock b) {
+    final out = <Booking>[];
+    for (final x in bookings) {
+      if (!(x.status == 'Pending' || x.status == 'Approved') || x.day.isEmpty || !b.fits(x.place) || !b.onDay(x.day)) continue;
+      final fi = amenities.indexWhere((a) => a.name == x.place);
+      if (fi < 0 || x.slot < 0) continue;
+      final a = amenities[fi];
+      final s = (toMinutes(a.open) ?? 0) + x.slot * a.mins;
+      if (b.closes(x.day, s, s + a.mins)) out.add(x);
+    }
+    return out;
+  }
+
+  /// Admin: adds a block, or changes [edit]. Returns a message when something is wrong.
+  /// [denyBookings] denies the bookings already made in that time.
+  String? saveBlock(FBlock? edit, {required String facility, required String reason, required String note, required String from, required String to, required bool someHours, required String start, required String end, bool denyBookings = false}) {
+    if (DateTime.tryParse(from) == null) return 'Choose the first date.';
+    if (to.isNotEmpty && DateTime.tryParse(to) == null) return 'Choose a valid last date.';
+    if (to.isNotEmpty && to.compareTo(from) < 0) return 'The last date cannot be before the first date.';
+    if (someHours) {
+      final s = toMinutes(start), e = toMinutes(end);
+      if (s == null || e == null) return 'Choose the start and end time.';
+      if (e <= s) return 'The end time must be after the start time.';
+    }
+    final b = edit ?? FBlock('b${DateTime.now().millisecondsSinceEpoch}', facility, reason, note.trim(), from, to, someHours, start, end);
+    if (edit != null) {
+      b
+        ..facility = facility
+        ..reason = reason
+        ..note = note.trim()
+        ..from = from
+        ..to = to
+        ..someHours = someHours
+        ..start = someHours ? start : ''
+        ..end = someHours ? end : '';
+    } else {
+      if (!someHours) {
+        b.start = '';
+        b.end = '';
+      }
+      fblocks.add(b);
+    }
+    final hit = bookingsInBlock(b);
+    var denied = 0;
+    if (denyBookings) {
+      for (final x in hit) {
+        x.status = 'Denied';
+        denied++;
+      }
+    }
+    lastBlockNote = denied > 0
+        ? 'Saved. $denied booking${denied == 1 ? ' was' : 's were'} denied.'
+        : hit.isNotEmpty
+            ? 'Saved. ${hit.length} booking${hit.length == 1 ? ' is' : 's are'} still inside this time.'
+            : 'Saved. Residents can no longer book that time.';
+    logActivity('${edit == null ? 'Blocked' : 'Blocked time changed'}: ${facility == '*' ? 'all facilities' : facility} ($reason, ${b.whenText})${denied > 0 ? ', $denied denied' : ''}', 'Facilities');
+    _n();
+    return null;
+  }
+
+  /// What the last [saveBlock] did, for a message.
+  String lastBlockNote = '';
+
+  /// Admin: opens a block up again (a block that has not started is cancelled, a running one ends yesterday).
+  void endBlock(FBlock b) {
+    final today = dayKey(DateTime.now());
+    if (b.from.compareTo(today) > 0) {
+      fblocks.remove(b);
+    } else {
+      b.to = dayKey(DateTime.now().subtract(const Duration(days: 1)));
+    }
+    logActivity('Reopened: ${b.facility == '*' ? 'all facilities' : b.facility} (${b.reason})', 'Facilities');
+    _n();
+  }
+
+  /// Admin: removes a finished block from the list.
+  void removeBlock(FBlock b) {
+    fblocks.remove(b);
+    _n();
+  }
 
   /// True if the time slot is blocked or already booked.
   bool slotBooked(int f, int i) {
@@ -783,6 +888,7 @@ class AppState extends ChangeNotifier {
     final start = (toMinutes(a.open) ?? 0) + i * a.mins;
     if (day == today && start <= now.hour * 60 + now.minute) return 'past';
     if (day == blockedDay && (blocked[_slotKey(f, i)] ?? false)) return 'closed';
+    if (slotBlock(f, i, day) != null) return 'closed';
     if (closedForMaintenance?.call(a.name) ?? false) return 'closed';
     for (final b in bookings) {
       if (b.day == day && b.slot == i && b.place == a.name && (b.status == 'Pending' || b.status == 'Approved')) {

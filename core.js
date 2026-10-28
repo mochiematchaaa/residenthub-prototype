@@ -446,6 +446,38 @@ var BOOK_AHEAD_DAYS = 90;
 function keyToDate(k) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(k || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
 // Start time (minutes after midnight) of a time slot.
 function slotStartMin(a, i) { return (toMin(a.open) || 0) + i * (Number(a.mins) || 120); }
+/* ---------- blocked times: cleaning, repairs, out of service ... for any dates and any hours ---------- */
+var BLOCK_REASONS = ["Cleaning", "Maintenance or repair", "Out of service", "Private event", "Closed that day", "Other"];
+// Every block the office saved ("fblock" records), newest first.
+function blockList() { return vals("fblock").slice().sort(function (a, b) { return String(b.from || "").localeCompare(String(a.from || "")); }); }
+// True if the block covers this facility ("*" means every facility).
+function blockFits(b, name) { return b.facility === "*" || b.facility === name; }
+// True if the block applies on this day (an empty end date means "until further notice").
+function blockOnDay(b, day) { return !!b.from && day >= b.from && (!b.to || day <= b.to); }
+// The block that closes the minutes [from, to) of a facility on a day, or null.
+function blockHit(name, day, from, to) {
+  var all = blockList();
+  for (var k = 0; k < all.length; k++) {
+    var b = all[k];
+    if (!blockFits(b, name) || !blockOnDay(b, day)) continue;
+    if (b.hours !== "some") return b;
+    var bs = toMin(b.start), be = toMin(b.end);
+    if (bs != null && be != null && from < be && to > bs) return b;
+  }
+  return null;
+}
+// The block that closes one time slot of a facility on a day, or null.
+function slotBlock(f, i, day) {
+  var a = facilities()[f]; if (!a) return null;
+  var s = slotStartMin(a, i); return blockHit(a.name, day, s, s + (Number(a.mins) || 120));
+}
+// "Cleaning, 1 PM – 3 PM" style text for a block.
+function blockWhenText(b) {
+  var hrs = b.hours !== "some" ? "All day" : (function () { var x = clock(toMin(b.start) || 0), y = clock(toMin(b.end) || 0); return x.t + " " + x.ap + " – " + y.t + " " + y.ap; })();
+  var d1 = keyToDate(b.from), d2 = b.to ? keyToDate(b.to) : null, f = function (d) { return d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""; };
+  var days = !b.to ? "from " + f(d1) + " until further notice" : b.to === b.from ? f(d1) : f(d1) + " to " + f(d2);
+  return days + " · " + hrs;
+}
 /* what one time of one amenity looks like on one day: past | closed | booked | pending | open */
 function slotState(f, i, day) {
   var a = facilities()[f]; if (!a) return "closed";
@@ -454,6 +486,7 @@ function slotState(f, i, day) {
   if (day === today && slotStartMin(a, i) <= now.getHours() * 60 + now.getMinutes()) return "past";
   var b = setting("blocked");
   if (day === b.day && (b.keys || []).indexOf(slotKey(f, i)) >= 0) return "closed";
+  if (slotBlock(f, i, day)) return "closed";
   var hit = vals("booking").filter(function (x) { return x.day === day && Number(x.slot) === i && x.place === a.name && (x.status === "Pending" || x.status === "Approved"); })[0];
   return hit ? (hit.status === "Approved" ? "booked" : "pending") : "open";
 }
@@ -467,7 +500,7 @@ function dayCounts(f, day) {
 // True if the admin blocked this time slot.
 function slotClosed(f, i) {
   var b = setting("blocked");
-  return b.day === dayKey(new Date()) && (b.keys || []).indexOf(slotKey(f, i)) >= 0;
+  return (b.day === dayKey(new Date()) && (b.keys || []).indexOf(slotKey(f, i)) >= 0) || !!slotBlock(f, i, dayKey(new Date()));
 }
 // Month number of a date text, used to compare 'same month'.
 function monthOf(dateText) { var d = parseShort(dateText); return d ? d.getFullYear() * 12 + d.getMonth() : null; }

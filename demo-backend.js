@@ -549,7 +549,7 @@
     try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) { }
   })();
 
-  var PUBLIC = ["announcement", "event", "doc", "poll", "vendor", "slot", "setting", "booking", "rsvp", "vote"];
+  var PUBLIC = ["announcement", "event", "doc", "poll", "vendor", "slot", "setting", "booking", "rsvp", "vote", "fblock"];
   function canRead(r) {
     if (role() === "admin") return true;
     if (r.kind === "announcement" && r.value && r.value.units && r.value.units.length && r.value.units.indexOf(myunit()) < 0) return false; // a notice sent to chosen units only
