@@ -38,10 +38,13 @@ body.app-page{background:var(--cream)}
 .classic-box p{margin-top:6px;color:var(--muted);font-size:15px;max-width:620px;line-height:1.55}
 .classic-links{display:flex;flex-wrap:wrap;gap:10px}
 
+.only-small{display:none}
 @media (max-width:900px){
   .app-hero{padding-top:100px}
   .app-hero-grid{grid-template-columns:1fr;gap:36px}
-  .phone-wrap{order:-1}
-  .phone-screen{height:72vh}
+  /* On a phone or small screen the app is not shown inside a frame: a frame in the middle of the page takes over the swipe,
+     so the page itself cannot be scrolled. The button opens the app on its own page instead. */
+  .phone-wrap{display:none}
+  .only-small{display:inline-flex}
 }
 @media (prefers-reduced-motion:reduce){.phone-loading img{animation:none}}
