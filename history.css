@@ -402,9 +402,11 @@ button.stat-t.on{border-color:var(--head)}
 /* One scroll at a time: while a popup is open the page behind stays still, and a scrolling list or popup keeps its own scroll */
 html:has(.modal-back),html:has(.img-view),body:has(.modal-back),body:has(.img-view),body.rh-lock,html.rh-lock{overflow:hidden}
 .modal-back{overflow-y:auto;overscroll-behavior:contain}
-.modal{max-height:calc(100vh - 40px);overflow-y:auto;overscroll-behavior:contain}
+.modal{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain}
 .img-view{overscroll-behavior:contain}
-div,form,aside,section,textarea,ul,table{overscroll-behavior:contain}
+textarea{overscroll-behavior:contain}
+/* Mouse and trackpad only. On a phone a swipe that starts on a table, a list or a card must always reach the page. */
+@media (hover:hover) and (pointer:fine){div,form,aside,section,ul,table{overscroll-behavior:contain}}
 
 /* Calendar: events, bookings, polls, elections and holidays, with a live clock */
 .cal-clock{display:flex;flex-direction:column;align-items:center;margin-bottom:10px}
@@ -607,3 +609,34 @@ html{scrollbar-gutter:stable}
 @media(max-width:560px){.rem-card{flex-wrap:wrap}.rem-card .btn{width:100%}}
 .rem-msg{padding:10px 12px;border-radius:12px;background:rgba(120,120,140,.1);font-size:13px;line-height:1.45}
 .rem-msg small{display:block;margin-bottom:2px;color:var(--muted);font-weight:700;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
+
+/* ---------- Phones: nothing may push the page sideways, and tapping a field must not zoom or shift the page ---------- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.hist-grid>*,.fin-grid>*,.profile-grid>*,.two-col>*,.two-col-r>*,.two-col-e>*{min-width:0}
+/* A popup must never be wider than the screen (the grid column used to grow with the popup and push it off the right edge) */
+.modal-back{grid-template-columns:minmax(0,1fr)}
+.modal{justify-self:center;min-width:0}
+@media (max-width:900px){
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea{font-size:16px !important}
+  .modal-back{padding:12px}
+  img,video,canvas{max-width:100%}
+}
+/* The list of units scrolls sideways on a phone, so an up/down swipe on it always moves the page */
+@media (max-width:700px){
+  .hist-ul{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
+  .hist-ul .hist-u{flex:0 0 210px}
+}
+@media (max-width:480px){
+  .modal{padding:24px 18px 18px;border-radius:24px}
+}
+@media (max-width:420px){
+  .card{padding-left:14px;padding-right:14px}
+  main{padding-left:2px;padding-right:2px}
+}
+
+/* Phone menu: all the pages are visible (they wrap onto a second row) instead of hiding behind a sideways scroll */
+@media (max-width:900px){
+  .side{flex-wrap:wrap;overflow:visible;row-gap:6px}
+  .side nav{display:contents}
+  .side-foot{flex-basis:auto}
+}
