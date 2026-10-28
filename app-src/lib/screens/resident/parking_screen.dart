@@ -1,32 +1,41 @@
 // RESIDENT page: Parking (pick and rent a slot).
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../shared/payment_widgets.dart';
 
 /// Opens the "I have paid" form for the parking slot the resident reserved.
 void sendParkingPayment(BuildContext context) {
   final r = app.myParkingReq;
   if (r == null || r.slot.isEmpty) return;
-  final methods = [for (final m in app.enabledPayMethods) m.name];
+  final methods = [for (final m in app.enabledPayMethods) if (m.name != AppState.officePay) m.name];
   if (methods.isEmpty) {
-    msg(context, 'Payment options are not set up yet. Please pay at the office.');
+    msg(context, 'Online payment options are not set up yet. Please pay at the office.');
     return;
   }
   showFormSheet(
     context,
     title: 'Pay for ${r.slot}',
-    subtitle: 'Pay ${peso(r.amount)} using one of the options under Dues, then enter the reference number from your receipt. '
-        'The office verifies it and the slot becomes yours.',
+    subtitle: 'Pay ${peso(r.amount)} with GCash, Maya or bank transfer, then enter the reference number and add a screenshot of your payment. '
+        'The office checks it and confirms your rental. Paying at the office? Nothing to send; the office records it.',
+    photo: const PhotoSpec('photo', 'Screenshot of your payment', hint: 'It helps the office confirm your rental faster.'),
     choices: [ChoiceSpec('method', 'Paid through', methods, methods.first)],
-    fields: const [FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank / office receipt')],
+    fields: [
+      const FieldSpec('ref', 'Reference no.', hint: 'From your GCash / Maya / bank receipt'),
+      FieldSpec('paid', 'Date you paid', hint: 'Like ${shortDate(DateTime.now())}', initial: shortDate(DateTime.now())),
+    ],
     submit: 'Send payment details',
     onSubmit: (v) {
-      final err = app.submitParkingProof(v['method'] as String, v['ref'] as String);
+      final pic = v['photo'];
+      final err = app.submitParkingProof(v['method'] as String, v['ref'] as String,
+          image: pic is Uint8List ? proofImageText(pic) : '', paidOn: v['paid'] as String);
       if (err == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) msg(context, 'Sent. The office will verify your payment and assign the slot.');
+          if (context.mounted) msg(context, 'Sent. The office will verify your payment and confirm your rental.');
         });
       }
       return err;

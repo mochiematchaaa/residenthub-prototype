@@ -136,46 +136,158 @@ function facAmenitiesPage(fl) {
 function viewAnn() {
   var tab = state.annTab === "events" ? "events" : "posts", anns = newest(list("announcement")), evs = newest(list("event"));
   var drafts = anns.filter(function (r) { return (r.v.status || "Published") !== "Published"; }).length;
-  var tools = tab === "events" ? '<button class="btn" onclick="exportEvents()">Export .csv</button><button class="btn primary" onclick="eventForm(null)">+ Add event</button>' : '<button class="btn" onclick="exportAnnouncements()">Export .csv</button><button class="btn primary" onclick="announcementForm()">+ New announcement</button>';
+  var tools = tab === "events" ? '<button class="btn" onclick="exportEvents()">Export .csv</button><button class="btn primary" onclick="eventForm(null)">+ Add event</button>' : '<button class="btn" onclick="exportAnnouncements()">Export .csv</button>';
   return subNav([["posts", "Announcements", anns.length, false], ["events", "Events", evs.length]], tab, "annTab", tools) + (tab === "events" ? annEventsPage(evs) : annPostsPage(anns, drafts));
 }
+/* ---------- Announcements, laid out like an inbox (Gmail style) ---------- */
+function annSnippet(t) { t = String(t || "").replace(/\s+/g, " ").trim(); return t === "—" ? "" : t; }
+function annShortDay(d) { var x = parseShort(d); return x ? x.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : esc(d || ""); }
+var ICO_PEN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
+var ICO_TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>';
+var ICO_SEND = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>';
+var ICO_BACK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>';
 function annPostsPage(anns, drafts) {
   var f = ["all", "Published", "Draft"].indexOf(state.annFilter) >= 0 ? state.annFilter : "all";
+  var pubN = anns.length - drafts;
+  var side = '<aside class="gm-side"><button type="button" class="gm-compose" onclick="annCompose()">' + ICO_PEN + '<span>Compose</span></button>' +
+    [["all", "All announcements", anns.length], ["Published", "Published", pubN], ["Draft", "Drafts", drafts]].map(function (t) {
+      return '<button type="button" class="gm-f' + (f === t[0] ? " on" : "") + '" onclick="set({annFilter:\'' + t[0] + '\',annOpen:\'\'})"><span>' + t[1] + "</span>" + (t[2] ? "<i>" + t[2] + "</i>" : "") + "</button>";
+    }).join("") + "</aside>";
+  var open = state.annOpen ? getRow("announcement", state.annOpen) : null;
+  if (open) return '<div class="gm">' + side + '<div class="gm-main">' + annReader(open) + "</div></div>";
   var shown = anns.filter(function (r) { return f === "all" || (r.v.status || "Published") === f; });
-  return '<div class="filters" style="margin-bottom:12px">' + [["all", "All (" + anns.length + ")"], ["Published", "Published (" + (anns.length - drafts) + ")"], ["Draft", "Drafts (" + drafts + ")"]].map(function (t) {
-    return '<button class="' + (f === t[0] ? "active" : "") + '" onclick="set({annFilter:\'' + t[0] + '\'})">' + t[1] + "</button>";
-  }).join("") + "</div>" +
-    '<div class="ann-list">' + (shown.map(function (r) {
-      var a = r.v, status = a.status || "Published", type = a.type || "General", id = escAttr(r.id);
-      return '<article class="card ann-card t-' + type.toLowerCase() + '"><div class="ann-top"><h3>' + esc(a.title) + '</h3><span class="ann-chips">' + (type !== "General" ? '<span class="chip ' + typeChipClass(type) + '">' + esc(type) + "</span>" : "") + '<span class="chip ' + (status === "Published" ? "good" : "warn") + '">' + esc(status) + "</span></span></div>" +
-        '<p class="ann-body">' + esc(a.body) + '</p><div class="ann-foot"><small>' + esc(a.date) + '</small><span class="fx-act">' + (status !== "Published" ? '<button class="btn primary" onclick="publishAnn(\'' + id + '\')">Publish</button>' : "") +
-        '<button class="btn" onclick="editAnn(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="deleteAnn(\'' + id + '\')">Delete</button></span></div></article>';
-    }).join("") || '<div class="card" style="text-align:center;color:var(--muted)">' + (anns.length ? "Nothing in this list." : "No announcements yet. Use “New announcement” to publish the first one.") + "</div>") + "</div>";
+  var title = f === "all" ? "All announcements" : f === "Draft" ? "Drafts" : "Published";
+  var rows = shown.map(function (r) {
+    var a = r.v, draft = (a.status || "Published") !== "Published", type = a.type || "General", id = escAttr(r.id), snip = annSnippet(a.body);
+    return '<div class="gm-row' + (draft ? " draft" : "") + '" tabindex="0" onclick="annRowOpen(\'' + id + '\')" onkeydown="if(event.key===\'Enter\')annRowOpen(\'' + id + '\')">' +
+      '<span class="gm-dot t-' + esc(type.toLowerCase()) + '" title="' + esc(type) + '"></span>' +
+      '<span class="gm-from">' + (draft ? '<em class="gm-draft">Draft</em>' : esc(type)) + "</span>" +
+      '<span class="gm-text"><b>' + esc(a.title || "(no title)") + "</b>" + (snip ? '<span> — ' + esc(snip) + "</span>" : "") + "</span>" +
+      (type !== "General" && !draft ? '<span class="chip ' + typeChipClass(type) + ' gm-chip">' + esc(type) + "</span>" : "") +
+      '<span class="gm-date">' + annShortDay(a.date) + "</span>" +
+      '<span class="gm-acts" onclick="event.stopPropagation()">' + (draft ? '<button type="button" title="Publish" onclick="publishAnn(\'' + id + '\')">' + ICO_SEND + "</button>" : "") +
+      '<button type="button" title="Edit" onclick="annCompose(\'' + id + '\')">' + ICO_PEN + '</button><button type="button" title="Delete" onclick="deleteAnn(\'' + id + '\')">' + ICO_TRASH + "</button></span></div>";
+  }).join("");
+  return '<div class="gm">' + side + '<div class="gm-main"><div class="gm-bar"><b>' + title + "</b><small>" + shown.length + " " + (shown.length === 1 ? "message" : "messages") + "</small></div>" +
+    (rows || '<p class="gm-empty">' + (anns.length ? "Nothing in " + title.toLowerCase() + "." : "No announcements yet. Select Compose to write the first one.") + "</p>") + "</div></div>";
+}
+// A drafted message opens in the compose window; a published one opens to read.
+function annRowOpen(id) {
+  var r = getRow("announcement", id); if (!r) return;
+  if ((r.value.status || "Published") !== "Published") return annCompose(id);
+  set({ annOpen: String(id) });
+}
+// Reading one announcement (like opening an email).
+function annReader(r) {
+  var a = r.value, draft = (a.status || "Published") !== "Published", type = a.type || "General", id = escAttr(r.id), body = a.body === "—" ? "" : a.body;
+  return '<div class="gm-bar"><button type="button" class="gm-ic" title="Back to the list" onclick="set({annOpen:\'\'})">' + ICO_BACK + "</button>" +
+    '<span class="gm-sp"></span><button type="button" class="gm-ic" title="Edit" onclick="annCompose(\'' + id + '\')">' + ICO_PEN + '</button><button type="button" class="gm-ic" title="Delete" onclick="deleteAnn(\'' + id + '\')">' + ICO_TRASH + "</button></div>" +
+    '<article class="gm-read"><h2>' + esc(a.title) + '</h2><div class="gm-meta"><span class="gm-dot t-' + esc(type.toLowerCase()) + '"></span><b>' + esc(type) + "</b>" +
+    '<span class="chip ' + (draft ? "warn" : "good") + '">' + (draft ? "Draft" : "Published") + "</span><span>" + esc(a.date || "") + " · shown to all residents</span></div>" +
+    '<div class="gm-body">' + (esc(body) || "<i>No message.</i>") + "</div></article>";
+}
+
+/* ---------- compose window (bottom right, like Gmail) ---------- */
+var CMP = null, cmpPopSkip = false;
+function cmpEl(id) { return document.getElementById(id); }
+// Opens the compose window: empty for a new announcement, or filled for a draft / published one.
+function annCompose(id) {
+  if (CMP) closeCompose();
+  var row = id ? getRow("announcement", id) : null, a = row ? row.value : null, pub = !!a && (a.status || "Published") === "Published";
+  CMP = { id: row ? String(id) : "", pub: pub, dirty: false, timer: null, pushed: false };
+  var w = document.createElement("div");
+  w.className = "cmp"; w.id = "cmp"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "Announcement");
+  w.innerHTML = '<div class="cmp-h"><b>' + (pub ? "Edit announcement" : a ? "Draft" : "New announcement") + '</b><span class="cmp-st" id="cmpSt"></span>' +
+    '<button type="button" class="cmp-b" title="Minimise" id="cmpMin">&#8211;</button><button type="button" class="cmp-b" title="' + (pub ? "Close" : "Save and close") + '" id="cmpX">&#10005;</button></div>' +
+    '<div class="cmp-body"><input id="cmpTitle" class="cmp-subj" placeholder="Title" autocomplete="off" value="' + escAttr(a ? a.title : "") + '">' +
+    '<div class="cmp-row"><span>Type</span><select id="cmpType">' + ["General", "Maintenance", "Warning", "Emergency"].map(function (t) { return "<option" + (a && (a.type || "General") === t ? " selected" : "") + ">" + t + "</option>"; }).join("") + "</select></div>" +
+    '<textarea id="cmpBody" placeholder="Write your message to the residents">' + esc(a && a.body !== "—" ? a.body : "") + "</textarea></div>" +
+    '<div class="cmp-f"><button type="button" class="btn primary" id="cmpSend">' + (pub ? "Save changes" : "Publish") + "</button>" +
+    '<span class="cmp-hint">' + (pub ? "Closing without saving drops your changes." : "Close this window and your text is kept as a draft.") + '</span><button type="button" class="cmp-b" title="' + (pub ? "Close" : "Discard") + '" id="cmpTrash">' + ICO_TRASH + "</button></div>";
+  document.body.appendChild(w);
+  cmpEl("cmpX").onclick = function () { closeCompose(); };
+  cmpEl("cmpMin").onclick = function () { w.classList.toggle("min"); };
+  cmpEl("cmpSend").onclick = cmpPublish;
+  cmpEl("cmpTrash").onclick = cmpDiscard;
+  ["cmpTitle", "cmpBody", "cmpType"].forEach(function (k) { cmpEl(k).addEventListener("input", cmpTouch); cmpEl(k).addEventListener("change", cmpTouch); });
+  w.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); closeCompose(); } });
+  try { history.pushState({ cmp: 1 }, ""); CMP.pushed = true; } catch (e) { /* history blocked */ }
+  setTimeout(function () { var t = cmpEl(a ? "cmpBody" : "cmpTitle"); if (t) t.focus(); }, 30);
+}
+function annNew() { annCompose(); }
+function announcementForm() { annCompose(); }
+function editAnn(id) { annCompose(id); }
+function cmpVals() { return { title: cmpEl("cmpTitle").value.trim(), body: cmpEl("cmpBody").value.trim(), type: cmpEl("cmpType").value }; }
+function cmpTouch() {
+  if (!CMP) return; CMP.dirty = true;
+  if (CMP.pub) return;
+  clearTimeout(CMP.timer); var st = cmpEl("cmpSt"); if (st) st.textContent = "Saving…";
+  CMP.timer = setTimeout(function () { cmpSave(true); }, 900);
+}
+// Keeps what is typed as a draft (never for an announcement that is already published).
+async function cmpSave(quiet) {
+  if (!CMP || CMP.pub) return false;
+  var v = cmpVals(); if (!v.title && !v.body) return false;
+  var first = !CMP.id; if (first) CMP.id = String(nextId());
+  var old = getRow("announcement", CMP.id), base = old ? old.value : {};
+  try {
+    await put("announcement", CMP.id, "", Object.assign({}, base, { id: CMP.id, title: v.title || "(no title)", body: v.body || "—", type: v.type, date: base.date || shortDate(new Date()), status: base.status || "Draft" }));
+  } catch (e) { return false; }
+  CMP.dirty = false; CMP.saved = true;
+  var st = cmpEl("cmpSt"); if (st) st.textContent = "Draft saved " + clockText(Date.now()).replace(/^[A-Za-z]+ \d+, /, "");
+  if (typeof render === "function") render();
+  return true;
+}
+// Closes the window. A new or draft announcement is saved as a draft first (like Gmail); a published one is only closed.
+async function closeCompose(fromPop) {
+  if (!CMP) return;
+  var c = CMP; clearTimeout(c.timer);
+  var saved = false;
+  if (!c.pub) saved = await cmpSave(true);
+  else if (c.dirty) toast("Changes dropped. Use Save changes to keep them.");
+  var w = cmpEl("cmp"); if (w) w.remove();
+  CMP = null;
+  if (saved) { toast("Draft saved. Find it under Drafts."); logAct("Announcement saved as draft: " + (getRow("announcement", c.id) || { value: {} }).value.title, "Announcements"); }
+  if (c.pushed && !fromPop) { cmpPopSkip = true; try { history.back(); } catch (e) { cmpPopSkip = false; } }
+  if (typeof render === "function") render();
+}
+window.addEventListener("popstate", function () { if (cmpPopSkip) { cmpPopSkip = false; return; } if (CMP) closeCompose(true); });
+// Publish (new or draft) or save changes (already published).
+async function cmpPublish() {
+  if (!CMP) return;
+  var v = cmpVals(); if (!v.title) { toast("Enter a title first."); cmpEl("cmpTitle").focus(); return; }
+  var c = CMP; clearTimeout(c.timer);
+  var id = c.id || String(nextId()), old = getRow("announcement", id), base = old ? old.value : {};
+  var live = c.pub ? base.status || "Published" : "Published";
+  try {
+    await put("announcement", id, "", Object.assign({}, base, { id: id, title: v.title, body: v.body || "—", type: v.type, date: c.pub ? base.date || shortDate(new Date()) : shortDate(new Date()), status: live }));
+  } catch (e) { return toast("Could not save. Try again."); }
+  logAct(c.pub ? "Announcement edited: " + v.title : "Announcement published: " + v.title, "Announcements");
+  var w = cmpEl("cmp"); if (w) w.remove();
+  CMP = null;
+  if (c.pushed) { cmpPopSkip = true; try { history.back(); } catch (e) { cmpPopSkip = false; } }
+  toast(c.pub ? "Changes saved." : "Announcement published. Residents can see it now.");
+  set({ annFilter: c.pub ? state.annFilter : "Published", annOpen: "" });
+}
+// Trash icon: drop what was typed (and the draft made from it).
+function cmpDiscard() {
+  if (!CMP) return;
+  var c = CMP; clearTimeout(c.timer);
+  var done = async function () {
+    if (!c.pub && c.id && getRow("announcement", c.id)) { try { await del("announcement", c.id); } catch (e) { /* keep */ } }
+    var w = cmpEl("cmp"); if (w) w.remove();
+    CMP = null;
+    if (c.pushed) { cmpPopSkip = true; try { history.back(); } catch (e) { cmpPopSkip = false; } }
+    if (!c.pub) toast("Draft discarded.");
+    if (typeof render === "function") render();
+  };
+  var v = cmpVals();
+  if (c.pub || (!v.title && !v.body)) return done();
+  done();
 }
 function annEventsPage(evs) {
   return '<div class="ev-list">' + (evs.map(function (r) {
     var e = r.v, going = list("rsvp").filter(function (x) { return Number(x.v.event) === Number(r.id); }).length, id = escAttr(r.id), when = String(e.date || "").split("·");
     return '<article class="card ev-card"><div class="ev-date"><b>' + esc((when[0] || "").trim() || "TBD") + "</b><small>" + esc((when[1] || "").trim()) + '</small></div><div class="ev-main"><h3>' + esc(e.title) + "</h3><small>" + esc(e.place || "Venue TBD") + (e.about ? " · " + esc(e.about) : "") + '</small></div><span class="chip ' + (going ? "good" : "") + '">' + going + ' going</span><span class="fx-act"><button class="btn" onclick="eventForm(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="deleteEvent(\'' + id + '\')">Delete</button></span></article>';
   }).join("") || '<div class="card" style="text-align:center;color:var(--muted)">No events yet. Use “Add event” to create one.</div>') + "</div>";
-}
-// Popup to write a new announcement and publish it now or keep it as a draft.
-function announcementForm() {
-  openForm({
-    title: "New announcement",
-    intro: "Residents see a published announcement on their dashboard straight away.",
-    submit: "Save",
-    fields: [
-      { name: "title", label: "Title", placeholder: "e.g. Water interruption on Friday" },
-      { name: "body", label: "Message", type: "textarea" },
-      { name: "type", label: "Type", type: "select", options: ["General", "Maintenance", "Warning", "Emergency"], value: "General" },
-      { name: "when", label: "What to do with it", type: "select", options: ["Publish now", "Save as a draft"], value: "Publish now" }
-    ],
-    onSubmit: async function (d) {
-      var title = String(d.title || "").trim(); if (!title) return { error: "Enter a title." };
-      var id = nextId(), live = d.when === "Publish now";
-      await put("announcement", id, "", { id: id, title: title, body: String(d.body || "").trim() || "—", date: shortDate(new Date()), status: live ? "Published" : "Draft", type: d.type || "General" });
-      logAct((live ? "Announcement published: " : "Announcement saved as draft: ") + title, "Announcements");
-      toast(live ? "Announcement published. Residents can see it now." : "Saved as a draft. Publish it when you are ready.");
-    }
-  });
 }
