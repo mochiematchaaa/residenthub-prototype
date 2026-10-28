@@ -66,6 +66,9 @@ class PaymentProof {
   /// The day the resident says they paid, like "Oct 27, 2026" (empty on older records).
   final String paidOn;
 
+  /// True for a payment that renews a monthly parking rental (the slot is already theirs).
+  final bool renew;
+
   /// When the details were sent. Older records only have a date, so 9 AM of that day is used.
   DateTime get sentAt {
     if (at > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(at);
@@ -88,7 +91,8 @@ class PaymentProof {
       this.at = 0,
       this.auto = false,
       this.image = '',
-      this.paidOn = ''});
+      this.paidOn = '',
+      this.renew = false});
 
   /// Shared with the website through the live database (same field names).
   Map<String, dynamic> toJson() => {
@@ -111,6 +115,7 @@ class PaymentProof {
         if (image.isNotEmpty) 'image': image,
         if (paidOn.isNotEmpty) 'paidOn': paidOn,
         if (auto) 'auto': true,
+        if (renew) 'renew': true,
         if (auto) 'confirmedBy': 'Automatic posting',
       };
 
@@ -140,6 +145,7 @@ class PaymentProof {
       auto: j['auto'] == true,
       image: s('image'),
       paidOn: s('paidOn'),
+      renew: j['renew'] == true,
     );
   }
 }

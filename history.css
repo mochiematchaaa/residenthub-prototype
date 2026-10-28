@@ -437,3 +437,15 @@ div,form,aside,section,textarea,ul,table{overscroll-behavior:contain}
 .cal-tag{flex:none;font-size:11px;font-weight:800}
 .cal-none{margin:0;font-size:12.5px;color:var(--muted)}
 .fin-todo h2{font-size:17px;margin:0}
+
+/* Walk-in, renewal notice and texts (motor parking) */
+.soon-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px;border-radius:20px;background:var(--warn-bg,#fff2c4);color:var(--warn-fg,#6b4a00);border:1px solid rgba(160,110,0,.25);margin-bottom:16px}
+.soon-banner.late{background:var(--bad-bg,#fde3e0);color:var(--bad-fg,#8a2a1c);border-color:rgba(160,43,29,.3)}
+.soon-banner div{flex:1 1 260px;display:flex;flex-direction:column;gap:2px}
+.soon-banner b{font-size:15px}
+.soon-banner span{font-size:13px;line-height:1.45}
+.soon-card.warn{border-left:5px solid #e0a21a}.soon-card.bad{border-left:5px solid #d64a5a}.soon-card.info{border-left:5px solid #3b82d6}
+.park-walk{display:inline-flex;align-items:center;gap:6px}
+.sms-log .sms-row{padding:8px 0;border-top:1px solid var(--border2,#c9dcf1);font-size:13px}
+.sms-log .sms-row small{display:block;color:var(--muted)}
+.park-h{margin:18px 0 8px;font-size:15px}

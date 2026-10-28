@@ -558,7 +558,7 @@
     if (PUBLIC.indexOf(r.kind) >= 0) return true;
     return r.unit === myunit();
   }
-  var RES_KINDS = ["booking", "grievance", "proof", "request", "statusUpdate", "rsvp", "vote", "unit", "activity"];
+  var RES_KINDS = ["booking", "grievance", "proof", "request", "statusUpdate", "rsvp", "vote", "unit", "activity", "walkin", "renewal"];
   function guard(op, row, old) {
     if (role() === "admin") return null;
     if (RES_KINDS.indexOf(row.kind) < 0) return "row-level security: kind " + row.kind;

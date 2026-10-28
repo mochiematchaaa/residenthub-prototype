@@ -78,20 +78,42 @@ class _AdminParkingState extends State<AdminParking> {
     );
   }
 
-  /// The resident paid at the office: record the payment (with a receipt) and give the slot.
+  /// Walk-in: the resident pays at the counter (cash, check, card or e-wallet). Records the payment (receipt), gives the slot, texts the resident.
   void _officePay(BuildContext context, ParkingReq p) {
     showFormSheet(
       context,
-      title: 'Paid at the office · ${p.unit}',
-      subtitle: 'Slot ${p.slot}. Enter what the office received. A receipt is issued and the slot is assigned.',
+      title: 'Walk-in payment · ${p.unit}',
+      subtitle: 'Slot ${p.slot}. Enter what the office received. A receipt is issued, the slot is assigned and the resident gets a text with the next due date.',
+      choices: [ChoiceSpec('via', 'Paid at the counter by', AppState.walkinOptions, AppState.walkinOptions.first)],
       fields: [
         FieldSpec('amount', 'Amount received (PHP)', type: TextInputType.number, initial: p.amount > 0 ? '${p.amount}' : ''),
-        const FieldSpec('ref', 'Office receipt no. (optional)'),
+        const FieldSpec('ref', 'Receipt or reference no. (optional)'),
       ],
       submit: 'Record payment and assign',
       onSubmit: (v) {
-        final err = app.parkingOfficePayment(p, '${v['amount'] ?? ''}', '${v['ref'] ?? ''}');
-        if (err == null) msg(context, 'Payment recorded. ${p.slot} is now assigned to ${p.unit}.');
+        final err = app.parkingOfficePayment(p, '${v['amount'] ?? ''}', '${v['ref'] ?? ''}', via: '${v['via'] ?? 'Cash'}');
+        if (err == null) msg(context, 'Payment recorded. ${p.slot} is now assigned to ${p.unit}. ${app.lastSmsNote}');
+        return err;
+      },
+    );
+  }
+
+  /// Walk-in to renew a monthly rental.
+  void _renewPay(BuildContext context, ParkingSlot s) {
+    final d = parkDueOf(s);
+    showFormSheet(
+      context,
+      title: 'Renew ${s.id} · ${s.unit}',
+      subtitle: '${d != null ? 'The rental runs until ${isoShort(d.until)}; one more month is added. ' : ''}Recording it issues a receipt, extends the rental and sends the resident a text with the next due date.',
+      choices: [ChoiceSpec('via', 'Paid at the counter by', AppState.walkinOptions, AppState.walkinOptions.first)],
+      fields: [
+        FieldSpec('amount', 'Amount received (PHP)', type: TextInputType.number, initial: '${app.parkRenewAmount(s)}'),
+        const FieldSpec('ref', 'Receipt or reference no. (optional)'),
+      ],
+      submit: 'Record payment and renew',
+      onSubmit: (v) {
+        final err = app.parkingRenewOfficePayment(s, '${v['amount'] ?? ''}', '${v['via'] ?? 'Cash'}', '${v['ref'] ?? ''}');
+        if (err == null) msg(context, 'Payment recorded. ${s.id} is renewed until ${isoShort(s.until)}. ${app.lastSmsNote}');
         return err;
       },
     );
@@ -299,7 +321,8 @@ class _AdminParkingState extends State<AdminParking> {
     final proof = p.slot.isNotEmpty ? app.parkingProofFor(p.unit, p.slot) : null;
     final paid = proof?.status == 'Confirmed';
     final reserved = p.slot.isNotEmpty && p.amount > 0;
-    final t = toneOf(context, proof == null ? Tone.info : Tone.warn);
+    final walk = app.walkinOf(p.unit);
+    final t = toneOf(context, (proof == null && walk == null) ? Tone.info : Tone.warn);
     final List<Widget> actions = [];
     if (reserved && proof != null && !paid) {
       actions.addAll([
@@ -307,7 +330,7 @@ class _AdminParkingState extends State<AdminParking> {
           style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
           onPressed: () {
             app.confirmProof(proof);
-            msg(context, 'Payment verified. ${p.slot} is now assigned to ${p.unit}.');
+            msg(context, 'Payment verified. ${p.slot} is now assigned to ${p.unit}. ${app.lastSmsNote}');
           },
           child: Text('Verify and assign ${p.slot}'),
         ),
@@ -317,7 +340,7 @@ class _AdminParkingState extends State<AdminParking> {
       actions.add(OutlinedButton(
         style: OutlinedButton.styleFrom(minimumSize: const Size(0, 38)),
         onPressed: () => _officePay(context, p),
-        child: const Text('Paid at the office'),
+        child: Text(walk != null ? 'Record walk-in payment' : 'Walk-in payment'),
       ));
     } else {
       actions.add(FilledButton(
@@ -362,7 +385,10 @@ class _AdminParkingState extends State<AdminParking> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(14)),
               child: proof == null
-                  ? Text('No payment yet. The resident pays on the Parking page, or you can record a payment made at the office. The slot is only assigned after payment.',
+                  ? Text(
+                      walk != null
+                          ? 'Walk-in. ${app.walkinText(walk, p.name.isEmpty ? p.unit : p.name)} They pay at the counter. Record it when they do (cash, check, card or e-wallet). The slot is assigned and they get a text with the next due date.'
+                          : 'No payment yet. The resident pays on the Parking page, or taps Walk-in to pay at the office. The slot is only assigned after payment.',
                       style: TextStyle(color: t.fg, fontSize: 12.5, height: 1.35))
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,9 +439,172 @@ class _AdminParkingState extends State<AdminParking> {
     );
   }
 
+  /// The payment details of a renewal (same facts as for a new request).
+  Widget _payFacts(BuildContext context, PaymentProof proof, ({Color bg, Color fg}) t, num expected) {
+    final match = proof.amount == expected;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(14)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('PAYMENT TO CHECK', style: TextStyle(color: t.fg, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 12, runSpacing: 10, children: [
+            _fact(context, 'Method', proof.method),
+            _fact(context, 'Reference no.', proof.reference.isEmpty ? '—' : proof.reference),
+            _fact(context, 'Amount sent', peso(proof.amount)),
+            _fact(context, 'Date paid', proof.paidOn.isEmpty ? 'Not given' : proof.paidOn),
+            _fact(context, 'Sent', clockText(proof.sentAt)),
+            SizedBox(
+              width: 140,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SCREENSHOT', style: TextStyle(color: muted(context), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                  const SizedBox(height: 2),
+                  if (proofImageBytes(proof.image) != null)
+                    InkWell(
+                      onTap: () => showProofImage(context, proof),
+                      child: Row(children: [
+                        ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.memory(proofImageBytes(proof.image)!, width: 44, height: 44, fit: BoxFit.cover)),
+                        const SizedBox(width: 8),
+                        const Text('View', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, decoration: TextDecoration.underline)),
+                      ]),
+                    )
+                  else
+                    Text('None attached', style: TextStyle(color: muted(context), fontWeight: FontWeight.w600, fontSize: 13)),
+                ],
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Pill(match ? '✓ Amount matches' : '✕ Expected ${peso(expected)}', tone: match ? Tone.good : Tone.bad),
+        ],
+      ),
+    );
+  }
+
+  /// A rental that needs the office: a renewal payment, a walk-in, or a resident who will not renew.
+  Widget _renewalCard(BuildContext context, ({ParkingSlot slot, PaymentProof? proof, Walkin? walkin, String? leave}) x) {
+    final s = x.slot;
+    final d = parkDueOf(s);
+    final amt = app.parkRenewAmount(s);
+    final t = toneOf(context, x.leave != null ? Tone.info : Tone.warn);
+    final actions = <Widget>[];
+    Widget body;
+    if (x.leave != null) {
+      body = Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(14)),
+        child: Text(
+          'The resident told the office they will not renew.${x.leave!.isEmpty ? '' : ' “${x.leave}”'} The slot stays theirs until ${isoShort(s.until)}. After that, remove them from Current rentals to free it.',
+          style: TextStyle(color: t.fg, fontSize: 12.5, height: 1.35),
+        ),
+      );
+    } else if (x.proof != null) {
+      body = _payFacts(context, x.proof!, t, amt);
+      actions.addAll([
+        FilledButton(
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
+          onPressed: () {
+            app.confirmProof(x.proof!);
+            msg(context, 'Payment verified. ${s.id} is renewed until ${isoShort(s.until)}. ${app.lastSmsNote}');
+          },
+          child: Text('Verify and renew ${s.id}'),
+        ),
+        TextButton(style: TextButton.styleFrom(foregroundColor: danger), onPressed: () => _rejectPayment(context, x.proof!), child: const Text('Reject payment')),
+      ]);
+    } else {
+      body = Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(14)),
+        child: Text('Walk-in. ${app.walkinText(x.walkin!, s.unit)} They pay at the counter. Record it when they do (cash, check, card or e-wallet).', style: TextStyle(color: t.fg, fontSize: 12.5, height: 1.35)),
+      );
+      actions.add(FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 38)), onPressed: () => _renewPay(context, s), child: const Text('Record walk-in payment')));
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), border: Border.all(color: Theme.of(context).dividerColor), color: Theme.of(context).colorScheme.surface),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(child: Text('${s.unit} · renewal of ${s.id}', style: const TextStyle(fontWeight: FontWeight.w800))),
+            Text(peso(amt), style: hd(18)),
+          ]),
+          const SizedBox(height: 2),
+          Text(
+            'Runs until ${isoShort(s.until)}${d != null ? ' · next payment due ${isoShort(d.nextDue)} (${parkDaysText(d.days)})' : ''}',
+            style: TextStyle(color: muted(context), fontSize: 12.5),
+          ),
+          const SizedBox(height: 10),
+          body,
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 4, children: actions),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// The texts sent to residents (the prototype only saves them; a real SMS service would deliver them).
+  Widget _smsLog(BuildContext context) {
+    final l = app.smsLog.take(6).toList();
+    return RCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Text messages to residents', style: hd(17)),
+          const SizedBox(height: 4),
+          Text(
+            'When a parking payment is approved, the resident gets a text with the rental period and the next due date. In this prototype the text is saved here and shown on the resident\'s dashboard; connecting an SMS service would send it to their phone.',
+            style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+          ),
+          if (l.isEmpty)
+            Padding(padding: const EdgeInsets.only(top: 8), child: Text('No texts yet.', style: TextStyle(color: muted(context))))
+          else
+            for (final m in l)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${m.unit} · ${m.to.isEmpty ? 'no mobile number' : m.to} · ${clockText(DateTime.fromMillisecondsSinceEpoch(m.at))} · ${m.status}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                    Text(m.text, style: TextStyle(color: muted(context), fontSize: 12, height: 1.35)),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
   Widget _requestsTab(BuildContext context, List<ParkingReq> waiting) {
-    if (waiting.isEmpty) return const EmptyBox('No requests waiting.', icon: Icons.two_wheeler_outlined);
-    return Column(children: [for (final p in waiting) _request(context, p)]);
+    final renewals = app.parkRenewals;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (renewals.isNotEmpty) ...[
+          Text('Renewals', style: hd(16)),
+          const SizedBox(height: 8),
+          for (final x in renewals) _renewalCard(context, x),
+          if (waiting.isNotEmpty) Text('New requests', style: hd(16)),
+          if (waiting.isNotEmpty) const SizedBox(height: 8),
+        ],
+        if (waiting.isEmpty)
+          const EmptyBox('No new requests waiting.', icon: Icons.two_wheeler_outlined)
+        else
+          for (final p in waiting) _request(context, p),
+        const SizedBox(height: 4),
+        _smsLog(context),
+      ],
+    );
   }
 
   List<Widget> _slotsTab(BuildContext context) => [
@@ -502,11 +691,22 @@ class _AdminParkingState extends State<AdminParking> {
                                     s.until.isEmpty ? '${s.daily ? 'Daily' : 'Monthly'} · no end date' : '${s.daily ? 'Daily' : 'Monthly'} · ${isoShort(s.from)} – ${isoShort(s.until)}',
                                     style: TextStyle(color: muted(context), fontSize: 12.5),
                                   ),
+                                  if (parkDueOf(s) != null)
+                                    Text('Next payment due ${isoShort(parkDueOf(s)!.nextDue)} (${parkDaysText(parkDueOf(s)!.days)})', style: TextStyle(color: muted(context), fontSize: 12.5)),
                                   const SizedBox(height: 4),
-                                  s.ended ? const Pill('Ended', tone: Tone.bad) : const Pill('Active', tone: Tone.good),
+                                  Wrap(spacing: 6, runSpacing: 4, children: [
+                                    if (s.ended)
+                                      const Pill('Ended', tone: Tone.bad)
+                                    else if (parkDueOf(s)?.soon ?? false)
+                                      const Pill('Renewal due soon', tone: Tone.warn)
+                                    else
+                                      const Pill('Active', tone: Tone.good),
+                                    if (app.leaveNotes.containsKey(s.unit)) const Pill('Will not renew', tone: Tone.info),
+                                  ]),
                                 ],
                               ),
                             ),
+                            if (!s.daily) TextButton(onPressed: () => _renewPay(context, s), child: const Text('Renew')),
                             TextButton(onPressed: () => _editRental(context, s), child: const Text('Edit')),
                             TextButton(
                               style: TextButton.styleFrom(foregroundColor: danger),
@@ -540,13 +740,13 @@ class _AdminParkingState extends State<AdminParking> {
               child: StatsRow([
                 ['In use', '${app.slotsUsed}'],
                 ['Free', '$free'],
-                ['Waiting', '${waiting.length}'],
+                ['Waiting', '${waiting.length + app.parkRenewals.length}'],
                 ['Monthly income', peso(app.slots.where((x) => x.used && !x.daily && !x.ended).fold<num>(0, (t, x) => t + (x.amount > 0 ? x.amount : app.parkRatesFor(x.size).month)))],
               ]),
             ),
             SubTabs(
               items: [
-                SubTabItem('Requests', count: waiting.length, hot: waiting.isNotEmpty),
+                SubTabItem('Requests', count: waiting.length + app.parkRenewals.length, hot: waiting.isNotEmpty || app.parkRenewals.isNotEmpty),
                 SubTabItem('Slots', count: app.slots.length),
                 SubTabItem('Current rentals', count: rented.length),
               ],
