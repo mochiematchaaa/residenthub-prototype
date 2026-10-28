@@ -240,4 +240,45 @@ async function voidAutoLateFee(due, paidDate) {
 }
 setInterval(autoLateFeeCheck, 30000);
 var _rhEnter2 = rhEnter;
-rhEnter = function () { _rhEnter2(); setTimeout(autoLateFeeCheck, 2500); };
+rhEnter = function () { _rhEnter2(); setTimeout(autoLateFeeCheck, 2500); setTimeout(autoBillCheck, 3500); };
+
+/* ---------- Automatic monthly billing ----------
+   The first time an administrator has the portal open in a new month, every unit that has not been billed for that month is billed
+   by itself (floor area x the rate per sqm, on the unit's own due day). The same month is never billed twice, and units with no
+   floor area are skipped. "Bill monthly dues" still works at any time. In a live system this would run on the server's clock. */
+function autoBillCfg() { return { on: setting("autobill").on !== "no" }; }
+function autoBillSettingsHtml() {
+  var c = autoBillCfg();
+  return '<div class="lf-set"><b>Automatic monthly billing</b><p class="hint" style="margin:2px 0 8px">The first time you open the portal in a new month, every unit that has not been billed for that month yet is billed by itself: floor area × the rate per sqm, due on the unit\'s own due day. The same month is never billed twice, and units without a floor area are skipped. “Bill monthly dues” still works any time.</p>' +
+    '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" id="abOn" ' + (c.on ? "checked" : "") + ' onchange="saveAutoBill()"> Bill the new month automatically</label></div>';
+}
+function saveAutoBill() {
+  var on = document.getElementById("abOn").checked;
+  act(async function () {
+    await put("setting", "autobill", "", { on: on ? "yes" : "no" });
+    logAct("Automatic monthly billing " + (on ? "turned on" : "turned off"), "Settings");
+    toast(on ? "Saved. A new month is billed automatically the first time you open the portal." : "Saved. Monthly dues are billed only when you press “Bill monthly dues”.");
+  });
+}
+var _billBusy = false;
+async function autoBillCheck() {
+  if (_billBusy || !state.authed || !isAdmin() || !autoBillCfg().on) return;
+  var rate = Number(setting("dues_rate_sqm").rate); if (!(rate > 0)) return;
+  var now = new Date(), period = LONG_MONTHS[now.getMonth()] + " " + now.getFullYear(), note = "Association dues - " + period;
+  var existing = list("due").map(function (r) { return r.v; });
+  var todo = sortedUnits().filter(function (u) { return Number(u.v.area) > 0 && !existing.some(function (x) { return x.unit === u.id && x.note === note; }); });
+  if (!todo.length) return;
+  _billBusy = true;
+  var n = 0;
+  try {
+    for (var i = 0; i < todo.length; i++) {
+      var u = todo[i], area = Number(u.v.area), id = nextId();
+      var ud = Number(u.v.dueDay) >= 1 ? shortDate(new Date(now.getFullYear(), now.getMonth(), Math.min(Number(u.v.dueDay), new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()))) : "";
+      await put("due", id, u.id, { id: id, unit: u.id, name: u.v.name && u.v.name !== "—" ? u.v.name : "", amount: Math.round(area * rate * 100) / 100, area: area, rate: rate, billedOn: shortDate(now), note: note, dueDate: ud, auto: true });
+      n++;
+    }
+  } catch (e) { /* the rest are tried again next time */ }
+  _billBusy = false;
+  if (n) { logAct("Dues billed automatically for " + period + ": " + n + " unit" + (n === 1 ? "" : "s"), "Finance"); toast("Dues for " + period + " were billed automatically (" + n + " unit" + (n === 1 ? "" : "s") + "). Residents were notified."); render(); }
+}
+setInterval(autoBillCheck, 60000);
