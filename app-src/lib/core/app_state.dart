@@ -307,6 +307,9 @@ class Account {
   DateTime? createdAt, updatedAt;
   String lastChange;
 
+  /// The temporary password the office gave, kept (office-only) until the resident chooses their own. Empty otherwise.
+  String tempPw = '';
+
   /// Every change to this account, newest first.
   final List<AccountChange> history;
   Account(this.id, this.name, this.email, this.phone, this.unit, this.role, this.added,

@@ -361,6 +361,21 @@ class SessionService {
   Future<void> loadAccounts() async {
     try {
       final rows = await _c.from('profiles').select().eq('role', 'resident').order('created_at');
+      // the temporary passwords the office gave (office-only records), shown until the resident chooses their own
+      final kept = <String, String>{};
+      try {
+        final t = await _c.from('records').select('id,value').eq('kind', 'tempcred');
+        for (final r in t) {
+          final v = r['value'];
+          kept[r['id'].toString()] = v is Map ? (v['pw'] ?? '').toString() : '';
+        }
+      } catch (_) {}
+      final pending = {for (final p in rows) if (p['must_change_password'] == true) p['id'].toString()};
+      for (final id in kept.keys.where((k) => !pending.contains(k))) {
+        try {
+          await _c.from('records').delete().eq('kind', 'tempcred').eq('id', id);
+        } catch (_) {}
+      }
       app.setAccounts([
         for (final p in rows)
           Account(
@@ -373,7 +388,7 @@ class SessionService {
             _addedText(p['created_at']),
             suspended: p['suspended'] == true,
             verified: p['contact_verified_at'] != null,
-          )
+          )..tempPw = p['must_change_password'] == true ? (kept[p['id'].toString()] ?? '') : ''
       ]);
     } catch (_) {}
   }
@@ -420,13 +435,31 @@ class SessionService {
     });
     if (r['error'] != null) return AccountResult(error: r['error'].toString());
     await loadAccounts();
+    final made = app.trusted.where((a) => a.email.toLowerCase() == email.trim().toLowerCase()).firstOrNull;
+    if (made != null) await _keepTempPw(made.id, name.trim(), email.trim(), unit.trim(), r['password']?.toString() ?? '');
     return AccountResult(password: r['password']?.toString());
+  }
+
+  /// Keeps the temporary password (office-only) so the administrator can see it until the resident chooses their own.
+  Future<void> _keepTempPw(String id, String name, String email, String unit, String pw) async {
+    if (pw.isEmpty) return;
+    try {
+      final value = {'id': id, 'pw': pw, 'name': name, 'email': email, 'unit': unit, 'at': DateTime.now().millisecondsSinceEpoch};
+      final had = await _c.from('records').select('id').eq('kind', 'tempcred').eq('id', id);
+      if (had.isEmpty) {
+        await _c.from('records').insert({'kind': 'tempcred', 'id': id, 'unit': '__admin', 'value': value});
+      } else {
+        await _c.from('records').update({'value': value}).eq('kind', 'tempcred').eq('id', id);
+      }
+      await loadAccounts();
+    } catch (_) {}
   }
 
   Future<AccountResult> resetPassword(Account a) async {
     if (kDemo) return const AccountResult(error: kDemoOff);
     final r = await _call({'action': 'reset-password', 'userId': a.id});
     if (r['error'] != null) return AccountResult(error: r['error'].toString());
+    await _keepTempPw(a.id, a.name, a.email, a.unit, r['password']?.toString() ?? '');
     return AccountResult(password: r['password']?.toString());
   }
 
@@ -442,6 +475,9 @@ class SessionService {
     if (kDemo) return kDemoOff;
     final r = await _call({'action': 'delete', 'userId': a.id});
     if (r['error'] != null) return r['error'].toString();
+    try {
+      await _c.from('records').delete().eq('kind', 'tempcred').eq('id', a.id);
+    } catch (_) {}
     await loadAccounts();
     return null;
   }
