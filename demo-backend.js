@@ -94,9 +94,9 @@
     /* sample household records (shown on the Resident profiles page and on the resident's dashboard) */
     U.forEach(function (u, k) {
       if (u.status !== "Occupied") return;
-      var b = byUnit[u.label], last = u.person.split(" ").slice(-1)[0], n = 1 + (k % 4), f2 = FIRST[(k * 3 + 1) % FIRST.length], f3 = FIRST[(k * 5 + 2) % FIRST.length];
+      var b = byUnit[u.label], last = u.person.split(" ").slice(-1)[0], n = 1 + (k % 4), f2 = FIRST[(k * 3 + 1) % FIRST.length], f3 = FIRST[(k * 5 + 2) % FIRST.length], f4 = FIRST[(k * 11 + 4) % FIRST.length];
       b.email = u.key + "@demo.test"; b.residents = n; b.moveIn = dk(dayOff(-(120 + (k * 53) % 1300)));
-      b.members = u.person + ", " + (u.type === "Tenant" ? "tenant" : "owner") + (n > 1 ? "\n" + f2 + " " + last + ", family" : "") + (n > 2 ? "\n" + f3 + " " + last + ", child" : "");
+      b.members = u.person + ", " + (u.type === "Tenant" ? "tenant" : "owner") + (n > 1 ? "\n" + f2 + " " + last + ", family" : "") + (n > 2 ? "\n" + f3 + " " + last + ", child" : "") + (n > 3 ? "\n" + f4 + " " + last + ", child" : "");
       b.emergencyName = FIRST[(k * 7 + 3) % FIRST.length] + " " + last; b.emergencyRelation = ["Sister", "Brother", "Parent", "Spouse", "Friend"][k % 5]; b.emergencyPhone = "0917 000 " + (3000 + (k * 37) % 900);
       if (k % 3 === 0) b.vehicles = "Motorcycle · " + String.fromCharCode(65 + k % 26) + "BC " + (1000 + (k * 411) % 9000);
       if (k % 5 === 0) b.pets = "1 dog";

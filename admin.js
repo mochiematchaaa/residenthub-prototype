@@ -186,7 +186,7 @@ function viewHome() {
     '<div class="sc-grid">' +
     summaryCard("yellow", "Community", [[units, "Units", "units"], [residentCount(), "Residents", "manage"], [list("doc").length, "Documents", "req"]], "cross", meterHtml(occupied, units, "Occupied", " of " + units + " units")) +
     summaryCard("pink", "Finance", [[peso(monthEarnings()), "Earnings this month", "fin"], [c.unpaid, "Unpaid dues", "fin"]], "heart", chart) +
-    summaryCard("green", "Needs attention", [[c.grievances, "Complaints", "req"], [c.bookings, "Bookings", "fac"], [c.rentals, "Unit status to review", "rentals"]], "triangle", '<p class="sc-note">' + ((c.grievances + c.bookings + c.rentals) ? (c.grievances + c.bookings + c.rentals) + " things are waiting for a decision" : "Nothing is waiting") + "</p>") +
+    summaryCard("red", "Needs attention", [[c.grievances, "Complaints", "req"], [c.bookings, "Bookings", "fac"], [c.rentals, "Unit status to review", "rentals"]], "triangle", '<p class="sc-note">' + ((c.grievances + c.bookings + c.rentals) ? (c.grievances + c.bookings + c.rentals) + " things are waiting for a decision" : "Nothing is waiting") + "</p>") +
     summaryCard("blue", "Community life", [[openPolls, "Open polls", "polls"], [used + "/" + slots.length, "Parking used", "parking"]], "burst", meterHtml(used, slots.length, "Parking", " of " + slots.length + " slots in use")) +
     "<!--sc-end--></div>" + (typeof payCheckPanel === "function" ? payCheckPanel(4) : "") +
     '<div class="pills-row">' + quick.map(function (q) { return '<button onclick="set({view:\'' + q[1] + '\'})">' + q[0] + "</button>"; }).join("") + "</div>" +

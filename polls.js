@@ -135,23 +135,30 @@ function pollResultsHtml(p, mine, admin) {
 }
 
 // The ballot a resident fills in.
+function candInit(t) { var w = String(t || "").split(/\s[\u2014\u2013-]\s|\(/)[0].replace(/[^A-Za-z\u00C0-\u024F ]/g, " ").trim().split(/\s+/).filter(Boolean); return ((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase(); }
 function pollBallotHtml(p) {
-  var name = function (q) { return "pq-" + p.id + "-" + q.id; };
+  var name = function (q) { return "pq-" + p.id + "-" + q.id; }, elect = p.kind === "election";
+  var optHtml = function (q, o, k, type) {
+    var sq = type === "checkbox" ? " sq" : "";
+    return elect
+      ? '<label class="cand' + sq + '"><input type="' + type + '" name="' + name(q) + '" value="' + k + '"><span class="cand-av">' + esc(candInit(o.t)) + '</span><span class="cand-name">' + esc(o.t) + "</span></label>"
+      : '<label class="opt' + sq + '"><input type="' + type + '" name="' + name(q) + '" value="' + k + '"><span>' + esc(o.t) + "</span></label>";
+  };
   var blocks = p.questions.map(function (q, i) {
     var hint = "", body = "";
     if (q.type === "choice") {
-      body = '<div class="options">' + q.opts.map(function (o, k) { return '<label class="opt"><input type="radio" name="' + name(q) + '" value="' + k + '"><span>' + esc(o.t) + "</span></label>"; }).join("") + "</div>";
-      if (p.kind === "election") hint = "Choose one candidate. Leave it blank to abstain.";
+      body = '<div class="options">' + q.opts.map(function (o, k) { return optHtml(q, o, k, "radio"); }).join("") + "</div>";
+      hint = elect ? "Choose 1 candidate · or leave blank to abstain" : "Choose 1";
     } else if (q.type === "multi") {
-      body = '<div class="options">' + q.opts.map(function (o, k) { return '<label class="opt"><input type="checkbox" name="' + name(q) + '" value="' + k + '"><span>' + esc(o.t) + "</span></label>"; }).join("") + "</div>";
-      hint = q.max ? "Choose up to " + q.max + (p.kind === "election" ? ". Leave it blank to abstain." : ".") : "Choose all that apply.";
+      body = '<div class="options">' + q.opts.map(function (o, k) { return optHtml(q, o, k, "checkbox"); }).join("") + "</div>";
+      hint = q.max ? "Choose up to " + q.max + (elect ? " · or leave blank to abstain" : "") : "Choose all that apply";
     } else if (q.type === "text") body = '<input class="pq-input" type="text" maxlength="200" name="' + name(q) + '" placeholder="Your answer">';
     else if (q.type === "para") body = '<textarea class="pq-input" rows="3" maxlength="1000" name="' + name(q) + '" placeholder="Your answer"></textarea>';
     else body = '<div class="rate-row">' + [1, 2, 3, 4, 5].map(function (s) { return '<label class="rate"><input type="radio" name="' + name(q) + '" value="' + s + '"><span>' + s + "</span></label>"; }).join("") + '</div><div class="rate-ends"><span>Not satisfied</span><span>Very satisfied</span></div>';
-    var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (p.kind === "election" ? "" : (i + 1) + ".") + "</span><div>" + richHtml(q.html, q.text) + (q.required ? ' <span class="pq-req" title="Required">*</span>' : "") + "</div></div>";
-    return '<div class="pq-block' + (q.type === "para" ? " pq-wide" : "") + '">' + head + (hint ? '<p class="hint" style="margin:0 0 8px">' + hint + "</p>" : "") + body + "</div>";
+    var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (elect ? "" : (i + 1) + ".") + "</span><div>" + richHtml(q.html, q.text) + (q.required ? ' <span class="pq-req" title="Required">*</span>' : "") + "</div></div>";
+    return '<div class="pq-block' + (q.type === "para" ? " pq-wide" : "") + '">' + head + (hint ? '<span class="ballot-sub">' + hint + "</span>" : "") + body + "</div>";
   }).join("");
-  return p.legacy ? blocks : '<div class="pq-grid">' + blocks + "</div>";
+  return '<div class="ballot">' + blocks + "</div>";
 }
 // Reads the ballot of one poll from the page; returns {answers} or {error}.
 function readBallot(p) {

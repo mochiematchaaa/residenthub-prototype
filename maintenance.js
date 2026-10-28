@@ -118,16 +118,16 @@
     var eq = equipList(), bad = eq.filter(function (e) { return e.v.status !== "Working"; }).length, rs = repairStats();
     var tabs = [["sched", "Schedule (" + ts.length + ")"], ["equip", "Equipment (" + eq.length + ")"], ["staff", "Staff (" + staffList().length + ")"]];
     var closed = list("mclosure");
-    return '<div class="grid cols-4" style="margin-bottom:10px">' + statCard("Overdue tasks", overdue) + statCard("Due in the next 7 days", soon) + statCard("Equipment needing attention", bad) + statCard("Repair spend this month", money(rs.month)) + "</div>" +
+    if (state.mpage) return maintPage(state.mpage, ts, eq, rs);
+    return '<div class="grid cols-4" style="margin-bottom:10px">' + mStat("Overdue tasks", overdue, "overdue") + mStat("Due in the next 7 days", soon, "soon") + mStat("Equipment needing attention", bad, "attn") + mStat("Repair spend this month", money(rs.month), "spend") + "</div>" +
       '<p class="hint" style="margin:0 0 14px">' + (rs.avg == null ? "No finished repairs yet." : "Average repair time " + (rs.avg < 1 ? "under a day" : rs.avg.toFixed(1) + " days") + " across " + plural(rs.n, "finished repair") + ".") + " Maintenance spending this year: <b>" + money(rs.year) + "</b>." + (closed.length ? " Closed to bookings now: <b>" + closed.map(function (c) { return esc(c.v.facility); }).join(", ") + "</b>." : "") + "</p>" +
       '<div class="filters" style="margin-bottom:14px">' + tabs.map(function (t) {
         return '<button class="' + (tab === t[0] ? "active" : "") + '" onclick="set({mtab:\'' + t[0] + '\'})">' + t[1] + "</button>";
       }).join("") + "</div>" + (tab === "equip" ? maintEquip(eq) : tab === "staff" ? maintStaff() : maintSched(ts, kind) + recentNotices());
   }
 
-  function maintSched(ts, kind) {
-    var shown = ts.filter(function (r) { return kind === "all" || (r.v.kind || "Routine") === kind; });
-    var rows = shown.map(function (r) {
+  function maintTaskRows(shown) {
+    return shown.map(function (r) {
       var t = r.v, st = taskState(t);
       return "<tr><td><b>" + esc(t.title) + "</b>" + ((t.kind || "Routine") !== "Routine" ? ' <span class="chip info">' + esc(t.kind === "Compliance" ? "Compliance" : t.kind) + "</span>" : "") + '<div style="font-size:12px;color:var(--muted)">Last done ' + esc(fd(t.lastDone)) + "</div></td><td>" + esc(t.equipName || "—") + "</td><td>" + esc(t.every) + "</td><td>" + esc(fd(t.due)) +
         '<div><span class="chip ' + st[1] + '">' + st[0] + "</span></div></td><td>" + esc(t.assignee || "Unassigned") + "</td><td style=\"white-space:nowrap\">" +
@@ -135,6 +135,58 @@
         "<button " + BTN + '" title="Post a notice to all residents" onclick="maintNotify(\'' + escAttr(r.id) + '\')">Notify residents</button> ' +
         "<button " + BTN + '" onclick="maintTaskForm(\'' + escAttr(r.id) + '\')">Edit</button> <button ' + BTN + ';color:#A02B1D" onclick="maintDelete(\'mtask\',\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
     });
+  }
+
+  function maintEquipRows(eq) {
+    return eq.map(function (r) {
+      var e = r.v, n = openRepairs(r.id), sp = spentOn(r.id);
+      return "<tr><td><b>" + esc(e.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(e.category) + (e.vendor ? " · " + esc(e.vendor) : "") + "</div></td><td>" + esc(e.location) + "</td><td>" + eqChip(e.status) +
+        (e.facility && e.closes ? '<div style="font-size:12px;color:var(--muted);margin-top:3px">Closes ' + esc(e.facility) + " while not working</div>" : "") + (n ? '<div><span class="chip warn">' + plural(n, "open repair") + "</span></div>" : "") +
+        "</td><td>" + warrantyChip(e.warranty) + "</td><td>" + (sp ? money(sp) : "—") + "</td><td>" + esc(fd(e.lastService)) +
+        '</td><td style="white-space:nowrap"><button ' + BTN + '" onclick="maintEquipForm(\'' + escAttr(r.id) + '\')">Edit</button> <button ' + BTN + ';color:#A02B1D" onclick="maintDelete(\'equipment\',\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
+    });
+  }
+
+  function mStat(label, value, key) {
+    var go = "set({mpage:'" + key + "'})";
+    return '<div class="card stat-link" role="button" tabindex="0" onclick="' + go + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + go + '}"><div class="stat-label">' + esc(label) + '</div><div class="stat-value">' + esc(value) + '</div><div class="stat-more">View details \u2192</div></div>';
+  }
+  function maintBack(title, sub) {
+    return '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px"><button class="btn" onclick="set({mpage:\'\'})">\u2190 Back to Maintenance</button><div><h2 style="margin:0;font-size:22px">' + esc(title) + '</h2>' + (sub ? '<p class="hint" style="margin:3px 0 0">' + sub + '</p>' : '') + '</div></div>';
+  }
+  var MT_HEAD = ["TASK", "EQUIPMENT", "REPEATS", "NEXT DUE", "ASSIGNED TO", ""];
+  // The page a Maintenance card opens: the tasks, equipment or spending behind the number.
+  function maintPage(key, ts, eq, rs) {
+    var box = function (inner) { return '<div class="card" style="padding:0;overflow:hidden">' + inner + "</div>"; };
+    if (key === "overdue") {
+      var o = ts.filter(function (r) { return daysTo(r.v.due) < 0; });
+      return maintBack("Overdue tasks", "Tasks whose due date has passed. Mark them done, or move the date by editing the task.") + box(tableRows(maintTaskRows(o), MT_HEAD, "Nothing is overdue."));
+    }
+    if (key === "soon") {
+      var n7 = ts.filter(function (r) { var n = daysTo(r.v.due); return n != null && n >= 0 && n <= 7; });
+      return maintBack("Due in the next 7 days", "Tasks coming up this week. Use Notify residents when a job will affect them.") + box(tableRows(maintTaskRows(n7), MT_HEAD, "Nothing is due in the next 7 days."));
+    }
+    if (key === "attn") {
+      var bad = eq.filter(function (e) { return e.v.status !== "Working"; });
+      return maintBack("Equipment needing attention", "Equipment that is under maintenance or not working.") + box(tableRows(maintEquipRows(bad), ["EQUIPMENT", "LOCATION", "CONDITION", "WARRANTY", "SPENT", "LAST SERVICE", ""], "Everything is working."));
+    }
+    if (key === "spend") {
+      var now = new Date(), mk = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+      var ex = vals("expense").filter(isMaintExpense).filter(function (e) { return String(e.date || "").slice(0, 7) === mk; }).sort(function (a, b) { return String(b.date || "").localeCompare(String(a.date || "")); });
+      var total = ex.reduce(function (s, e) { return s + expTotal(e); }, 0);
+      var rows = ex.map(function (e) {
+        return "<tr><td>" + esc(fd(e.date)) + "</td><td><b>" + esc(e.item || "Repair") + '</b><div style="font-size:12px;color:var(--muted)">' + esc(e.category || "") + "</div></td><td>" + esc(e.equipId ? equipNameOf(e.equipId) || e.area || "" : e.area || "") + "</td><td>" + esc(e.payee || "—") + "</td><td><b>" + money(expTotal(e)) + "</b></td></tr>";
+      });
+      return maintBack("Repair spend this month", "Everything paid for repairs and maintenance in " + now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) + ": <b>" + money(total) + "</b>. This year: <b>" + money(rs.year) + "</b>.") +
+        box(tableRows(rows, ["DATE", "WHAT", "EQUIPMENT OR AREA", "PAID TO", "AMOUNT"], "No repair or maintenance spending recorded this month.")) +
+        '<div style="margin-top:12px"><button class="btn" onclick="set({mpage:\'\',view:\'expenses\'})">Open Expenses</button></div>';
+    }
+    return "";
+  }
+
+  function maintSched(ts, kind) {
+    var shown = ts.filter(function (r) { return kind === "all" || (r.v.kind || "Routine") === kind; });
+    var rows = maintTaskRows(shown);
     var kinds = [["all", "All"]].concat(TYPES.map(function (t) { return [t[0], t[2]]; }), customTypes().map(function (r) { return [r.v.name, r.v.name]; }));
     var isCustom = customTypes().some(function (r) { return r.v.name === kind; });
     return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button class="btn primary" onclick="maintTaskForm(null)">+ Add task</button><span class="filters">' + kinds.map(function (k) {
@@ -144,13 +196,7 @@
   }
 
   function maintEquip(eq) {
-    var rows = eq.map(function (r) {
-      var e = r.v, n = openRepairs(r.id), sp = spentOn(r.id);
-      return "<tr><td><b>" + esc(e.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(e.category) + (e.vendor ? " · " + esc(e.vendor) : "") + "</div></td><td>" + esc(e.location) + "</td><td>" + eqChip(e.status) +
-        (e.facility && e.closes ? '<div style="font-size:12px;color:var(--muted);margin-top:3px">Closes ' + esc(e.facility) + " while not working</div>" : "") + (n ? '<div><span class="chip warn">' + plural(n, "open repair") + "</span></div>" : "") +
-        "</td><td>" + warrantyChip(e.warranty) + "</td><td>" + (sp ? money(sp) : "—") + "</td><td>" + esc(fd(e.lastService)) +
-        '</td><td style="white-space:nowrap"><button ' + BTN + '" onclick="maintEquipForm(\'' + escAttr(r.id) + '\')">Edit</button> <button ' + BTN + ';color:#A02B1D" onclick="maintDelete(\'equipment\',\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
-    });
+    var rows = maintEquipRows(eq);
     return '<div style="margin-bottom:12px"><button class="btn primary" onclick="maintEquipForm(null)">+ Add equipment</button></div>' +
       '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["EQUIPMENT", "LOCATION", "CONDITION", "WARRANTY", "SPENT", "LAST SERVICE", ""], "No equipment listed yet.") + "</div>";
   }
@@ -509,18 +555,19 @@
       return '<button class="' + (fil === t[0] ? "active" : "") + '" onclick="set({reqFilter:\'' + t[0] + '\'})">' + t[1] + "</button>";
     }).join("") + "</div>";
     if (fil === "active") {
-      return bar + chips + (active.length ? '<div class="gr-grid">' + active.map(function (r) {
+      return bar + chips + (active.length ? '<div class="gr-grid">' + pageSlice(active, 6, "grActPage").map(function (r) {
         var g = r.v, s = stageOf(r);
         var steps = names.map(function (n, k) { return '<span class="' + (k < s ? "done" : k === s ? "cur" : "") + '"><i></i>' + n + "</span>"; }).join("");
         return '<div class="card gr-card st' + s + '"><div class="gr-top"><div class="gr-title">' + esc(g.title) + '</div><span class="gr-unit">' + esc(String(g.by || r.unit).replace(/^Unit\s*/i, "")) + '</span></div>' +
           '<small class="gr-by">Reported by ' + esc(g.by || r.unit) + '</small><p class="gr-body">' + esc(g.body) + "</p>" +
           assignBlock(r) + '<div class="gr-steps">' + steps + "</div>" +
           '<div class="gr-actions"><button class="btn" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div></div>";
-      }).join("") + "</div>" : emptyCard(grs.length ? "No active complaints. Finished ones are under Done." : "No complaints from residents yet."));
+      }).join("") + "</div>" + pagerHtml(active.length, 6, "grActPage") : emptyCard(grs.length ? "No active complaints. Finished ones are under Done." : "No complaints from residents yet."));
     }
     // Done, compiled by the month it was finished
     var cost = done.reduce(function (t, r) { return t + (Number(r.v.cost) || 0); }, 0), groups = {}, order = [];
-    done.slice().sort(function (a, b) { return String(b.v.resolvedOn || "").localeCompare(String(a.v.resolvedOn || "")) || Number(b.id) - Number(a.id); }).forEach(function (r) {
+    var doneSorted = done.slice().sort(function (a, b) { return String(b.v.resolvedOn || "").localeCompare(String(a.v.resolvedOn || "")) || Number(b.id) - Number(a.id); });
+    pageSlice(doneSorted, 8, "grDonePage").forEach(function (r) {
       var k = String(r.v.resolvedOn || "").slice(0, 7) || "none"; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(r);
     });
     var monthName = function (k) { if (k === "none") return "Earlier"; var d = kd(k + "-01"); return d ? d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : k; };
@@ -533,48 +580,8 @@
             (g.completion ? '<div style="font-size:13px;margin-top:3px">' + esc(g.completion) + "</div>" : "") + '</div><div style="text-align:right;font-size:13px;color:var(--muted);white-space:nowrap"><span class="chip good">Resolved</span><div style="margin-top:4px">' + (g.resolvedOn ? esc(fd(g.resolvedOn)) : "") + (g.cost ? " · " + money(g.cost) : "") + "</div></div></div>";
         }).join("") + "</div>";
     }).join("");
-    return bar + chips + (done.length ? '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(done.length, "Complaints resolved", "good") + statTile(money(cost), "Total repair cost", "") + "</div>" + body : emptyCard("Nothing is done yet. Resolved complaints are compiled here by month."));
+    return bar + chips + (done.length ? '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(done.length, "Complaints resolved", "good") + statTile(money(cost), "Total repair cost", "") + "</div>" + body + pagerHtml(doneSorted.length, 8, "grDonePage") : emptyCard("Nothing is done yet. Resolved complaints are compiled here by month."));
   };
-
-  /* ==========================================================================
-     RESIDENT
-     ========================================================================== */
-  function viewMaintRes() {
-    var ts = tasks(), upcoming = ts.filter(function (r) { var n = daysTo(r.v.due); return n != null && n <= 30; });
-    var rows = upcoming.map(function (r) {
-      var t = r.v, st = taskState(t);
-      return '<div style="display:flex;align-items:center;gap:12px;padding:12px 22px;border-top:1px solid var(--border2);flex-wrap:wrap"><div style="flex:1 1 220px;min-width:0"><b>' + esc(t.title) + '</b><div style="font-size:13px;color:var(--muted)">' + esc(t.equipName || "") + " · " + esc(t.every) + '</div></div><span style="color:var(--muted);font-size:14px">' + esc(fd(t.due)) + '</span><span class="chip ' + st[1] + '">' + st[0] + "</span></div>";
-    }).join("");
-    var done = ts.filter(function (r) { return r.v.lastDone; }).sort(function (a, b) { return String(b.v.lastDone).localeCompare(String(a.v.lastDone)); }).slice(0, 5);
-    var mine = newest(list("grievance")).filter(function (r) { return r.unit === myUnit() && !(Number(r.v.stage) >= 2) && r.v.assignee; });
-    var closed = list("mclosure").map(function (r) {
-      return '<div class="card" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:12px"><b>' + esc(r.v.facility) + ' is closed for maintenance.</b> ' + esc(r.v.equipName) + " is " + esc(String(r.v.reason).toLowerCase()) + ". It cannot be booked until it is working again.</div>";
-    }).join("");
-    return closed + '<div class="card" style="padding:0;overflow:hidden"><div style="padding:16px 22px"><h2 style="font-size:19px;margin-bottom:2px">Coming up in the next 30 days</h2><p style="margin:0;font-size:13px;color:var(--muted)">Routine checks and servicing planned by the office. Some work may cause short interruptions.</p></div>' +
-      (rows || '<div style="padding:22px;text-align:center;color:var(--muted);border-top:1px solid var(--border2)">Nothing is scheduled in the next 30 days.</div>') + "</div>" +
-      '<div class="two-col-e" style="margin-top:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:6px">Recently completed</h2>' + (done.map(function (r) {
-        return '<div style="padding:10px 0;border-top:1px solid var(--border2)"><b>' + esc(r.v.title) + '</b><div style="font-size:13px;color:var(--muted)">' + esc(fd(r.v.lastDone)) + (r.v.assignee ? " · " + esc(r.v.assignee) : "") + "</div></div>";
-      }).join("") || '<p class="empty">Nothing yet.</p>') + "</div>" +
-      '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">Your repair requests</h2>' + (mine.map(function (r) {
-        return '<div style="padding:10px 0;border-top:1px solid var(--border2)"><b>' + esc(r.v.title) + '</b><div style="font-size:13px;color:var(--muted)">Assigned to ' + esc(r.v.assignee) + (r.v.target ? " · target " + esc(fd(r.v.target)) : "") + "</div></div>";
-      }).join("") || '<p style="margin:0;font-size:14px;color:var(--muted)">No repair is assigned yet for your unit.</p>') +
-      '<button class="btn" style="margin-top:12px" onclick="set({view:\'gr\'})">Report a problem</button></div></div>';
-  }
-
-  if (!IS_ADMIN) {
-    window.viewGr = function () {
-      var all = newest(list("grievance")).filter(function (r) { return r.unit === myUnit(); }), names = ["Open", "In progress", "Resolved"];
-      return '<div class="two-col-e"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Submit a complaint</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">The association will follow up here once reviewed.</p>' +
-        '<div style="display:flex;flex-direction:column;gap:10px"><label>Subject<input id="grTitle" type="text" placeholder="e.g. Leaking pipe in the hallway"></label><label>Details<textarea id="grBody" rows="3" placeholder="Describe the concern"></textarea></label><button class="btn primary" style="margin-top:4px" onclick="submitGr()">Submit complaint</button></div></div>' +
-        '<div class="card"><h2 style="font-size:19px;margin-bottom:6px">My complaints</h2>' + (all.length === 0 ? '<div style="padding:16px;border:2px dashed #D8CCB1;border-radius:12px;text-align:center;font-size:14px;color:var(--muted)">No complaints submitted yet.</div>' :
-          all.map(function (r) {
-            var g = r.v, s = Math.min(2, Math.max(0, Number(g.stage) || 0));
-            var info = g.assignee ? '<div style="margin-top:8px;font-size:13px;line-height:1.5">Assigned to <b>' + esc(g.assignee) + "</b>" + (g.target ? " · target " + esc(fd(g.target)) : "") +
-              (g.equipName ? '<div style="color:var(--muted)">Related to: ' + esc(g.equipName) + "</div>" : "") + (g.notes && s < 2 ? '<div style="color:var(--muted)">Update from the office: ' + esc(g.notes) + "</div>" : "") + (s === 2 && g.completion ? '<div style="color:var(--muted)">Completed' + (g.resolvedOn ? " " + esc(fd(g.resolvedOn)) : "") + ": " + esc(g.completion) + "</div>" : "") + "</div>" : "";
-            return '<div style="padding:12px 0;border-top:1px solid var(--border2)"><div style="font-weight:700;font-size:15px">' + esc(g.title) + '</div><div style="font-size:13px;color:var(--muted);margin:2px 0 6px">' + esc(g.body) + '</div><span class="chip ' + (s === 2 ? "good" : s === 1 ? "warn" : "info") + '">' + names[s] + "</span>" + info + "</div>";
-          }).join("")) + "</div></div>";
-    };
-  }
 
   /* ==========================================================================
      Hooks into the real pages (nothing is edited in the real files)
@@ -599,20 +606,21 @@
 
   var origTitles = window.titles;
   window.titles = function () {
-    if (state.view === "maint") {
-      return IS_ADMIN ? ["Maintenance", "Preventive maintenance schedule, equipment, and the staff who do the work."]
-        : ["Maintenance", "What the office is servicing, and the status of your repair requests."];
+    if (state.view === "maint" && IS_ADMIN) {
+      return state.mpage ? ["Maintenance", "Details behind the numbers on the Maintenance page."] : ["Maintenance", "Preventive maintenance schedule, equipment, and the staff who do the work."];
     }
     return origTitles();
   };
   var origView = window.view;
-  window.view = function () { return state.view === "maint" ? (IS_ADMIN ? viewMaint() : viewMaintRes()) : origView(); };
+  window.view = function () { return state.view === "maint" && IS_ADMIN ? viewMaint() : origView(); };
 
   // Adds the Maintenance button to the side menu, right after Complaints.
   var origMount = window.mountApp;
   window.mountApp = function (app, html) {
-    var tag = IS_ADMIN ? (dueCount() ? dueCount() + " due" : "") : "";
+    if (!IS_ADMIN) return origMount(app, html);   // residents get maintenance news as announcements, not as a page
+    var tag = dueCount() ? dueCount() + " due" : "";
     var btn = navBtn("maint", "Maintenance", tag);
+    btn = btn.replace("set({view:'maint',bellOpen:false})", "set({view:'maint',mpage:'',bellOpen:false})");
     html = html.replace(/<button[^>]*set\(\{view:'(?:req|gr)'[^>]*>[\s\S]*?<\/button>/, function (m) { return m + btn; });
     return origMount(app, html);
   };

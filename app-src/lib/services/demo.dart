@@ -311,7 +311,8 @@ List<CRow> _demoRows() {
     b['moveIn'] = _dk(_off(-(120 + (k * 53) % 1300)));
     b['members'] = '${u.person}, ${u.type == 'Tenant' ? 'tenant' : 'owner'}'
         '${n > 1 ? '\n${first[(k * 3 + 1) % first.length]} $last, family' : ''}'
-        '${n > 2 ? '\n${first[(k * 5 + 2) % first.length]} $last, child' : ''}';
+        '${n > 2 ? '\n${first[(k * 5 + 2) % first.length]} $last, child' : ''}'
+        '${n > 3 ? '\n${first[(k * 11 + 4) % first.length]} $last, child' : ''}';
     b['emergencyName'] = '${first[(k * 7 + 3) % first.length]} $last';
     b['emergencyRelation'] = const ['Sister', 'Brother', 'Parent', 'Spouse', 'Friend'][k % 5];
     b['emergencyPhone'] = '0917 000 ${3000 + (k * 37) % 900}';

@@ -59,6 +59,7 @@ function todayLabel(){
 }
 // One button in the side menu.
 function navBtn(key,label,tag){
+  if (typeof navHidden === "function" && navHidden(key)) return "";
   return `<button class="${state.view===key?"active":""}" onclick="set({view:'${key}',bellOpen:false})">${icon(key)}<span>${tr(label)}</span>${tag?`<em class="nav-tag">${tag}</em>`:""}</button>`;
 }
 /* Download a table as a .csv file (opens directly in Excel) */
@@ -227,6 +228,7 @@ function asideHtml(items, buttonText, buttonView){
 }
 function refreshCal(){
   const el = document.getElementById("calAside"); if (!el) return;
+  el.classList.add("cal-live");   // the entrance animation plays once; redrawing must not blank the calendar again
   el.innerHTML = calInner(calAsideArgs[0], calAsideArgs[1]);
 }
 function calPick(key){ if (calView) calView.sel = key; refreshCal(); }
@@ -496,3 +498,17 @@ function mobMore() {
 // The bar hides while a field is being typed in, so the keyboard never covers it.
 document.addEventListener("focusin", function (e) { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) document.body.classList.add("kb"); });
 document.addEventListener("focusout", function () { document.body.classList.remove("kb"); });
+
+/* ---------- Pages: a long list is cut into pages so the screen does not grow forever ---------- */
+function pageCount(total, per){ return Math.max(1, Math.ceil(total / per)); }
+function pageNow(total, per, key){ return Math.min(Math.max(0, Number(state[key]) || 0), pageCount(total, per) - 1); }
+function pageSlice(list, per, key){ const p = pageNow(list.length, per, key); return list.slice(p * per, p * per + per); }
+// Previous / Next buttons with "Page 2 of 4". key is the state name that holds the page number.
+function pagerHtml(total, per, key){
+  const pages = pageCount(total, per), p = pageNow(total, per, key);
+  if (pages <= 1) return "";
+  const btn = (n, label, off) => `<button type="button" class="btn" ${off ? "disabled" : ""} onclick="set({${key}:${n}})">${label}</button>`;
+  return `<div class="pager">${btn(p - 1, "\u2039 Previous", p === 0)}<span>Page <b>${p + 1}</b> of ${pages} <small>(${total} in all)</small></span>${btn(p + 1, "Next \u203a", p >= pages - 1)}</div>`;
+}
+/* Complaints: how many open complaints one unit may have at the same time (the office can change it in Settings). */
+function grLimit(){ const n = Math.floor(Number(setting("complaint_limit").n)); return n >= 1 ? Math.min(n, 10) : 1; }
