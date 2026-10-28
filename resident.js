@@ -816,7 +816,7 @@ function viewDocs() {
   var docs = newest(list("doc")).filter(function (r) { return r.v.audience !== "admin"; });
   return '<div class="card" style="padding:0;overflow:hidden">' + (docs.map(function (r) {
     var d = r.v;
-    return '<div style="display:flex;align-items:center;gap:12px;padding:0 22px;min-height:56px;border-top:1px solid var(--border2);font-size:14px;flex-wrap:wrap"><span style="flex-grow:1;font-weight:700">' + esc(d.name) + '</span><span style="color:var(--muted)">' + esc(d.cat || "Other") + '</span><span style="color:var(--muted)">' + esc(d.date) + '</span><button class="btn" onclick="openDoc(\'' + escAttr(r.id) + '\')">' + (d.raw ? "Download" : "View") + "</button></div>";
+    return '<div class="doc-row"><div class="doc-main"><b>' + esc(d.name) + '</b><small>' + esc(d.cat || "Other") + " · " + esc(d.date) + '</small></div><button class="btn" onclick="openDoc(\'' + escAttr(r.id) + '\')">' + (d.raw ? "Download" : "View") + "</button></div>";
   }).join("") || '<div style="padding:22px;text-align:center;color:var(--muted)">The association has not shared any document yet.</div>') + "</div>";
 }
 

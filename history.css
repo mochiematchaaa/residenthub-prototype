@@ -640,3 +640,31 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .side nav{display:contents}
   .side-foot{flex-basis:auto}
 }
+
+/* Boxes that adapt: same size buttons, rows that wrap instead of squeezing, details that stack on a phone */
+.doc-row{display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--border2)}
+.doc-row:first-child{border-top:0}
+.doc-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.doc-main b{font-size:14.5px;overflow-wrap:anywhere}
+.doc-main small{font-size:12.5px;color:var(--muted)}
+.doc-row .btn{flex:none;min-width:96px}
+.dz-end .btn,.dz-item .btn{min-width:148px;white-space:nowrap}
+button[onclick^="removeDirItem"],button[onclick*="remove"]{min-width:88px;flex:none;justify-content:center;white-space:nowrap}
+@media (max-width:640px){
+  .rental-card .detail-kv,.rental-kv,.detail-kv{grid-template-columns:minmax(0,1fr) !important;gap:2px !important}
+  .rental-card .detail-kv span,.detail-kv span,.rental-kv span{margin-top:8px}
+  .detail-kv b,.rental-kv b{overflow-wrap:anywhere;word-break:normal}
+}
+
+/* Phone tables: one card per row */
+@media (max-width:640px){
+  table.rt{display:block;width:100%;min-width:0 !important;border-collapse:separate}
+  table.rt thead{display:none}
+  table.rt tbody{display:flex;flex-direction:column;gap:10px;padding:10px}
+  table.rt tr{display:block;border:1px solid var(--border2);border-radius:16px;padding:6px 14px;background:var(--card)}
+  table.rt td{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:7px 0 !important;border:0 !important;text-align:right;min-width:0}
+  table.rt td::before{content:attr(data-label);flex:none;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left}
+  table.rt td:empty{display:none}
+  table.rt td[data-label=""]::before{content:none}
+  table.rt td[data-label=""]{justify-content:flex-end}
+}
