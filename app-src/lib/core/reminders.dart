@@ -19,6 +19,49 @@ class RemCfg {
   RemCfg copy() => RemCfg(on: on, days: days, freq: freq, msg: msg);
 }
 
+/// A reminder the office wrote itself (Settings > Reminders > Add reminder).
+class CustomRem {
+  final String id;
+  String title, text, from, to, freq, aud, units;
+  bool on;
+
+  /// Changes each time the office edits it, so an edited reminder pops up again.
+  int edited;
+  CustomRem({required this.id, required this.title, required this.text, this.from = '', this.to = '', this.freq = 'once', this.aud = 'all', this.units = '', this.on = true, this.edited = 0});
+
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'text': text, 'from': from, 'to': to, 'freq': freq, 'aud': aud, 'units': units, 'on': on ? 'yes' : 'no', 'edited': edited};
+
+  static CustomRem? fromJson(Object? j) {
+    if (j is! Map) return null;
+    String s(String k) => j[k] == null ? '' : '${j[k]}';
+    final id = s('id');
+    if (id.isEmpty) return null;
+    final f = s('freq');
+    return CustomRem(
+      id: id,
+      title: s('title'),
+      text: s('text'),
+      from: s('from'),
+      to: s('to'),
+      freq: customFreqLabels.containsKey(f) ? f : 'once',
+      aud: s('aud') == 'units' ? 'units' : 'all',
+      units: s('units'),
+      on: s('on') != 'no',
+      edited: int.tryParse(s('edited')) ?? 0,
+    );
+  }
+}
+
+const customFreqLabels = {
+  'once': 'One time only',
+  'daily': 'Once a day',
+  'every': 'Every time they open the dashboard',
+  'bell': 'Do not pop up (bell only)',
+};
+
+/// "Unit 12C", "12c" and "12 C" all become "12c", so the office can type units loosely.
+String unitKey(String u) => u.toLowerCase().replaceAll(RegExp(r'^unit\s*'), '').replaceAll(RegExp(r'\s+'), '');
+
 const remKinds = ['parking', 'dues'];
 const remNames = {'parking': 'Parking rental due', 'dues': 'Charges due'};
 const remFreqLabels = {
@@ -56,7 +99,10 @@ class Reminder {
 
   /// The charge to pay (dues reminders).
   final String? dueId;
-  const Reminder(this.key, this.kind, this.title, this.text, this.btn, this.late, this.n, [this.dueId]);
+
+  /// "How often" for a reminder the office wrote itself (null = the setting of its kind).
+  final String? freq;
+  const Reminder(this.key, this.kind, this.title, this.text, this.btn, this.late, this.n, [this.dueId, this.freq]);
 }
 
 /// What a screen hands over to build the notification list.

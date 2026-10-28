@@ -540,6 +540,9 @@ List<CRow> exportRows(AppState a) {
   add('setting', 'reminders', '', {
     for (final k in remKinds) k: {'on': a.remOf(k).on ? 'yes' : 'no', 'days': a.remOf(k).days, 'freq': a.remOf(k).freq, 'msg': a.remOf(k).msg},
   });
+  add('setting', 'custom_reminders', '', {'list': [for (final r in a.customRems) r.toJson()]});
+  add('setting', 'complaint_limit', '', {'n': a.complaintLimit});
+  add('setting', 'resident_nav', '', {'hidden': a.hiddenNav.toList()..sort()});
   add('setting', 'paycheck', '', {'pct': a.latePct});
   add('setting', 'latefee', '', {'on': a.lateFeeOn, 'days': a.lateFeeDays});
   add('setting', 'paymethods', '', {
@@ -708,6 +711,15 @@ void importRows(AppState a, Iterable<CRow> all) {
       a.remDues = d;
     }
   }
+  final crl = st['custom_reminders']?['list'];
+  a.customRems = [
+    for (final x in (crl is List ? crl : const []))
+      if (CustomRem.fromJson(x) != null) CustomRem.fromJson(x)!
+  ];
+  final cl = st['complaint_limit'] == null ? 0 : _num(st['complaint_limit']!, 'n').toInt();
+  a.complaintLimit = cl >= 1 ? (cl > 10 ? 10 : cl) : 1;
+  final hn = st['resident_nav']?['hidden'];
+  a.hiddenNav = {if (hn is List) for (final k in hn) '$k'};
   final lateCfg = st['paycheck'];
   if (lateCfg != null && _num(lateCfg, 'pct') > 0) a.latePct = _num(lateCfg, 'pct');
   final lf = st['latefee'];

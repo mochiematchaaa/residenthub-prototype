@@ -121,8 +121,7 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
         FieldSpec('contact', 'Mobile number', type: TextInputType.phone, initial: u.contact == '—' ? '' : u.contact),
         FieldSpec('email', 'Email', type: TextInputType.emailAddress, initial: u.email),
         FieldSpec('moveIn', 'Moved in (yyyy-mm-dd)', hint: 'e.g. 2022-03-15', initial: u.moveIn),
-        FieldSpec('residents', 'People living here', type: TextInputType.number, initial: u.residents > 0 ? '${u.residents}' : ''),
-        FieldSpec('members', 'Household members', hint: 'One per line', lines: 3, initial: u.members),
+        FieldSpec('members', 'People living here (one per line)', hint: 'The number of people is counted from this list.', lines: 4, initial: u.members),
         FieldSpec('pets', 'Pets', hint: 'e.g. 1 dog', initial: u.pets),
         FieldSpec('emergencyName', 'Emergency contact name', initial: u.emergencyName),
         FieldSpec('emergencyRelation', 'Relationship', initial: u.emergencyRelation),
@@ -135,14 +134,7 @@ class _UnitHistoryScreenState extends State<UnitHistoryScreen> {
       onSubmit: (v) {
         final mi = (v['moveIn'] ?? '').toString().trim();
         if (mi.isNotEmpty && DateTime.tryParse(mi) == null) return 'Write the move-in date like 2022-03-15.';
-        final raw = (v['residents'] ?? '').toString().trim();
-        var n = 0;
-        if (raw.isNotEmpty) {
-          final p = int.tryParse(raw);
-          if (p == null || p < 0 || p > 99) return 'People living here must be a number from 0 to 99.';
-          n = p;
-        }
-        app.saveRecord(u, {for (final e in v.entries) e.key: (e.value ?? '').toString()}, residents: n);
+        app.saveRecord(u, {for (final e in v.entries) e.key: (e.value ?? '').toString()});
         return null;
       },
     );

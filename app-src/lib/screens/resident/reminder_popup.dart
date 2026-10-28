@@ -15,7 +15,7 @@ class ReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = toneOf(context, r.late ? Tone.bad : Tone.warn);
+    final t = toneOf(context, r.kind == 'custom' ? Tone.info : r.late ? Tone.bad : Tone.warn);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -23,7 +23,7 @@ class ReminderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(r.kind == 'parking' ? Icons.two_wheeler_rounded : Icons.receipt_long_rounded, color: t.fg),
+          Icon(r.kind == 'parking' ? Icons.two_wheeler_rounded : r.kind == 'custom' ? Icons.campaign_outlined : Icons.receipt_long_rounded, color: t.fg),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -71,7 +71,7 @@ Future<void> showReminderPopup(BuildContext context) async {
           for (final r in items)
             ReminderCard(r, onTap: () {
               Navigator.pop(ctx);
-              if (!context.mounted) return;
+              if (!context.mounted || r.kind == 'custom') return;
               if (r.dueId != null) {
                 final due = app.myDues.where((d) => '${d.id}' == r.dueId).firstOrNull;
                 go(context, const ResDues());

@@ -141,7 +141,7 @@ class RecordSheet extends StatelessWidget {
         _row(context, 'Floor area', u.area > 0 ? '${u.area} sqm' : '', empty: 'Not set'),
         _row(context, 'Parking slot', slot == null ? '' : '${slot.id} · ${slot.size}', empty: 'None'),
         _head(context, 'Household'),
-        _row(context, 'People living here', u.residents > 0 ? '${u.residents}' : '', edit: self),
+        _row(context, 'People living here', houseCount(u) > 0 ? '${houseCount(u)}' : '', edit: self),
         _row(context, 'Pets', u.pets, edit: self, empty: 'None on file'),
         Padding(
           padding: const EdgeInsets.only(top: 9),

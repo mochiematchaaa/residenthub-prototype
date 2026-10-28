@@ -11,7 +11,7 @@ const Color danger = Color(0xFFD64545);
 const Color alertDot = Color(0xFFFF7A7A);
 
 /// Pastel card colors. They stay pastel in dark mode (text on them is always ink).
-enum Pastel { peach, lavender, mint, coral, pink, sky, butter }
+enum Pastel { peach, lavender, mint, coral, pink, sky, butter, alert, alertSoft }
 
 extension PastelColor on Pastel {
   Color get color {
@@ -30,6 +30,10 @@ extension PastelColor on Pastel {
         return const Color(0xFFCFE6FA);
       case Pastel.butter:
         return const Color(0xFFFFF0BF);
+      case Pastel.alert:
+        return const Color(0xFFFFB0A8); // red tint: things that need the administrator's attention
+      case Pastel.alertSoft:
+        return const Color(0xFFFFCBC5);
     }
   }
 }

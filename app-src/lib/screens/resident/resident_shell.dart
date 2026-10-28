@@ -42,6 +42,16 @@ class _ResidentShellState extends State<ResidentShell> {
           ResDues(),
           ResMore(),
         ];
+        // Tabs the office switched off disappear from the bar. Home (0) and More (4) always stay.
+        final visible = [0, if (!app.navHidden('book')) 1, if (!app.navHidden('parking')) 2, if (!app.navHidden('dues')) 3, 4];
+        final tab = visible.contains(app.resTab) ? app.resTab : 0;
+        final allItems = <NavItem>[
+          const NavItem(Icons.home_outlined, Icons.home_rounded, 'Home'),
+          const NavItem(Icons.event_available_outlined, Icons.event_available_rounded, 'Book'),
+          NavItem(Icons.local_parking_outlined, Icons.local_parking_rounded, 'Parking', badge: app.freeSlotCount),
+          NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Dues', badge: app.myDueRows.where((d) => d.status != 'Paid').length),
+          const NavItem(Icons.grid_view_outlined, Icons.grid_view_rounded, 'More'),
+        ];
         return BuildingBackdrop(
           child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -49,22 +59,14 @@ class _ResidentShellState extends State<ResidentShell> {
           body: SafeArea(
             bottom: false,
             child: IndexedStack(
-              index: app.resTab,
-              children: [for (var i = 0; i < pages.length; i++) TabFadeIn(active: app.resTab == i, child: pages[i])],
+              index: tab,
+              children: [for (var i = 0; i < pages.length; i++) TabFadeIn(active: tab == i, child: pages[i])],
             ),
           ),
           bottomNavigationBar: FloatingNav(
-            index: app.resTab,
-            onTap: app.setResTab,
-            items: [
-              const NavItem(Icons.home_outlined, Icons.home_rounded, 'Home'),
-              const NavItem(Icons.event_available_outlined, Icons.event_available_rounded, 'Book'),
-              NavItem(Icons.local_parking_outlined, Icons.local_parking_rounded, 'Parking',
-                  badge: app.freeSlotCount),
-              NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Dues',
-                  badge: app.myDueRows.where((d) => d.status != 'Paid').length),
-              const NavItem(Icons.grid_view_outlined, Icons.grid_view_rounded, 'More'),
-            ],
+            index: visible.indexOf(tab),
+            onTap: (i) => app.setResTab(visible[i]),
+            items: [for (final i in visible) allItems[i]],
           ),
           ),
         );

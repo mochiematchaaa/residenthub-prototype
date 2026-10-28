@@ -47,11 +47,11 @@ class _AdminMaintenanceState extends State<AdminMaintenance> {
           children: [
             Row(
               children: [
-                Expanded(child: MaintStat('Overdue', maint.overdueCount, tone: maint.overdueCount > 0 ? Tone.bad : null)),
+                Expanded(child: MaintStat('Overdue', maint.overdueCount, tone: maint.overdueCount > 0 ? Tone.bad : null, onTap: () => go(context, const MaintStatPage('overdue')))),
                 const SizedBox(width: 10),
-                Expanded(child: MaintStat('Due in 7 days', maint.dueThisWeekCount, tone: maint.dueThisWeekCount > 0 ? Tone.warn : null)),
+                Expanded(child: MaintStat('Due in 7 days', maint.dueThisWeekCount, tone: maint.dueThisWeekCount > 0 ? Tone.warn : null, onTap: () => go(context, const MaintStatPage('week')))),
                 const SizedBox(width: 10),
-                Expanded(child: MaintStat('To fix', maint.equipmentToFix, tone: maint.equipmentToFix > 0 ? Tone.bad : null)),
+                Expanded(child: MaintStat('To fix', maint.equipmentToFix, tone: maint.equipmentToFix > 0 ? Tone.bad : null, onTap: () => go(context, const MaintStatPage('fix')))),
               ],
             ),
             Text(_summary(), style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4)),

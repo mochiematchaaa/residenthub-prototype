@@ -380,7 +380,7 @@ class ResParking extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 8,
-                    childAspectRatio: 1.45,
+                    childAspectRatio: 1.1,
                     children: [
                       for (final s in app.slots)
                         Builder(builder: (context) {
@@ -406,11 +406,19 @@ class ResParking extends StatelessWidget {
                                   Text(s.id, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: isMine ? Colors.white : t.fg)),
                                   Text(label, style: TextStyle(fontSize: 10.5, color: isMine ? lav : t.fg)),
                                   Text(
-                                    !s.used && holder == null && app.parkRatesFor(s.size).month > 0 ? '${s.size} · ${peso(app.parkRatesFor(s.size).month)}' : s.size,
+                                    s.size,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 9, color: (isMine ? lav : t.fg).withValues(alpha: 0.75)),
+                                    style: TextStyle(fontSize: 9.5, color: (isMine ? lav : t.fg).withValues(alpha: 0.8)),
                                   ),
+                                  if (!s.used && holder == null && app.parkRatesFor(s.size).month > 0)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(peso(app.parkRatesFor(s.size).month), maxLines: 1, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: (isMine ? lav : t.fg).withValues(alpha: 0.85))),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
