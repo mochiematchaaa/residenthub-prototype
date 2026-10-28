@@ -484,15 +484,14 @@
     });
   };
 
+  function initialsOf(n) { return String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join(""); }
   function assignBlock(r) {
     var g = r.v, s = Math.min(2, Math.max(0, Number(g.stage) || 0)), late = g.target && s < 2 && daysTo(g.target) < 0;
-    var body = g.assignee
-      ? 'Assigned to <b>' + esc(g.assignee) + "</b> " + prioChip(g.priority) + (g.target && s < 2 ? " · target " + esc(fd(g.target)) + (late ? ' <span class="chip bad">Late</span>' : "") : "") +
-        (g.equipName ? '<div style="color:var(--muted)">Equipment: ' + esc(g.equipName) + "</div>" : "") +
-        (g.notes && s < 2 ? '<div style="color:var(--muted);font-style:italic">“' + esc(g.notes) + "”</div>" : "") +
-        (s === 2 && (g.completion || g.cost) ? '<div style="color:var(--muted)">Done ' + esc(fd(g.resolvedOn)) + (g.completion ? ": " + esc(g.completion) : "") + (g.cost ? " · cost " + money(g.cost) : "") + "</div>" : "")
-      : '<span style="color:var(--muted)">Not assigned to anyone yet.</span>';
-    return '<div style="margin-top:10px;padding:10px 12px;border:1px dashed var(--border2);border-radius:12px;font-size:13px;line-height:1.5">' + body + "</div>";
+    if (!g.assignee) return '<div class="gr-assign none"><span class="gr-av">?</span><div><b>Not assigned yet</b><small>Pick who will fix it</small></div></div>';
+    return '<div class="gr-assign"><span class="gr-av">' + esc(initialsOf(g.assignee)) + '</span><div><b>' + esc(g.assignee) + "</b> " + prioChip(g.priority) +
+      '<small>' + (g.target && s < 2 ? "Target " + esc(fd(g.target)) + (late ? ' <span class="chip bad">Late</span>' : "") : "") + (g.equipName ? (g.target && s < 2 ? " · " : "") + esc(g.equipName) : "") + "</small>" +
+      (g.notes && s < 2 ? '<small class="gr-note">“' + esc(g.notes) + "”</small>" : "") +
+      (s === 2 && (g.completion || g.cost) ? '<small>Done ' + esc(fd(g.resolvedOn)) + (g.completion ? ": " + esc(g.completion) : "") + (g.cost ? " · cost " + money(g.cost) : "") + "</small>" : "") + "</div></div>";
   }
 
   var origViewReq = window.viewReq;
@@ -510,12 +509,13 @@
       return '<button class="' + (fil === t[0] ? "active" : "") + '" onclick="set({reqFilter:\'' + t[0] + '\'})">' + t[1] + "</button>";
     }).join("") + "</div>";
     if (fil === "active") {
-      return bar + chips + (active.length ? '<div class="grid cols-3">' + active.map(function (r) {
+      return bar + chips + (active.length ? '<div class="gr-grid">' + active.map(function (r) {
         var g = r.v, s = stageOf(r);
-        var steps = names.map(function (n, k) { return '<span class="chip ' + (k === s ? (k === 2 ? "good" : k === 1 ? "warn" : "bad") : "info") + '" style="' + (k === s ? "" : "background:#F1E9D8;color:#6F6753") + '">' + n + "</span>"; }).join(" ");
-        return '<div class="card"><div><div style="font:700 17px \'Bricolage Grotesque\',\'Source Sans 3\',sans-serif">' + esc(g.title) + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Reported by ' + esc(g.by || r.unit) + '</div><p style="font-size:13px;color:var(--muted);margin:8px 0 0">' + esc(g.body) + "</p></div>" +
-          assignBlock(r) + '<div style="display:flex;gap:6px;margin:10px 0">' + steps + "</div>" +
-          '<div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" style="flex:1" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div></div>";
+        var steps = names.map(function (n, k) { return '<span class="' + (k < s ? "done" : k === s ? "cur" : "") + '"><i></i>' + n + "</span>"; }).join("");
+        return '<div class="card gr-card st' + s + '"><div class="gr-top"><div class="gr-title">' + esc(g.title) + '</div><span class="gr-unit">' + esc(String(g.by || r.unit).replace(/^Unit\s*/i, "")) + '</span></div>' +
+          '<small class="gr-by">Reported by ' + esc(g.by || r.unit) + '</small><p class="gr-body">' + esc(g.body) + "</p>" +
+          assignBlock(r) + '<div class="gr-steps">' + steps + "</div>" +
+          '<div class="gr-actions"><button class="btn" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div></div>";
       }).join("") + "</div>" : emptyCard(grs.length ? "No active complaints. Finished ones are under Done." : "No complaints from residents yet."));
     }
     // Done, compiled by the month it was finished

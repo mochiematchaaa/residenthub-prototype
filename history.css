@@ -449,3 +449,67 @@ div,form,aside,section,textarea,ul,table{overscroll-behavior:contain}
 .sms-log .sms-row{padding:8px 0;border-top:1px solid var(--border2,#c9dcf1);font-size:13px}
 .sms-log .sms-row small{display:block;color:var(--muted)}
 .park-h{margin:18px 0 8px;font-size:15px}
+
+/* ---- Dashboard cards: tighter, with something useful in the space (v24) ---- */
+.sc{min-height:0;padding:18px 22px 18px;gap:0}
+.sc h3{font-size:19px}
+.sc-nums{margin-top:14px;padding-top:0;gap:6px 28px}
+.sc-note{margin:10px 0 0;font-size:12.5px;font-weight:600;opacity:.8}
+.sc-meter{position:relative;z-index:1;margin-top:14px}
+.sc-meter-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85}
+.sc-meter-top b{font:700 12.5px 'Source Sans 3',sans-serif;text-transform:none;letter-spacing:0}
+.sc-meter-bar{height:9px;margin-top:6px;border-radius:99px;background:rgba(9,39,91,.12);overflow:hidden}
+.sc-meter-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#1e8de9,#09275b);transition:width .7s var(--ease)}
+.mchart{position:relative;z-index:1;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;height:80px;margin-top:12px;padding-bottom:20px;border-bottom:1.5px solid rgba(9,39,91,.18)}
+.mc-col{position:relative;display:flex;align-items:flex-end;justify-content:center;height:100%;cursor:default}
+.mc-col i{display:block;width:100%;max-width:34px;border-radius:9px 9px 3px 3px;background:rgba(9,39,91,.28);transition:height .7s var(--ease),background .2s}
+.mc-col.now i{background:linear-gradient(180deg,#2a8ff0,#09275b)}
+.mc-col.zero i{background:rgba(9,39,91,.14)}
+.mc-col:hover i{background:#09275b}
+.mc-col small{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.7}
+.mc-col.now small{opacity:1}
+.mc-col em{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--h,0%) + 3px);font:700 10.5px 'Source Sans 3',sans-serif;font-style:normal;white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none}
+.mc-col.now em,.mc-col:hover em{opacity:1}
+.sc.pink .sc-nums{margin-top:16px}
+
+/* ---- Complaint cards: equal height, buttons always at the bottom (v24) ---- */
+.gr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:stretch}
+.gr-card{--acc:#e0566b;display:flex;flex-direction:column;gap:8px;padding:16px 18px 16px;border-radius:20px;border-left:5px solid var(--acc);position:relative;overflow:hidden}
+.gr-card.st1{--acc:#f0a52a}
+.gr-card.st2{--acc:#2fa88a}
+.gr-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.gr-title{font:700 16.5px/1.25 'Bricolage Grotesque','Source Sans 3',sans-serif;color:var(--ink)}
+.gr-unit{flex:none;min-width:34px;height:34px;padding:0 9px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:#141414;color:#fff;font:700 12.5px 'Source Sans 3',sans-serif}
+.gr-by{display:block;margin-top:-4px;color:var(--muted);font-size:12px}
+.gr-body{margin:0;color:var(--muted);font-size:13.5px;line-height:1.45}
+.gr-assign{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:rgba(36,127,224,.07);font-size:13px;line-height:1.4}
+.gr-assign.none{background:rgba(20,20,20,.04)}
+.gr-assign b{font-weight:700}
+.gr-assign small{display:block;color:var(--muted);font-size:12px}
+.gr-assign small.gr-note{font-style:italic}
+.gr-av{flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(140deg,#ffdf8b,#7acbf2);color:#0b3a76;font:700 11.5px 'Source Sans 3',sans-serif}
+.gr-assign.none .gr-av{background:#e9e4d6;color:#8a8470}
+.gr-steps{display:flex;gap:0;margin-top:auto;padding-top:4px}
+.gr-steps span{flex:1;position:relative;padding-top:12px;font-size:11px;font-weight:700;letter-spacing:.03em;color:#8a8470;text-align:left}
+.gr-steps span::before{content:"";position:absolute;left:0;right:6px;top:0;height:4px;border-radius:9px;background:#e6e0d0}
+.gr-steps span i{display:none}
+.gr-steps span.done::before{background:#2fa88a}
+.gr-steps span.done{color:#2f7f6b}
+.gr-steps span.cur::before{background:var(--acc)}
+.gr-steps span.cur{color:var(--ink)}
+.gr-actions{display:flex;gap:8px;margin-top:4px}
+.gr-actions .btn{flex:1;min-height:40px;padding:0 10px}
+
+/* v24 fixes: numbers sit under the title, meters/notes sit at the bottom so cards in a row line up */
+.sc h3{order:0}
+.sc>.mchart{order:1;margin-top:26px}
+.sc>.sc-nums{order:2;margin-top:14px}
+.sc>.sc-meter,.sc>.sc-note{order:3;margin-top:auto;padding-top:14px}
+.sc>.sc-note{padding-top:12px;margin-bottom:0}
+.sc.pink .sc-nums{margin-top:18px}
+.mc-col em{opacity:1}
+.mc-col.zero em{opacity:0}
+.gr-assign{flex:1 1 auto}
+.gr-assign.none{align-items:center}
+.gr-card{border:1px solid var(--border);border-left:6px solid var(--acc)!important}
+.sc>.mchart{height:80px}
