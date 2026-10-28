@@ -663,7 +663,6 @@ class AppState extends ChangeNotifier {
     remParking = RemCfg(days: 5, freq: 'every');
     remDues = RemCfg(days: 2, freq: 'daily');
     parkSoonDays = 5;
-    autoBillOn = true;
     smsLog.clear();
     _ballots.clear();
     pollCats
@@ -1364,45 +1363,6 @@ class AppState extends ChangeNotifier {
   }
 
   void remSnoozeToday() => book.snoozed[myUnit] = dayKey(DateTime.now());
-
-  // ---- automatic monthly billing
-
-  /// When on, the first time an administrator has the app open in a new month, every unit not yet billed for that month is billed.
-  bool autoBillOn = true;
-
-  void setAutoBill(bool on) {
-    autoBillOn = on;
-    logActivity('Automatic monthly billing ${on ? 'turned on' : 'turned off'}', 'Settings');
-    _n();
-  }
-
-  /// Bills this month's association dues to every unit that has not been billed for it yet (floor area x the rate per sqm, on the
-  /// unit's own due day). The same month is never billed twice and units with no floor area are skipped. Returns how many were billed.
-  /// In a live system this would run on the server's clock.
-  int autoBillCheck() {
-    if (!autoBillOn || role != Role.admin || duesRate <= 0 || units.isEmpty) return 0;
-    final now = DateTime.now();
-    final period = monthLabel(now);
-    final note = 'Association dues - $period';
-    var n = 0;
-    for (final u in units) {
-      if (u.area <= 0) continue;
-      if (dues.any((d) => d.unit == u.unit && d.note == note)) continue;
-      var ud = '';
-      if (u.dueDay >= 1) {
-        final last = DateTime(now.year, now.month + 1, 0).day;
-        ud = shortDate(DateTime(now.year, now.month, u.dueDay > last ? last : u.dueDay));
-      }
-      dues.add(Due(nextId(), u.unit, u.name, (u.area * duesRate * 100).round() / 100, note,
-          dueDate: ud, billedOn: shortDate(now), area: u.area, rate: duesRate));
-      n++;
-    }
-    if (n > 0) {
-      logActivity('Dues billed automatically for $period: $n unit${n == 1 ? '' : 's'}', 'Finance');
-      _n();
-    }
-    return n;
-  }
 
   /// Late charge added by the system when a charge is still unpaid [lateFeeDays] days after its due date.
   bool lateFeeOn = true;

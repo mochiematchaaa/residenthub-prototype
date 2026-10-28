@@ -94,29 +94,6 @@ class _AdminSettingsState extends State<AdminSettings> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Automatic monthly billing', style: hd(18)),
-                const SizedBox(height: 4),
-                Text(
-                  'The first time you open the app in a new month, every unit that has not been billed for that month yet is billed by itself: floor area \u00d7 the rate per sqm, due on the unit\u2019s own due day. The same month is never billed twice, and units without a floor area are skipped. \u201cBill monthly dues\u201d still works any time.',
-                  style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Bill the new month automatically', style: TextStyle(fontWeight: FontWeight.w700)),
-                  value: app.autoBillOn,
-                  activeThumbColor: lavDeep,
-                  onChanged: (v) {
-                    app.setAutoBill(v);
-                    msg(context, v ? 'Saved. A new month is billed automatically the first time you open the app.' : 'Saved. Monthly dues are billed only when you press \u201cBill monthly dues\u201d.');
-                  },
-                ),
-              ],
-            ),
-          ),
-          RCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
                 Text('Reminders', style: hd(18)),
                 const SizedBox(height: 4),
                 Text(
