@@ -400,7 +400,8 @@ button.stat-t.on{border-color:var(--head)}
 .park-pay.wait{background:var(--info-bg);color:var(--info-fg);border-color:transparent;font-size:13.5px;line-height:1.5}
 .park-pay-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 /* One scroll at a time: while a popup is open the page behind stays still, and a scrolling list or popup keeps its own scroll */
-html:has(.modal-back),html:has(.img-view),body:has(.modal-back),body:has(.img-view),body.rh-lock,html.rh-lock{overflow:hidden}
+/* Lock the page behind a popup. Only the root (html) is locked: locking body as well made the sticky sidebar jump up. */
+html:has(.modal-back),html:has(.img-view),html.rh-lock{overflow:hidden;scrollbar-gutter:stable}
 .modal-back{overflow-y:auto;overscroll-behavior:contain}
 .modal{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain}
 .img-view{overscroll-behavior:contain}
