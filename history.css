@@ -325,3 +325,10 @@ html[data-theme="dark"] .calc-tabs button.on,html[data-theme="dark"] .calc-tile{
 .dl-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);font-size:13.5px}
 .dl-row>span{min-width:0}.dl-row small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
 .dl-amt{white-space:nowrap}
+
+/* Clickable counters (Facility requests) and clickable time slots (Today's slots) */
+button.stat-t{border:2px solid transparent;font:inherit;text-align:left;cursor:pointer;width:100%;transition:transform .15s,box-shadow .15s,border-color .15s}
+button.stat-t:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(30,40,80,.12)}
+button.stat-t.on{border-color:var(--head)}
+.slot.adm{cursor:pointer}
+.slot.booked.adm:hover,.slot.adm:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(30,40,80,.14)}

@@ -17,6 +17,7 @@ class _AdminFacilityState extends State<AdminFacility> {
   int fac = 0;
   int tab = 0; // 0 requests, 1 today's slots, 2 amenities
   bool showAll = false;
+  String filter = ''; // '' (everything) | Pending | Approved | Denied | all
 
   void _form(BuildContext context, {Amenity? edit}) {
     final a = edit ?? Amenity('', '', '08:00', '20:00', 120);
@@ -56,6 +57,97 @@ class _AdminFacilityState extends State<AdminFacility> {
     if (err != null) msg(context, err);
   }
 
+  /// Change a request: its status and its time.
+  void _editBooking(BuildContext context, Booking r) {
+    final fi = app.amenities.indexWhere((a) => a.name == r.place);
+    final slots = fi >= 0 ? app.amenities[fi].slots : <String>[];
+    final canSlot = fi >= 0 && r.day.isNotEmpty && r.slot >= 0 && r.slot < slots.length;
+    const labels = {'Pending': 'Waiting for a decision', 'Approved': 'Approved', 'Denied': 'Denied (frees the time)'};
+    showFormSheet(
+      context,
+      title: 'Edit ${r.place} request',
+      subtitle: '${r.unit} · ${r.who} · ${r.when}. The resident is told about the change.',
+      choices: [
+        ChoiceSpec('status', 'Status', labels.values.toList(), labels[r.status] ?? labels['Pending']!),
+        if (canSlot) ChoiceSpec('slot', 'Time', slots, slots[r.slot]),
+      ],
+      submit: 'Save',
+      onSubmit: (v) {
+        final st = labels.entries.firstWhere((e) => e.value == v['status'], orElse: () => labels.entries.first).key;
+        final slot = canSlot ? slots.indexOf(v['slot'] as String) : r.slot;
+        final err = app.editBooking(r, st, slot);
+        if (err == null) WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) msg(context, 'Request updated.');
+        });
+        return err;
+      },
+    );
+  }
+
+  Future<void> _removeBooking(BuildContext context, Booking r) async {
+    final ok = await confirmDialog(context, 'Remove this request?', '${r.place}, ${r.unit}, ${r.when}. It is deleted for good and the time becomes free.',
+        confirm: 'Remove', destructive: true);
+    if (!ok || !context.mounted) return;
+    app.removeBooking(r);
+  }
+
+  /// A time of today was tapped: change its booking, reserve it for a unit, close it, or open it again.
+  void _slotTap(BuildContext context, int f, int i) {
+    final cur = app.amenities[f];
+    if (app.slotClosed(f, i)) {
+      app.toggleSlot(f, i);
+      return;
+    }
+    final bk = app.bookingAtSlot(f, i);
+    if (bk != null) {
+      _editBooking(context, bk);
+      return;
+    }
+    const closeIt = 'Close it for today', reserve = 'Reserve it for a unit';
+    showFormSheet(
+      context,
+      title: '${cur.name} · ${cur.slots[i]}',
+      subtitle: 'This time is open today. Close it so nobody can book it, or reserve it for a unit (for example a walk-in request at the office).',
+      choices: const [ChoiceSpec('what', 'What do you want to do?', [closeIt, reserve], closeIt)],
+      fields: const [FieldSpec('unit', 'Unit', hint: 'e.g. Unit 12A', onlyWhenKey: 'what', onlyWhenValue: reserve, belowChoice: true)],
+      submit: 'Save',
+      onSubmit: (v) {
+        if (v['what'] != reserve) {
+          app.toggleSlot(f, i);
+          return null;
+        }
+        return app.reserveSlot(f, i, v['unit'] as String);
+      },
+    );
+  }
+
+  Widget _countTile(BuildContext context, String label, int n, Tone? tone, String key) {
+    final on = filter == key;
+    final t = tone == null ? null : toneOf(context, tone);
+    final bg = t?.bg ?? Theme.of(context).colorScheme.surfaceContainerHighest;
+    final fg = t?.fg ?? Theme.of(context).colorScheme.onSurface;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => setState(() {
+            filter = on ? '' : key;
+            showAll = false;
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: on ? fg : Colors.transparent, width: 2)),
+            child: Column(children: [
+              Text('$n', style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 22)),
+              Text(label, textAlign: TextAlign.center, style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _requestCard(BuildContext context, Booking r) {
     final tone = r.status == 'Approved' ? Tone.good : r.status == 'Denied' ? Tone.bad : Tone.warn;
     return RCard(
@@ -89,6 +181,15 @@ class _AdminFacilityState extends State<AdminFacility> {
               ],
             ),
           ],
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton.icon(onPressed: () => _editBooking(context, r), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit')),
+            TextButton.icon(
+              onPressed: () => _removeBooking(context, r),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: danger),
+              label: const Text('Remove', style: TextStyle(color: danger)),
+            ),
+          ]),
         ],
       ),
     );
@@ -101,16 +202,28 @@ class _AdminFacilityState extends State<AdminFacility> {
     final ok = all.where((b) => b.status == 'Approved').length;
     final no = all.where((b) => b.status == 'Denied').length;
     final shown = showAll ? rest : rest.take(8).toList();
+    final tiles = <Widget>[
+      Row(children: [
+        _countTile(context, 'Waiting', pend.length, pend.isEmpty ? null : Tone.warn, 'Pending'),
+        _countTile(context, 'Approved', ok, Tone.good, 'Approved'),
+        _countTile(context, 'Denied', no, null, 'Denied'),
+        _countTile(context, 'All', all.length, null, 'all'),
+      ]),
+      Text('${filter.isEmpty ? 'Tap a number to see only those requests.' : 'Showing one group. Tap the same number again to see everything.'} Every request has Edit and Remove.',
+          style: TextStyle(color: muted(context), fontSize: 12)),
+    ];
+    if (filter == 'Pending') {
+      return [...tiles, const SectionHeader('Needs your decision'), if (pend.isEmpty) const EmptyBox('Nothing is waiting.', icon: Icons.event_available_outlined), for (final r in pend) _requestCard(context, r)];
+    }
+    if (filter == 'Approved' || filter == 'Denied') {
+      final rows = rest.where((b) => b.status == filter).toList();
+      return [...tiles, SectionHeader('$filter requests'), if (rows.isEmpty) const EmptyBox('Nothing here.', icon: Icons.history_rounded), for (final r in rows) _requestCard(context, r)];
+    }
+    if (filter == 'all') {
+      return [...tiles, const SectionHeader('All requests'), for (final r in [...pend, ...rest]) _requestCard(context, r)];
+    }
     return [
-      PastelCard(
-        color: Pastel.sky,
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        child: StatsRow([
-          ['Waiting', '${pend.length}'],
-          ['Approved', '$ok'],
-          ['Denied', '$no'],
-        ]),
-      ),
+      ...tiles,
       const SectionHeader('Needs your decision'),
       if (pend.isEmpty) const EmptyBox('Nothing is waiting. New requests show up here.', icon: Icons.event_available_outlined),
       for (final r in pend) _requestCard(context, r),
@@ -144,7 +257,7 @@ class _AdminFacilityState extends State<AdminFacility> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('${cur.name} · today', style: hd(18)),
-            Text('Hours ${cur.hours} · tap a slot to open or block it', style: TextStyle(color: muted(context), fontSize: 12.5)),
+            Text('Hours ${cur.hours} · tap a time to close it, reserve it, or change its booking', style: TextStyle(color: muted(context), fontSize: 12.5)),
             const SizedBox(height: 14),
             if (slots.isEmpty)
               Text('No bookable times. Check the opening hours and the length of one booking.', style: TextStyle(color: muted(context)))
@@ -159,10 +272,13 @@ class _AdminFacilityState extends State<AdminFacility> {
                 children: [
                   for (var i = 0; i < slots.length; i++)
                     Builder(builder: (context) {
-                      final booked = app.slotBooked(fac, i);
+                      final closed = app.slotClosed(fac, i);
+                      final bk = closed ? null : app.bookingAtSlot(fac, i);
+                      final booked = closed || bk != null;
+                      final label = closed ? 'Closed' : bk == null ? 'Open' : '${bk.status == 'Pending' ? 'Waiting' : 'Booked'} · ${bk.unit.replaceFirst(RegExp(r'^Unit\s+', caseSensitive: false), '')}';
                       final t = toneOf(context, booked ? Tone.bad : Tone.good);
                       return GestureDetector(
-                        onTap: () => app.toggleSlot(fac, i),
+                        onTap: () => _slotTap(context, fac, i),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(14)),
@@ -171,7 +287,7 @@ class _AdminFacilityState extends State<AdminFacility> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(slots[i], textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: t.fg)),
-                              Text(booked ? 'Booked' : 'Open', style: TextStyle(fontSize: 11, color: t.fg)),
+                              Text(label, style: TextStyle(fontSize: 11, color: t.fg)),
                             ],
                           ),
                         ),
