@@ -28,8 +28,6 @@ class _AdminShellState extends State<AdminShell> {
     if (n > 0 && mounted) msg(context, '$n payment${n == 1 ? ' was' : 's were'} posted automatically.');
     final late = app.autoLateFeeCheck();
     if (late > 0 && mounted) msg(context, '$late late charge${late == 1 ? ' was' : 's were'} added automatically. Residents were notified.');
-    final billed = app.autoBillCheck();
-    if (billed > 0 && mounted) msg(context, 'Dues for ${app.monthLabel(DateTime.now())} were billed automatically ($billed unit${billed == 1 ? '' : 's'}). Residents were notified.');
   }
 
   @override
