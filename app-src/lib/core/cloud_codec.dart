@@ -685,7 +685,7 @@ void importRows(AppState a, Iterable<CRow> all) {
   }
   final rm = st['reminders'];
   for (final k in remKinds) {
-    final c = rm is Map ? rm[k] : null;
+    final c = rm?[k];
     final d = k == 'parking' ? RemCfg(days: 5, freq: 'every') : RemCfg(days: 2, freq: 'daily');
     if (c is Map) {
       d.on = _s(c, 'on', 'yes') != 'no';
