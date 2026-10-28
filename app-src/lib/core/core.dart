@@ -8,6 +8,7 @@ export 'i18n.dart';
 export 'expenses.dart';
 export 'maintenance.dart';
 export 'payments.dart';
+export 'reminders.dart';
 export 'theme.dart';
 export 'usage_forms.dart';
 export 'password_rules.dart';

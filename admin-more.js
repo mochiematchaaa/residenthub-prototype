@@ -1557,9 +1557,9 @@ function directory() { var d = setting("directory"); return { contacts: d.contac
 // PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (automatic posting).
 function viewSettings() {
   var tab = state.setTab || "general";
-  var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at seguridad")], ["access", "Access"], ["payments", "Payments"]];
+  var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at seguridad")], ["access", "Access"], ["payments", "Payments"], ["reminders", "Reminders"]];
   var bar = '<div class="filters" role="tablist" style="margin-bottom:16px">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({setTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
-  return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : tab === "account" ? acctView() : viewSettingsGeneral());
+  return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : tab === "reminders" ? remSettingsHtml() : tab === "account" ? acctView() : viewSettingsGeneral());
 }
 // Settings > Payments: automatic posting of the payments residents send.
 function paymentSettings() {

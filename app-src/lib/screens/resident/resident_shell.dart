@@ -7,17 +7,34 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import 'reminder_popup.dart';
 import 'resident_screens.dart';
 
 /// Resident app frame: five tabs + the floating pill navigation bar.
-class ResidentShell extends StatelessWidget {
+class ResidentShell extends StatefulWidget {
   const ResidentShell({super.key});
+
+  @override
+  State<ResidentShell> createState() => _ResidentShellState();
+}
+
+class _ResidentShellState extends State<ResidentShell> {
+  int _lastTab = -1;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
+        // Every time the resident lands on the home page (signing in, or coming back to the Home tab), show the due reminders.
+        if (app.resTab != _lastTab) {
+          _lastTab = app.resTab;
+          if (_lastTab == 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) showReminderPopup(context);
+            });
+          }
+        }
         final pages = <Widget>[
           ResHome(),
           ResBook(),

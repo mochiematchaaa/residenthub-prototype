@@ -10,8 +10,11 @@ class CircleBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final bool dot;
+
+  /// A red number on the button (for example unread notifications). 0 = none.
+  final int badge;
   final String? tooltip;
-  const CircleBtn(this.icon, {super.key, this.onTap, this.dot = false, this.tooltip});
+  const CircleBtn(this.icon, {super.key, this.onTap, this.dot = false, this.badge = 0, this.tooltip});
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +38,18 @@ class CircleBtn extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Icon(icon, size: 22, color: cs.onSurface),
-                if (dot)
+                if (badge > 0)
+                  Positioned(
+                    top: 4,
+                    right: 3,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(color: const Color(0xFFE5484D), borderRadius: BorderRadius.circular(99), border: Border.all(color: cs.surface, width: 2)),
+                      child: Text(badge > 9 ? '9+' : '$badge', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, height: 1.2)),
+                    ),
+                  )
+                else if (dot)
                   Positioned(
                     top: 10,
                     right: 11,

@@ -5,14 +5,14 @@
    WALK-IN   A resident who will pay at the office taps "I'll walk in today" on the Parking page. That saves a "walkin"
              record, which the office sees on the request (so it expects the resident). The office records the payment
              at the counter (cash, check, card or e-wallet); that issues the receipt and starts the rental.
-   RENEWAL   A monthly rental ends one month after it starts. PARK_SOON_DAYS days before the next payment is due, the
+   RENEWAL   A monthly rental ends one month after it starts. The reminder days (set by the office) before the next payment is due, the
              resident gets a notice on the dashboard: renew (pay online, or walk in) or tell the office they will not renew.
    TEXTS     When a payment is approved the office "sends" the resident a text with the rental period and the next due
              date. In this prototype the text is saved and shown (nothing leaves the browser); a real SMS provider
              would be connected here: sendSms() is the one place to change.
    ========================================================================== */
 
-var PARK_SOON_DAYS = 5;   // the resident is told this many days before the next payment is due
+// How many days before the next payment the resident is told: see parkSoonDays() in reminders.js (the office can change it).
 
 // yyyy-mm-dd plus n days.
 function isoPlus(iso, n) {
@@ -30,7 +30,7 @@ function isoDaysBetween(a, b) {
 function parkDueInfo(v) {
   if (!v || !v.unit || v.plan === "day" || !v.until) return null;
   var nextDue = isoPlus(v.until, 1), days = isoDaysBetween(dayKey(new Date()), nextDue);
-  return { until: v.until, nextDue: nextDue, days: days, soon: days <= PARK_SOON_DAYS, late: days <= 0 };
+  return { until: v.until, nextDue: nextDue, days: days, soon: days <= parkSoonDays(), late: days <= 0 };
 }
 // "in 3 days", "tomorrow", "today", "2 days ago".
 function parkDaysText(days) {

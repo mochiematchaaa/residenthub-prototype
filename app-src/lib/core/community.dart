@@ -148,7 +148,8 @@ class SmsMsg {
 }
 
 /// The residents are told this many days before the next payment of a monthly rental is due.
-const parkSoonDays = 5;
+/// The office can change it (Settings > Reminders); a very low number means the reminder is off.
+int parkSoonDays = 5;
 
 /// When the next monthly payment of a rental is due: [nextDue] is yyyy-mm-dd, [days] counts from today (negative = overdue).
 class ParkDue {
