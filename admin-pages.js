@@ -21,12 +21,13 @@ function statTile(n, label, tone) { return '<div class="stat-t ' + (tone || "") 
 /* ==========================================================================
    Facility
    ========================================================================== */
-function facTab() { return ["requests", "slots", "amenities"].indexOf(state.facTab) >= 0 ? state.facTab : "requests"; }
+function facTab() { return ["requests", "slots", "blocks", "amenities"].indexOf(state.facTab) >= 0 ? state.facTab : "requests"; }
 function viewFac() {
   var tab = facTab(), bookings = list("booking"), pend = bookings.filter(function (r) { return r.v.status === "Pending"; }).length, fl = facilities();
-  var tools = tab === "requests" ? '<button class="btn" onclick="exportBookings()">Export to Excel (.csv)</button>' : tab === "amenities" ? '<button class="btn primary" onclick="amenityForm()">+ Add amenity</button>' : "";
-  return subNav([["requests", "Requests", pend || "", true], ["slots", "Today's slots"], ["amenities", "Amenities", fl.length]], tab, "facTab", tools) +
-    (tab === "slots" ? facSlotsPage(fl) : tab === "amenities" ? facAmenitiesPage(fl) : facRequestsPage(newest(bookings)));
+  var tools = tab === "requests" ? '<button class="btn" onclick="exportBookings()">Export to Excel (.csv)</button>' : tab === "amenities" ? '<button class="btn primary" onclick="amenityForm()">+ Add amenity</button>' : tab === "blocks" ? '<button class="btn primary" onclick="blockForm()">+ Block a time</button>' : "";
+  var today = dayKey(new Date()), live = blockList().filter(function (b) { return !b.to || b.to >= today; }).length;
+  return subNav([["requests", "Requests", pend || "", true], ["slots", "Today's slots"], ["blocks", "Blocked times", live || ""], ["amenities", "Amenities", fl.length]], tab, "facTab", tools) +
+    (tab === "slots" ? facSlotsPage(fl) : tab === "blocks" ? facBlocksPage(fl) : tab === "amenities" ? facAmenitiesPage(fl) : facRequestsPage(newest(bookings)));
 }
 function facRequestCard(r) {
   var b = r.v, tone = b.status === "Approved" ? "good" : b.status === "Denied" ? "bad" : "warn", id = escAttr(r.id);
@@ -91,12 +92,14 @@ function removeBooking(id) {
 // Click on a time of today: change its booking, reserve it for a unit, close it, or open it again.
 function slotClick(f, i) {
   var fac = facilities()[f]; if (!fac) return;
+  var blk = slotBlock(f, i, dayKey(new Date()));
+  if (blk) return blockForm(blk.id);
   if (slotClosed(f, i)) return toggleSlot(f, i);
   var bk = bookingAt(f, i);
   if (bk) return editBooking(bk.id);
   var units = unitNames();
   openForm({
-    title: fac.name + " · " + fac.slots[i], intro: "This time is open today. Close it so nobody can book it, or reserve it for a unit (for example a walk-in request at the office).", submit: "Save",
+    title: fac.name + " · " + fac.slots[i], intro: "This time is open today. Close it so nobody can book it, or reserve it for a unit (for example a walk-in request at the office). For cleaning, repairs or other dates and hours, use <b>Blocked times</b>.", submit: "Save",
     fields: [{ name: "what", label: "What do you want to do?", type: "select", options: [["close", "Close it for today"], ["book", "Reserve it for a unit"]], value: "close" },
       { name: "unit", label: "Unit (only when reserving)", type: "select", options: units.length ? units : [["", "No units yet"]] }],
     onSubmit: async function (d) {
@@ -118,17 +121,100 @@ function facSlotsPage(fl) {
   return '<div class="card"><div class="fx-head"><h2>' + esc(today) + '</h2><span class="hint" style="margin:0">Select a time: an open one can be closed or reserved for a unit, a booked one can be changed or freed, a closed one is opened again.</span></div>' +
     '<div class="seg small" role="tablist" style="margin:12px 0">' + fl.map(function (x, i) { return '<button type="button" class="' + (i === sel ? "on" : "") + '" onclick="set({facSel:' + i + '})"><span>' + esc(x.name) + "</span></button>"; }).join("") + "</div>" +
     '<p class="hint" style="margin:0 0 10px">' + esc(f.hours) + (f.note ? " · " + esc(f.note) : "") + '</p><div class="slots">' + f.slots.map(function (t, i) {
-      var closed = slotClosed(sel, i), bk = bookingAt(sel, i), cls = closed || bk ? "booked" : "open", label = closed ? "Closed" : bk ? (bk.status === "Pending" ? "Waiting · " : "Booked · ") + esc(bk.unit.replace(/^Unit\s+/i, "")) : "Open";
+      var blk = slotBlock(sel, i, dayKey(new Date())), closed = slotClosed(sel, i), bk = bookingAt(sel, i), cls = closed || bk ? "booked" : "open", label = blk ? esc(blk.reason) : closed ? "Closed" : bk ? (bk.status === "Pending" ? "Waiting · " : "Booked · ") + esc(bk.unit.replace(/^Unit\s+/i, "")) : "Open";
       return '<button class="slot adm ' + cls + '" title="' + escAttr(bk ? bk.unit + " · " + (bk.status || "") + " (select to change)" : closed ? "Closed (select to open it again)" : "Open (select to close or reserve it)") + '" onclick="slotClick(' + sel + "," + i + ')"><b>' + esc(t) + "</b><span>" + label + "</span></button>";
     }).join("") + "</div></div>";
 }
 function facAmenitiesPage(fl) {
   if (!fl.length) return emptyCard("No amenities yet. Add the first one.");
   return '<p class="hint" style="margin:0 0 12px">Add an amenity, or change its name, opening hours or how long one booking is. Residents see the change straight away.</p><div class="am-grid">' + fl.map(function (f) {
-    return '<div class="card am-card"><div><b>' + esc(f.name) + "</b><small>" + esc(f.hours || "Set the hours") + "</small><small>" + f.slots.length + " time slot" + (f.slots.length === 1 ? "" : "s") + " of " + (Number(f.mins) || 120) + " min</small></div>" +
-      '<div class="fx-act"><button class="btn" onclick="amenityForm(\'' + escAttr(f.id) + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="removeAmenity(\'' + escAttr(f.id) + '\')">Remove</button></div></div>';
+    return '<div class="card am-card"><div><b>' + esc(f.name) + "</b><small>" + esc(f.hours || "Set the hours") + "</small><small>" + f.slots.length + " time slot" + (f.slots.length === 1 ? "" : "s") + " of " + (Number(f.mins) || 120) + " min</small>" + amenityBlockChip(f) + "</div>" +
+      '<div class="fx-act"><button class="btn" onclick="blockForm(null,\'' + escAttr(f.name) + '\')">Block time</button><button class="btn" onclick="amenityForm(\'' + escAttr(f.id) + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="removeAmenity(\'' + escAttr(f.id) + '\')">Remove</button></div></div>';
   }).join("") + "</div>";
 }
+
+/* ---------- Blocked times: cleaning, repairs, out of service, private events ---------- */
+// A small line on an amenity card: closed right now / next blocked time.
+function amenityBlockChip(f) {
+  var today = dayKey(new Date()), mine = blockList().filter(function (b) { return blockFits(b, f.name) && (!b.to || b.to >= today); }).sort(function (a, b) { return String(a.from).localeCompare(String(b.from)); });
+  if (!mine.length) return "";
+  var b = mine[0], now = blockOnDay(b, today);
+  return '<span class="chip ' + (now ? "bad" : "warn") + '" style="margin-top:6px;align-self:flex-start;white-space:normal">' + (now ? "Closed now · " : "Next: ") + esc(b.reason) + " · " + esc(blockWhenText(b)) + "</span>";
+}
+// Bookings (waiting or approved) that fall inside a block.
+function bookingsInBlock(b) {
+  var fl = facilities();
+  return list("booking").filter(function (r) {
+    var x = r.v; if (!(x.status === "Pending" || x.status === "Approved") || !x.day || !blockFits(b, x.place) || !blockOnDay(b, x.day)) return false;
+    if (b.hours !== "some") return true;
+    var a = fl.filter(function (z) { return z.name === x.place; })[0]; if (!a || x.slot == null) return false;
+    var s = slotStartMin(a, Number(x.slot)), e = s + (Number(a.mins) || 120), bs = toMin(b.start), be = toMin(b.end);
+    return bs != null && be != null && s < be && e > bs;
+  });
+}
+function facBlocksPage(fl) {
+  var today = dayKey(new Date()), all = blockList();
+  var now = all.filter(function (b) { return blockOnDay(b, today); }), soon = all.filter(function (b) { return b.from > today; }), past = all.filter(function (b) { return b.to && b.to < today; });
+  function card(b, kind) {
+    var n = kind === "past" ? 0 : bookingsInBlock(b).length, id = escAttr(b.id);
+    return '<div class="card blk-card ' + kind + '"><div class="blk-main"><div class="blk-top"><b>' + (b.facility === "*" ? "All facilities" : esc(b.facility)) + '</b><span class="chip ' + (kind === "now" ? "bad" : kind === "soon" ? "warn" : "") + '">' + esc(b.reason) + "</span></div>" +
+      "<small>" + esc(blockWhenText(b)) + "</small>" + (b.note ? '<small class="blk-note">“' + esc(b.note) + "”</small>" : "") + (n ? '<small class="blk-warn">' + n + " booking" + (n === 1 ? " is" : "s are") + " still inside this time. Edit it to deny them.</small>" : "") + "</div>" +
+      '<div class="fx-act">' + (kind !== "past" ? '<button class="btn" onclick="blockForm(\'' + id + '\')">Edit</button><button class="btn" onclick="endBlock(\'' + id + '\')">' + (kind === "now" ? "Reopen now" : "Cancel") + "</button>" : '<button class="btn" style="color:#A02B1D" onclick="removeBlock(\'' + id + '\')">Remove</button>') + "</div></div>";
+  }
+  var intro = '<p class="hint" style="margin:0 0 12px">Close an amenity for cleaning, repairs, a private event or anything else. Choose the dates and the exact hours (or the whole day). Residents see it as unavailable and cannot book those times.</p>';
+  if (!all.length) return intro + emptyCard("Nothing is blocked. Use “+ Block a time” when an amenity is out of service or being cleaned.");
+  function group(title, rows, kind, hint) { return rows.length ? '<div class="card fx-group"><div class="fx-head"><h2>' + title + '</h2><span class="hint" style="margin:0">' + hint + "</span></div>" + rows.map(function (b) { return card(b, kind); }).join("") + "</div>" : ""; }
+  return intro + group("Closed now", now, "now", "Residents cannot book these times.") + group("Coming up", soon, "soon", "Starts later.") + group("Ended", past.slice(0, 5), "past", past.length > 5 ? "Showing the latest 5 of " + past.length : past.length + " in total");
+}
+// Add or change a blocked time. id = an existing block, facName = preselect the amenity.
+function blockForm(id, facName) {
+  var cur = id ? getRow("fblock", id) : null, b = cur ? cur.value : { facility: facName || "*", reason: "Cleaning", note: "", from: dayKey(new Date()), to: dayKey(new Date()), hours: "all", start: "13:00", end: "15:00" };
+  var names = facilities().map(function (f) { return [f.name, f.name]; });
+  openForm({
+    title: cur ? "Edit blocked time" : "Block a time",
+    intro: "Residents will see these times as unavailable. Use a start and end time for part of a day, or leave the last date empty when something is out of service until further notice.",
+    submit: "Save", fields: [
+      { name: "facility", label: "Amenity", type: "select", options: [["*", "All facilities"]].concat(names), value: b.facility },
+      { name: "reason", label: "Why", type: "select", options: BLOCK_REASONS, value: b.reason },
+      { name: "note", label: "Note shown to residents (optional)", type: "textarea", value: b.note || "", placeholder: "e.g. The pool is being drained and scrubbed." },
+      { name: "from", label: "From date", type: "date", value: b.from },
+      { name: "to", label: "Until date (leave empty if until further notice)", type: "date", value: b.to || "" },
+      { name: "hours", label: "Hours", type: "select", options: [["all", "All day"], ["some", "Only certain hours"]], value: b.hours === "some" ? "some" : "all" },
+      { name: "start", label: "From time (only for certain hours)", type: "time", value: b.start || "13:00" },
+      { name: "end", label: "Until time (only for certain hours)", type: "time", value: b.end || "15:00" },
+      { name: "deal", label: "Bookings already made in that time", type: "select", options: [["keep", "Keep them (I will sort them out)"], ["deny", "Deny them and tell the residents"]], value: "keep" }
+    ],
+    onSubmit: async function (d) {
+      if (!keyToDate(d.from)) return { error: "Choose the first date." };
+      if (d.to && !keyToDate(d.to)) return { error: "Choose a valid last date." };
+      if (d.to && d.to < d.from) return { error: "The last date cannot be before the first date." };
+      var allDay = d.hours !== "some";
+      if (!allDay) {
+        var s = toMin(d.start), e = toMin(d.end);
+        if (s == null || e == null) return { error: "Choose the start and end time." };
+        if (e <= s) return { error: "The end time must be after the start time." };
+      }
+      var bid = id || nextId();
+      var rec = { id: bid, facility: d.facility, reason: d.reason, note: String(d.note || "").trim(), from: d.from, to: d.to || "", hours: allDay ? "all" : "some", start: allDay ? "" : String(d.start), end: allDay ? "" : String(d.end) };
+      await put("fblock", bid, "", rec);
+      var hit = bookingsInBlock(rec), denied = 0;
+      if (d.deal === "deny") for (var k = 0; k < hit.length; k++) { await put("booking", hit[k].id, hit[k].unit, Object.assign({}, hit[k].v, { status: "Denied" })); denied++; }
+      logAct((cur ? "Blocked time changed: " : "Blocked: ") + (rec.facility === "*" ? "all facilities" : rec.facility) + " (" + rec.reason + ", " + blockWhenText(rec) + ")" + (denied ? ", " + denied + " booking" + (denied === 1 ? "" : "s") + " denied" : ""), "Facilities");
+      toast(denied ? "Saved. " + denied + " booking" + (denied === 1 ? " was" : "s were") + " denied." : hit.length ? "Saved. " + hit.length + " booking" + (hit.length === 1 ? " is" : "s are") + " still inside this time." : "Saved. Residents can no longer book that time.");
+    }
+  });
+}
+// Opens a block up again: a block that has not started is cancelled, one that is running ends yesterday.
+function endBlock(id) {
+  var row = getRow("fblock", id); if (!row) return; var b = row.value, today = dayKey(new Date());
+  confirmBox(b.from > today ? "Cancel this blocked time?" : "Reopen now?", (b.facility === "*" ? "All facilities" : b.facility) + " · " + b.reason + " · " + blockWhenText(b) + ". Residents can book it again.", b.from > today ? "Cancel it" : "Reopen", async function () {
+    if (b.from > today) await del("fblock", id);
+    else { var y = new Date(); y.setDate(y.getDate() - 1); await put("fblock", id, "", Object.assign({}, b, { to: dayKey(y) })); }
+    logAct("Reopened: " + (b.facility === "*" ? "all facilities" : b.facility) + " (" + b.reason + ")", "Facilities");
+  });
+}
+// Removes a finished block from the list.
+function removeBlock(id) { act(async function () { await del("fblock", id); }); }
 
 /* ==========================================================================
    Announcements and events

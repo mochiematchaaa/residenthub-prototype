@@ -590,8 +590,10 @@
   if (origBook) {
     window.viewBook = function () {
       var fl = facilities(), cur = fl[Math.min(state.facIdx || 0, fl.length - 1)], c = cur && closureOf(cur.name), h = origBook();
-      if (!c) return h;
-      return '<div class="card" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:12px"><b>' + esc(c.facility) + " is closed for maintenance.</b> " + esc(c.equipName) + " is " + esc(String(c.reason).toLowerCase()) + ". Booking is paused until it is working again.</div>" + h;
+      var today = dayKey(new Date()), notes = cur ? blockList().filter(function (b) { return blockFits(b, cur.name) && (!b.to || b.to >= today); }).sort(function (a, b) { return String(a.from).localeCompare(String(b.from)); }).slice(0, 3) : [];
+      var blockHtml = notes.length ? '<div class="card blk-notice"><b>' + esc(cur.name) + ' is not available at these times</b>' + notes.map(function (b) { return "<div><span>" + esc(b.reason) + "</span> " + esc(blockWhenText(b)) + (b.note ? " · " + esc(b.note) : "") + "</div>"; }).join("") + "</div>" : "";
+      if (!c) return blockHtml + h;
+      return blockHtml + '<div class="card" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:12px"><b>' + esc(c.facility) + " is closed for maintenance.</b> " + esc(c.equipName) + " is " + esc(String(c.reason).toLowerCase()) + ". Booking is paused until it is working again.</div>" + h;
     };
   }
 

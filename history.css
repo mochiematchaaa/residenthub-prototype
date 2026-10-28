@@ -547,3 +547,17 @@ div,form,aside,section,textarea,ul,table{overscroll-behavior:contain}
   .side-col,.fin-side,.pb-side{position:static}
 }
 html{scrollbar-gutter:stable}
+
+/* ---- Facility: blocked times (v29) ---- */
+.blk-card{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px;margin-top:10px;border-left:6px solid #f0a52a}
+.blk-card.now{border-left-color:#e0566b}
+.blk-card.past{border-left-color:#c9c4b4;opacity:.8}
+.blk-main{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 280px}
+.blk-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.blk-main small{color:var(--muted);font-size:12.5px}
+.blk-note{font-style:italic}
+.blk-warn{color:#a02b1d!important;font-weight:700}
+.blk-notice{margin-bottom:12px;padding:14px 18px;background:linear-gradient(115deg,#fff2c4,#ffe0a0)!important;border-color:#f2d58a;font-size:13.5px;line-height:1.5}
+.blk-notice b{display:block;margin-bottom:4px;color:#6a4b00}
+.blk-notice span{display:inline-block;padding:1px 9px;margin-right:4px;border-radius:99px;background:#fff;font-weight:700;font-size:12px}
+.am-card>div:first-child{display:flex;flex-direction:column;gap:2px}

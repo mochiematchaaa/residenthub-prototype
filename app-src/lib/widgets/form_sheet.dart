@@ -49,7 +49,19 @@ class PhotoSpec {
 /// A time of day picked from the clock. The value is "HH:MM" (24 hour).
 class TimeSpec {
   final String key, label, initial;
-  const TimeSpec(this.key, this.label, this.initial);
+
+  /// Show these times only while the choice named [onlyWhenKey] has the value [onlyWhenValue]
+  /// (right under that choice when [belowChoice] is true).
+  final String? onlyWhenKey, onlyWhenValue;
+  final bool belowChoice;
+  const TimeSpec(this.key, this.label, this.initial, {this.onlyWhenKey, this.onlyWhenValue, this.belowChoice = false});
+}
+
+/// A date picked from the calendar. The value is "yyyy-mm-dd", or "" when [clearable] and nothing is chosen.
+class DateSpec {
+  final String key, label, initial, emptyText;
+  final bool clearable;
+  const DateSpec(this.key, this.label, this.initial, {this.clearable = false, this.emptyText = 'Not set'});
 }
 
 /// Generic bottom-sheet form. [onSubmit] returns an error string to keep the
@@ -62,6 +74,7 @@ Future<void> showFormSheet(
   List<ChoiceSpec> choices = const [],
   List<ToggleSpec> toggles = const [],
   List<TimeSpec> times = const [],
+  List<DateSpec> dates = const [],
   PhotoSpec? photo,
   required String submit,
   required FutureOr<String?> Function(Map<String, dynamic> v) onSubmit,
@@ -72,7 +85,7 @@ Future<void> showFormSheet(
     useSafeArea: true,
     builder: (_) => _FormSheet(
       title: title, subtitle: subtitle, fields: fields, choices: choices,
-      toggles: toggles, times: times, photo: photo, submit: submit, onSubmit: onSubmit,
+      toggles: toggles, times: times, dates: dates, photo: photo, submit: submit, onSubmit: onSubmit,
     ),
   );
 }
@@ -84,11 +97,12 @@ class _FormSheet extends StatefulWidget {
   final List<ChoiceSpec> choices;
   final List<ToggleSpec> toggles;
   final List<TimeSpec> times;
+  final List<DateSpec> dates;
   final PhotoSpec? photo;
   final FutureOr<String?> Function(Map<String, dynamic>) onSubmit;
   const _FormSheet({
     required this.title, this.subtitle, required this.fields, required this.choices,
-    required this.toggles, this.times = const [], this.photo, required this.submit, required this.onSubmit,
+    required this.toggles, this.times = const [], this.dates = const [], this.photo, required this.submit, required this.onSubmit,
   });
 
   @override
@@ -156,7 +170,62 @@ class _FormSheetState extends State<_FormSheet> {
     for (final t in widget.times) {
       vals[t.key] = t.initial;
     }
+    for (final d in widget.dates) {
+      vals[d.key] = d.initial;
+    }
   }
+
+  Future<void> _pickDate(DateSpec d) async {
+    final today = DateTime.now();
+    final cur = DateTime.tryParse('${vals[d.key]}') ?? DateTime(today.year, today.month, today.day);
+    final r = await showDatePicker(context: context, initialDate: cur, firstDate: DateTime(today.year - 1), lastDate: DateTime(today.year + 5));
+    if (r != null && mounted) setState(() => vals[d.key] = dayKey(r));
+  }
+
+  Widget _datesRow() => Column(
+        children: [
+          for (final d in widget.dates)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => _pickDate(d),
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: d.label,
+                    suffixIcon: d.clearable && '${vals[d.key]}'.isNotEmpty
+                        ? IconButton(tooltip: 'Clear', icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => setState(() => vals[d.key] = ''))
+                        : const Icon(Icons.calendar_month_outlined, size: 20),
+                  ),
+                  child: Text('${vals[d.key]}'.isEmpty ? d.emptyText : isoShort('${vals[d.key]}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ),
+        ],
+      );
+
+  bool _showTime(TimeSpec t) => t.onlyWhenKey == null || vals[t.onlyWhenKey] == t.onlyWhenValue;
+
+  Widget _timesRow(List<TimeSpec> list) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            for (var i = 0; i < list.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _pickTime(list[i]),
+                  child: InputDecorator(
+                    decoration: InputDecoration(labelText: list[i].label, suffixIcon: const Icon(Icons.schedule_rounded, size: 20)),
+                    child: Text(timeLabel('${vals[list[i].key]}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
 
   Widget _fieldBox(FieldSpec f) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -227,30 +296,8 @@ class _FormSheetState extends State<_FormSheet> {
             const SizedBox(height: 16),
             for (final f in widget.fields)
               if (!f.belowChoice && (f.onlyWhenKey == null || vals[f.onlyWhenKey] == f.onlyWhenValue)) _fieldBox(f),
-            if (widget.times.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < widget.times.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () => _pickTime(widget.times[i]),
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: widget.times[i].label,
-                              suffixIcon: const Icon(Icons.schedule_rounded, size: 20),
-                            ),
-                            child: Text(timeLabel('${vals[widget.times[i].key]}'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            if (widget.dates.isNotEmpty) _datesRow(),
+            if (widget.times.any((t) => !t.belowChoice && _showTime(t))) _timesRow([for (final t in widget.times) if (!t.belowChoice && _showTime(t)) t]),
             for (final c in widget.choices) ...[
               Text(c.label, style: TextStyle(fontWeight: FontWeight.w700, color: muted(context), fontSize: 13)),
               const SizedBox(height: 6),
@@ -274,6 +321,8 @@ class _FormSheetState extends State<_FormSheet> {
               const SizedBox(height: 10),
               for (final f in widget.fields)
                 if (f.belowChoice && f.onlyWhenKey == c.key && vals[f.onlyWhenKey] == f.onlyWhenValue) _fieldBox(f),
+              if (widget.times.any((t) => t.belowChoice && t.onlyWhenKey == c.key && _showTime(t)))
+                _timesRow([for (final t in widget.times) if (t.belowChoice && t.onlyWhenKey == c.key && _showTime(t)) t]),
             ],
             if (widget.photo != null) _photoBox(widget.photo!),
             for (final t in widget.toggles)

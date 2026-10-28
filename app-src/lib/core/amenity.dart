@@ -69,3 +69,43 @@ String timeLabel(String t) {
   final c = _clock(m);
   return '${c.$1} ${c.$2}';
 }
+
+/// Why an amenity is closed for a while.
+const blockReasons = ['Cleaning', 'Maintenance or repair', 'Out of service', 'Private event', 'Closed that day', 'Other'];
+
+/// A time the amenity cannot be booked: cleaning, repairs, out of service, a private event ...
+/// It covers every day from [from] to [to] ("" = until further notice), all day or only between [start] and [end].
+/// [facility] is the amenity's name, or "*" for every amenity. The website uses the same rule.
+class FBlock {
+  final String id;
+  String facility, reason, note, from, to, start, end;
+  bool someHours;
+  FBlock(this.id, this.facility, this.reason, this.note, this.from, this.to, this.someHours, this.start, this.end);
+
+  bool fits(String name) => facility == '*' || facility == name;
+
+  bool onDay(String day) => from.isNotEmpty && day.compareTo(from) >= 0 && (to.isEmpty || day.compareTo(to) <= 0);
+
+  /// True if the block closes any part of the minutes [a, b) on that day.
+  bool closes(String day, int a, int b) {
+    if (!onDay(day)) return false;
+    if (!someHours) return true;
+    final bs = toMinutes(start), be = toMinutes(end);
+    return bs != null && be != null && a < be && b > bs;
+  }
+
+  /// "Oct 30, 2026 · 1 PM – 3 PM"
+  String get whenText {
+    final hrs = someHours ? '${timeLabel(start)} – ${timeLabel(end)}' : 'All day';
+    final days = to.isEmpty ? 'from ${isoLong(from)} until further notice' : (to == from ? isoLong(from) : '${isoLong(from)} to ${isoLong(to)}');
+    return '$days · $hrs';
+  }
+}
+
+/// "2026-10-30" to "Oct 30, 2026".
+String isoLong(String iso) {
+  final d = DateTime.tryParse(iso);
+  if (d == null) return iso;
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return '${m[d.month - 1]} ${d.day}, ${d.year}';
+}
