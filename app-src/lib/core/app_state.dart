@@ -143,12 +143,13 @@ class CheckItem {
 /// A facility booking (place, day, time, status Pending/Approved/Denied).
 class Booking {
   final int id;
-  final String who, unit, place, when;
+  final String who, unit, place;
+  String when;
   String status; // Pending | Approved | Denied | Completed
 
   /// The day it is for (yyyy-mm-dd) and the time slot number, so two units cannot book the same slot.
   final String day;
-  final int slot;
+  int slot;
   Booking(this.id, this.who, this.unit, this.place, this.when, this.status,
       {this.day = '', this.slot = -1});
 }
@@ -1644,6 +1645,58 @@ class AppState extends ChangeNotifier {
     final k = _slotKey(f, i);
     blocked[k] = !(blocked[k] ?? false);
     _n();
+  }
+
+  /// The request that holds a time of amenity [f] today (waiting or approved), if any.
+  Booking? bookingAtSlot(int f, int i) {
+    if (f >= amenities.length) return null;
+    final today = dayKey(DateTime.now());
+    final place = amenities[f].name;
+    return bookings.where((b) => b.day == today && b.slot == i && b.place == place && (b.status == 'Pending' || b.status == 'Approved')).firstOrNull;
+  }
+
+  /// Admin: changes a request's status and time. Returns an error text when the time is taken or closed.
+  String? editBooking(Booking b, String status, int slot) {
+    final fi = amenities.indexWhere((a) => a.name == b.place);
+    final canSlot = fi >= 0 && b.day.isNotEmpty && slot >= 0 && slot < amenities[fi].slots.length;
+    if (canSlot && (status == 'Pending' || status == 'Approved')) {
+      final clash = bookings.where((x) => x != b && x.day == b.day && x.place == b.place && x.slot == slot && (x.status == 'Pending' || x.status == 'Approved')).firstOrNull;
+      if (clash != null) return 'That time is already taken by ${clash.unit}. Choose another time.';
+      if (b.day == dayKey(DateTime.now()) && slotClosed(fi, slot)) return 'That time is closed today. Open it first under Today\'s slots.';
+    }
+    b.status = status;
+    if (canSlot) {
+      b.slot = slot;
+      final date = DateTime.tryParse(b.day);
+      if (date != null) b.when = '${shortDate(date)}, ${amenities[fi].slots[slot]}';
+    }
+    logActivity('${b.place} booking changed (${status.toLowerCase()}), ${b.unit}', 'Facilities');
+    _n();
+    return null;
+  }
+
+  /// Admin: deletes a request for good, so its time becomes free.
+  void removeBooking(Booking b) {
+    bookings.remove(b);
+    logActivity('${b.place} booking removed, ${b.unit}', 'Facilities');
+    _n();
+  }
+
+  /// Admin: reserves a time of amenity [f] today for a unit (for example a walk-in at the office).
+  String? reserveSlot(int f, int i, String unitRaw) {
+    String norm(String t) => t.toLowerCase().replaceAll('unit', '').replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final key = norm(unitRaw);
+    final u = key.isEmpty ? null : units.where((x) => norm(x.unit) == key).firstOrNull;
+    if (u == null) return 'No unit with that name. Use a name such as "Unit 12A".';
+    final a = amenities[f];
+    final now = DateTime.now();
+    final start = (toMinutes(a.open) ?? 0) + i * a.mins;
+    if (start <= now.hour * 60 + now.minute) return 'That time has already passed today. Choose a later time.';
+    if (slotBooked(f, i)) return 'That time is no longer open.';
+    bookings.insert(0, Booking(nextId(), u.name.isEmpty || u.name == '—' ? u.unit : u.name, u.unit, a.name, '${shortDate(now)}, ${a.slots[i]}', 'Approved', day: dayKey(now), slot: i));
+    logActivity('${a.name} reserved for ${u.unit} (${a.slots[i]})', 'Facilities');
+    _n();
+    return null;
   }
 
   /// Approves or denies a booking.

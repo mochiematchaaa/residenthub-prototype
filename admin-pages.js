@@ -14,6 +14,8 @@ function subNav(items, current, key, tools) {
     return '<button type="button" role="tab" aria-selected="' + (t[0] === current) + '" class="' + (t[0] === current ? "on" : "") + '" onclick="set({' + key + ":'" + t[0] + '\'})"><span>' + t[1] + "</span>" + n + "</button>";
   }).join("") + "</div>" + (tools ? '<div class="subnav-tools">' + tools + "</div>" : "") + "</div>";
 }
+// A counter you can click (used to filter a list). Clicking the active one clears the filter.
+function statBtn(n, label, tone, on, js) { return '<button type="button" class="stat-t ' + (tone || "") + (on ? " on" : "") + '" aria-pressed="' + !!on + '" onclick="' + js + '"><b>' + n + "</b><span>" + label + "</span></button>"; }
 function statTile(n, label, tone) { return '<div class="stat-t ' + (tone || "") + '"><b>' + n + "</b><span>" + label + "</span></div>"; }
 
 /* ==========================================================================
@@ -29,28 +31,95 @@ function viewFac() {
 function facRequestCard(r) {
   var b = r.v, tone = b.status === "Approved" ? "good" : b.status === "Denied" ? "bad" : "warn", id = escAttr(r.id);
   return '<div class="fx-card ' + tone + '"><span class="fx-ico">' + icon("fac") + '</span><div class="fx-main"><b>' + esc(b.place) + "</b><small>" + esc(b.unit) + (b.who && b.who !== b.unit ? " · " + esc(b.who) : "") + "</small><small>" + esc(b.when) + '</small></div><span class="chip ' + tone + '">' + esc(b.status) + "</span>" +
-    (b.status === "Pending" ? '<div class="fx-act"><button class="btn primary" onclick="setBooking(\'' + id + '\',\'Approved\')">Approve</button><button class="btn" onclick="setBooking(\'' + id + '\',\'Denied\')">Deny</button></div>' : "") + "</div>";
+    '<div class="fx-act">' + (b.status === "Pending" ? '<button class="btn primary" onclick="setBooking(\'' + id + '\',\'Approved\')">Approve</button><button class="btn" onclick="setBooking(\'' + id + '\',\'Denied\')">Deny</button>' : "") +
+    '<button class="btn" onclick="editBooking(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="removeBooking(\'' + id + '\')">Remove</button></div></div>';
 }
 function facRequestsPage(all) {
   var pend = all.filter(function (r) { return r.v.status === "Pending"; }), rest = all.filter(function (r) { return r.v.status !== "Pending"; });
   var ok = all.filter(function (r) { return r.v.status === "Approved"; }).length, no = all.filter(function (r) { return r.v.status === "Denied"; }).length;
+  var fil = ["Pending", "Approved", "Denied", "all"].indexOf(state.facFilter) >= 0 ? state.facFilter : "";
   var limit = state.facAll ? rest.length : 8;
-  return '<div class="stat-row">' + statTile(pend.length, "Waiting for you", pend.length ? "warn" : "") + statTile(ok, "Approved", "good") + statTile(no, "Denied", "") + statTile(all.length, "All requests", "") + "</div>" +
+  var tiles = '<div class="stat-row">' + statBtn(pend.length, "Waiting for you", pend.length ? "warn" : "", fil === "Pending", "facFilterSet('Pending')") + statBtn(ok, "Approved", "good", fil === "Approved", "facFilterSet('Approved')") +
+    statBtn(no, "Denied", "", fil === "Denied", "facFilterSet('Denied')") + statBtn(all.length, "All requests", "", fil === "all", "facFilterSet('all')") + "</div>" +
+    '<p class="hint" style="margin:-4px 0 12px">' + (fil ? "Showing one group. Select the same number again to see everything." : "Select a number to see only those requests.") + " Every request has Edit (change its status or time) and Remove.</p>";
+  function group(title, rows, note) {
+    return '<div class="card fx-group"><div class="fx-head"><h2>' + title + '</h2><span class="hint" style="margin:0">' + note + "</span></div>" + (rows.map(facRequestCard).join("") || '<p class="empty">Nothing here.</p>') + "</div>";
+  }
+  if (fil === "Pending") return tiles + group("Needs your decision", pend, "Residents are told as soon as you decide.");
+  if (fil === "Approved" || fil === "Denied") { var rows = rest.filter(function (r) { return r.v.status === fil; }); return tiles + group(fil + " requests", rows, rows.length + " in total"); }
+  if (fil === "all") return tiles + group("All requests", pend.concat(rest), all.length + " in total");
+  return tiles +
     '<div class="card fx-group"><div class="fx-head"><h2>Needs your decision</h2><span class="hint" style="margin:0">Residents are told as soon as you decide.</span></div>' +
     (pend.map(facRequestCard).join("") || '<p class="empty">Nothing is waiting. New requests show up here.</p>') + "</div>" +
     '<div class="card fx-group"><div class="fx-head"><h2>Earlier requests</h2><span class="hint" style="margin:0">' + rest.length + " in total</span></div>" +
     (rest.slice(0, limit).map(facRequestCard).join("") || '<p class="empty">No earlier requests yet.</p>') +
     (rest.length > 8 ? '<div style="margin-top:10px"><button class="btn" onclick="set({facAll:' + !state.facAll + '})">' + (state.facAll ? "Show fewer" : "Show all " + rest.length) + "</button></div>" : "") + "</div>";
 }
+function facFilterSet(k) { set({ facFilter: state.facFilter === k ? "" : k, facAll: false }); }
+// Change a request: its status and its time slot.
+function editBooking(id) {
+  var row = getRow("booking", id); if (!row) return;
+  var b = row.value, fl = facilities(), f = fl.filter(function (x) { return x.name === b.place; })[0], fi = fl.indexOf(f), canSlot = !!(f && b.day && keyToDate(b.day) && b.slot != null && Number(b.slot) >= 0);
+  var fields = [{ name: "status", label: "Status", type: "select", options: [["Pending", "Waiting for a decision"], ["Approved", "Approved"], ["Denied", "Denied (frees the time)"]], value: b.status }];
+  if (canSlot) fields.push({ name: "slot", label: "Time", type: "select", options: f.slots.map(function (t, i) { return [String(i), t]; }), value: String(b.slot) });
+  openForm({
+    title: "Edit " + b.place + " request",
+    intro: esc((b.unit || "") + (b.who && b.who !== b.unit ? " · " + b.who : "") + " · " + (b.when || "")) + ". The resident is told about the change.",
+    submit: "Save", fields: fields,
+    onSubmit: async function (d) {
+      var slot = canSlot ? Number(d.slot) : b.slot, status = d.status, when = b.when;
+      if (canSlot && (status === "Pending" || status === "Approved")) {
+        var clash = vals("booking").filter(function (x) { return String(x.id) !== String(id) && x.day === b.day && x.place === b.place && Number(x.slot) === slot && (x.status === "Pending" || x.status === "Approved"); })[0];
+        if (clash) return { error: "That time is already taken by " + clash.unit + ". Choose another time." };
+        if (b.day === dayKey(new Date()) && slotClosed(fi, slot)) return { error: "That time is closed today. Open it first under Today's slots." };
+      }
+      if (canSlot) when = shortDate(keyToDate(b.day)) + ", " + f.slots[slot];
+      await put("booking", id, row.unit, Object.assign({}, b, { status: status, slot: slot, when: when }));
+      logAct(b.place + " booking changed (" + status.toLowerCase() + "), " + b.unit, "Facilities");
+      toast("Request updated.");
+    }
+  });
+}
+// Deletes a request completely.
+function removeBooking(id) {
+  var row = getRow("booking", id); if (!row) return;
+  confirmBox("Remove this request?", row.value.place + ", " + row.value.unit + ", " + row.value.when + ". It is deleted for good and the time becomes free.", "Remove", async function () {
+    await del("booking", id);
+    logAct(row.value.place + " booking removed, " + row.value.unit, "Facilities");
+  }, true);
+}
+// Click on a time of today: change its booking, reserve it for a unit, close it, or open it again.
+function slotClick(f, i) {
+  var fac = facilities()[f]; if (!fac) return;
+  if (slotClosed(f, i)) return toggleSlot(f, i);
+  var bk = bookingAt(f, i);
+  if (bk) return editBooking(bk.id);
+  var units = unitNames();
+  openForm({
+    title: fac.name + " · " + fac.slots[i], intro: "This time is open today. Close it so nobody can book it, or reserve it for a unit (for example a walk-in request at the office).", submit: "Save",
+    fields: [{ name: "what", label: "What do you want to do?", type: "select", options: [["close", "Close it for today"], ["book", "Reserve it for a unit"]], value: "close" },
+      { name: "unit", label: "Unit (only when reserving)", type: "select", options: units.length ? units : [["", "No units yet"]] }],
+    onSubmit: async function (d) {
+      if (d.what !== "book") { toggleSlot(f, i); return; }
+      if (!d.unit) return { error: "Choose the unit." };
+      var today = dayKey(new Date());
+      var st = slotState(f, i, today); if (st === "past") return { error: "That time has already passed today. Choose a later time." }; if (st !== "open") return { error: "That time is no longer open." };
+      var id = nextId();
+      await put("booking", id, d.unit, { id: id, who: whoOf(d.unit), unit: d.unit, place: fac.name, when: shortDate(new Date()) + ", " + fac.slots[i], status: "Approved", day: today, slot: i });
+      logAct(fac.name + " reserved for " + d.unit + " (" + fac.slots[i] + ")", "Facilities");
+      toast("Reserved for " + d.unit + ".");
+    }
+  });
+}
 function facSlotsPage(fl) {
   if (!fl.length) return emptyCard("No amenities yet. Add one under Amenities.");
   var sel = Math.min(Math.max(0, Number(state.facSel) || 0), fl.length - 1), f = fl[sel];
   var today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  return '<div class="card"><div class="fx-head"><h2>' + esc(today) + '</h2><span class="hint" style="margin:0">Select an open slot to close it, or a closed slot to open it again.</span></div>' +
+  return '<div class="card"><div class="fx-head"><h2>' + esc(today) + '</h2><span class="hint" style="margin:0">Select a time: an open one can be closed or reserved for a unit, a booked one can be changed or freed, a closed one is opened again.</span></div>' +
     '<div class="seg small" role="tablist" style="margin:12px 0">' + fl.map(function (x, i) { return '<button type="button" class="' + (i === sel ? "on" : "") + '" onclick="set({facSel:' + i + '})"><span>' + esc(x.name) + "</span></button>"; }).join("") + "</div>" +
     '<p class="hint" style="margin:0 0 10px">' + esc(f.hours) + (f.note ? " · " + esc(f.note) : "") + '</p><div class="slots">' + f.slots.map(function (t, i) {
-      var closed = slotClosed(sel, i), bk = bookingAt(sel, i), cls = closed || bk ? "booked" : "open", label = closed ? "Closed" : bk ? "Booked" : "Open";
-      return '<button class="slot ' + cls + '" title="' + escAttr(bk ? bk.unit : "") + '" onclick="toggleSlot(' + sel + "," + i + ')"><b>' + esc(t) + "</b><span>" + label + "</span></button>";
+      var closed = slotClosed(sel, i), bk = bookingAt(sel, i), cls = closed || bk ? "booked" : "open", label = closed ? "Closed" : bk ? (bk.status === "Pending" ? "Waiting · " : "Booked · ") + esc(bk.unit.replace(/^Unit\s+/i, "")) : "Open";
+      return '<button class="slot adm ' + cls + '" title="' + escAttr(bk ? bk.unit + " · " + (bk.status || "") + " (select to change)" : closed ? "Closed (select to open it again)" : "Open (select to close or reserve it)") + '" onclick="slotClick(' + sel + "," + i + ')"><b>' + esc(t) + "</b><span>" + label + "</span></button>";
     }).join("") + "</div></div>";
 }
 function facAmenitiesPage(fl) {
