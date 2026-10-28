@@ -682,3 +682,4 @@ button[onclick^="removeDirItem"],button[onclick*="remove"]{min-width:88px;flex:n
   table.rt td[data-label=""]::before{content:none}
   table.rt td[data-label=""]{justify-content:flex-end}
 }
+.rec2-log{margin-top:14px;padding-top:6px;border-top:1px dashed var(--border2)}.rec2-log h3{margin:6px 0 2px;font-size:13px;letter-spacing:.02em;color:var(--muted)}
