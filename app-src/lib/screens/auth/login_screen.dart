@@ -128,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Text('Welcome back!', style: hd(24)),
                           const SizedBox(height: 4),
-                          Text('Residents and administrators use the same sign-in.', style: TextStyle(color: muted(context), fontSize: 13)),
+                          Text('Sign in with the email and password you were given.', style: TextStyle(color: muted(context), fontSize: 13)),
                           const SizedBox(height: 18),
                           TextField(
                             controller: _email,
@@ -235,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'No public sign-up. Accounts are issued by the administrator, who links your email to your confirmed unit.',
+                              'No public sign-up. Accounts are issued by the administration office, which links your email to your confirmed unit.',
                               style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.4),
                             ),
                           ),

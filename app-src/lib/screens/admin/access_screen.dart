@@ -121,6 +121,15 @@ class _AdminAccessState extends State<AdminAccess> {
                                 ]),
                                 Text(t.email, style: TextStyle(color: muted(context), fontSize: 12.5)),
                                 Text('${t.phone.isEmpty ? 'No mobile number' : t.phone}${t.unit.isNotEmpty ? ' · ${t.unit}' : ''}${t.added.isEmpty ? '' : ' · Added ${t.added}'}', style: TextStyle(color: t.hasMobile ? muted(context) : danger, fontSize: 12)),
+                                if (t.tempPw.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                                    const Text('Password:', style: TextStyle(fontSize: 12)),
+                                    SelectableText(t.tempPw, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                    Text('temporary, until they choose their own', style: TextStyle(color: muted(context), fontSize: 11.5)),
+                                  ]),
+                                ] else
+                                  Text('Password: chosen by the resident (private)', style: TextStyle(color: muted(context), fontSize: 11.5)),
                               ],
                             ),
                           ),

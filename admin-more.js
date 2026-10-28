@@ -1436,6 +1436,7 @@ function exportLog() { exportCSV("activity-log.csv", ["When", "Area", "Action"],
    Access (accounts)
    ========================================================================== */
 function viewManage() {
+  tempPwClean();
   var m = state.manage, q = state.manageSearch.trim().toLowerCase();
   var accs = DB.accounts.filter(function (a) { return !q || (a.name + " " + a.email + " " + (a.unit || "") + " " + a.role).toLowerCase().indexOf(q) >= 0; });
   var units = unitNames();
@@ -1454,16 +1455,41 @@ function viewManage() {
     tableRows(accs.map(function (a) {
       var self = a.id === DB.user.id, adm = a.role === "admin";
       var status = a.suspended ? '<span class="chip bad">Suspended</span>' : (!adm && !a.contact_verified_at) ? '<span class="chip warn">Not verified yet</span>' : (!adm && a.must_change_password) ? '<span class="chip warn">Not signed in yet</span>' : '<span class="chip good">Active</span>';
-      return "<tr" + (a.suspended ? ' style="opacity:.55"' : "") + '><td style="font-weight:700">' + esc(a.name) + '</td><td style="color:var(--muted)">' + esc(a.email) + '</td><td style="color:var(--muted)">' + esc(a.phone || "—") + '</td><td style="color:var(--muted)">' + esc(a.unit || "—") + '</td><td><span class="chip ' + (adm ? "info" : "good") + '">' + (adm ? "Administrator" : "Resident") + "</span></td><td>" + status + '</td><td style="display:flex;gap:6px;flex-wrap:wrap">' +
+      return "<tr" + (a.suspended ? ' style="opacity:.55"' : "") + '><td style="font-weight:700">' + esc(a.name) + '</td><td style="color:var(--muted)">' + esc(a.email) + '</td><td style="color:var(--muted)">' + esc(a.phone || "—") + '</td><td style="color:var(--muted)">' + esc(a.unit || "—") + '</td><td><span class="chip ' + (adm ? "info" : "good") + '">' + (adm ? "Administrator" : "Resident") + "</span></td><td>" + status + "</td><td>" + pwCell(a, adm) + '</td><td style="display:flex;gap:6px;flex-wrap:wrap">' +
         (adm ? (self ? '<span style="color:var(--muted);font-size:12px">You</span>' : "") : (a.unit ? '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="openHistory(\'' + escAttr(a.unit) + '\')">Profile</button>' : "") + '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="resetAccount(\'' + escAttr(a.id) + '\')">Reset password</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="suspendAccount(\'' + escAttr(a.id) + '\')">' + (a.suspended ? "Reactivate" : "Suspend") + '</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteAccount(\'' + escAttr(a.id) + '\')">Revoke</button>') + "</td></tr>";
-    }), ["NAME", "EMAIL", "MOBILE", "UNIT", "ROLE", "STATUS", "ACTION"], "No accounts match.") +
+    }), ["NAME", "EMAIL", "MOBILE", "UNIT", "ROLE", "STATUS", "PASSWORD", "ACTION"], "No accounts match.") +
     '<div style="padding:10px 18px;font-size:12px;color:var(--muted);border-top:1px solid var(--border2)">Suspend keeps the account on file but blocks sign-in; Revoke permanently removes it and asks for confirmation first.</div></div>';
+}
+/* Temporary passwords: the one the office gave when it made or reset an account is kept in the office-only records ("tempcred"),
+   so the administrator can see it again until the resident chooses their own password. After that it is deleted, and the
+   password the resident chose is never shown (the system keeps only a scrambled form of it, which cannot be read back). */
+function tempPwOf(id) { var r = getRow("tempcred", id); return r && r.value.pw ? r.value.pw : ""; }
+async function tempPwSave(id, name, email, unit, pw) {
+  if (!id || !pw) return;
+  try { await put("tempcred", id, "__admin", { id: id, pw: pw, name: name, email: email, unit: unit || "", at: Date.now() }); } catch (e) { /* the account itself was made */ }
+}
+// Deletes the kept passwords of accounts whose resident has chosen their own password (or that no longer exist).
+var _tpClean = 0;
+function tempPwClean() {
+  if (Date.now() - _tpClean < 30000) return;
+  _tpClean = Date.now();
+  list("tempcred").forEach(function (r) {
+    var a = accById(r.id);
+    if (!a || !a.must_change_password) { del("tempcred", r.id).catch(function () { /* try again next time */ }); }
+  });
+}
+// The Password cell of the people list.
+function pwCell(a, adm) {
+  if (adm) return '<span style="color:var(--muted)">—</span>';
+  var pw = a.must_change_password ? tempPwOf(a.id) : "";
+  if (pw) return '<code style="font:700 13px monospace;letter-spacing:.04em;user-select:all">' + esc(pw) + '</code><div style="font-size:11.5px;color:var(--muted)">temporary · until they choose their own</div>';
+  return '<span style="font-size:12px;color:var(--muted)">' + (a.must_change_password ? "Reset it to see a new one" : "Chosen by the resident (private)") + "</span>";
 }
 // Finds an account by its id.
 function accById(id) { return DB.accounts.filter(function (a) { return a.id === id; })[0]; }
 // Shows a temporary password once, right after creating or resetting an account.
 function showPassword(name, email, pw) {
-  openInfo("Temporary password", '<p>Give this to <b>' + esc(name) + "</b> (" + esc(email) + '). It is shown only now. They must choose their own password when they sign in, then enter a code sent to their email (or by text message, when that is set up).</p><p style="font:700 22px monospace;letter-spacing:.06em;background:var(--beige);padding:12px;border-radius:12px;text-align:center;user-select:all">' + esc(pw) + "</p>");
+  openInfo("Temporary password", '<p>Give this to <b>' + esc(name) + "</b> (" + esc(email) + '). It stays visible in the Access list until they choose their own. They must choose their own password when they sign in, then enter a code sent to their email (or by text message, when that is set up).</p><p style="font:700 22px monospace;letter-spacing:.06em;background:var(--beige);padding:12px;border-radius:12px;text-align:center;user-select:all">' + esc(pw) + "</p>");
 }
 /* Unit box on "Create a resident account": type to search, or pick from the list (styled, not the browser's own list) */
 function unitNorm(t) { return String(t || "").toLowerCase().replace(/unit/g, "").replace(/[^a-z0-9]/g, ""); }
@@ -1512,6 +1538,8 @@ function createAccount() {
   act(async function () {
     var r = await callUsers({ action: "create", name: m.name.trim(), email: m.email.trim(), phone: m.phone.trim(), unit: unit });
     await loadAccounts();
+    var made = DB.accounts.filter(function (x) { return String(x.email || "").toLowerCase() === String(r.email || m.email).trim().toLowerCase(); })[0];
+    if (made) await tempPwSave(made.id, m.name.trim(), made.email, unit, r.password);
     logAct("Account created: " + unit, "Access");
     var nm = m.name.trim();
     state.manage = { name: "", email: "", phone: "", unit: "" };
@@ -1523,6 +1551,8 @@ function resetAccount(id) {
   var a = accById(id); if (!a) return;
   confirmBox("Reset password?", "A new temporary password will be made for " + a.name + ".", "Reset", async function () {
     var r = await callUsers({ action: "reset-password", userId: a.id });
+    await tempPwSave(a.id, a.name, a.email, a.unit, r.password);
+    try { await loadAccounts(); } catch (e) { /* the list refreshes on the next visit */ }
     logAct("Password reset: " + a.unit, "Access");
     showPassword(a.name, a.email, r.password);
     return { keepOpen: true };
@@ -1541,6 +1571,7 @@ function deleteAccount(id) {
   var a = accById(id); if (!a) return;
   confirmBox("Permanently revoke access for " + a.name + "?", "This removes their account and cannot be undone.", "Revoke", async function () {
     await callUsers({ action: "delete", userId: a.id });
+    try { await del("tempcred", a.id); } catch (e) { /* nothing was kept */ }
     await loadAccounts(); logAct("Account deleted: " + a.unit, "Access");
   }, true);
 }
