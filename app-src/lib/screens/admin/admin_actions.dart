@@ -41,41 +41,30 @@ void adminJump(BuildContext context, int target) {
   }
 }
 
-/// "Needs attention" sheet opened from the bell button.
-void showAdminAttention(BuildContext context) {
-  final items = [
-    [Icons.event_note_outlined, '${app.pendingBookings} booking request(s) to review', 2],
-    [Icons.help_outline_rounded, '${app.payCheckList.length} charge(s) to check: did they pay?', 3],
-    [Icons.payments_outlined, '${app.unpaidCount} unit(s) with unpaid dues', 3],
-    [Icons.home_work_outlined, '${app.newStatusUpdates} new rental update(s)', 12],
-    [Icons.two_wheeler_outlined, '${app.pendingParking} parking request(s)', 15],
-    [Icons.fact_check_outlined, '${app.rentalsToReview} unit declaration(s) to review', 12],
+/// What needs the administrator's attention, as notification lines (only the ones with something to do).
+List<NotifItem> adminBellItems() {
+  final raw = <(IconData, String, int)>[
+    if (app.pendingBookings > 0) (Icons.event_note_outlined, '${app.pendingBookings} booking request(s) to review', 2),
+    if (app.payCheckList.isNotEmpty) (Icons.help_outline_rounded, '${app.payCheckList.length} charge(s) to check: did they pay?', 3),
+    if (app.unpaidCount > 0) (Icons.payments_outlined, '${app.unpaidCount} unit(s) with unpaid dues', 3),
+    if (app.newStatusUpdates > 0) (Icons.home_work_outlined, '${app.newStatusUpdates} new rental update(s)', 12),
+    if (app.pendingParking > 0) (Icons.two_wheeler_outlined, '${app.pendingParking} parking request(s)', 15),
+    if (app.rentalsToReview > 0) (Icons.fact_check_outlined, '${app.rentalsToReview} unit declaration(s) to review', 12),
   ];
-  showModalBottomSheet<void>(
-    context: context,
-    useSafeArea: true,
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Needs attention', style: hd(22)),
-          const SizedBox(height: 8),
-          for (final it in items)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: IconBadge(it[0] as IconData, tone: Tone.warn, size: 40),
-              title: Text(it[1] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {
-                Navigator.pop(ctx);
-                adminJump(context, it[2] as int);
-              },
-            ),
-        ],
-      ),
-    ),
+  return app.book.list('admin', [for (final r in raw) (text: r.$2, tone: 'warn', dueId: null, icon: r.$1, tab: r.$3)]);
+}
+
+/// "Needs attention" sheet opened from the bell button (same layout as the residents' notifications).
+void showAdminAttention(BuildContext context) {
+  showNotifSheet(
+    context,
+    title: 'Needs attention',
+    scope: 'admin',
+    items: adminBellItems,
+    emptyText: 'Nothing needs your attention.',
+    onOpen: (n) {
+      if (context.mounted && n.tab != null) adminJump(context, n.tab!);
+    },
   );
 }
 

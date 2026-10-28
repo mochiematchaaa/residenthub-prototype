@@ -7,6 +7,7 @@ export 'form_sheet.dart';
 export 'floating_nav.dart';
 export 'line_chart.dart';
 export 'motion.dart';
+export 'notif_sheet.dart';
 export 'page_scaffolds.dart';
 export 'pastel.dart';
 export 'quick_search.dart';

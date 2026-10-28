@@ -1,78 +1,46 @@
-// The notification list (bell) for residents.
+// The notification list (bell) for residents, laid out like Facebook's.
 
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
 import 'dues_screen.dart';
+import 'parking_screen.dart';
+import 'polls_screen.dart';
 
-/// Bottom sheet opened by the bell button on the resident home screen.
+/// Opened by the bell button on the resident home screen.
 void showResNotifications(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    useSafeArea: true,
-    builder: (ctx) {
-      final notifs = app.myNotifs;
-      return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Notifications', style: hd(22)),
-          const SizedBox(height: 10),
-          if (notifs.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text('No notifications yet.', style: TextStyle(color: muted(context))),
-            ),
-          for (final n in notifs)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: IconBadge(
-                n[1] == 'good'
-                    ? Icons.check_rounded
-                    : n[1] == 'bad'
-                        ? Icons.priority_high_rounded
-                        : n[1] == 'warn'
-                            ? Icons.schedule_rounded
-                            : Icons.info_outline_rounded,
-                tone: n[1] == 'good'
-                    ? Tone.good
-                    : n[1] == 'bad'
-                        ? Tone.bad
-                        : n[1] == 'warn'
-                            ? Tone.warn
-                            : Tone.info,
-                size: 40,
-              ),
-              title: Text(n[0], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              subtitle: n.length > 2
-                  ? Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(minimumSize: const Size(0, 34), padding: const EdgeInsets.symmetric(horizontal: 16)),
-                          onPressed: () {
-                            final due = app.myDues.where((d) => '${d.id}' == n[2]).firstOrNull;
-                            Navigator.pop(ctx);
-                            go(context, const ResDues());
-                            if (due != null) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (context.mounted) sendDueProof(context, due: due);
-                              });
-                            }
-                          },
-                          child: const Text('Pay now'),
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-        ],
-      ),
-    );
-    },
+  showNotifSheet(
+    context,
+    title: 'Notifications',
+    scope: app.bellScope,
+    items: () => app.myBell,
+    emptyText: 'No notifications yet.',
+    onOpen: (n) => openResNotification(context, n),
   );
+}
+
+/// Goes to the page a notification is about.
+void openResNotification(BuildContext context, NotifItem n) {
+  if (!context.mounted) return;
+  if (n.dueId != null) {
+    final due = app.myDues.where((d) => '${d.id}' == n.dueId).firstOrNull;
+    go(context, const ResDues());
+    if (due != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) sendDueProof(context, due: due);
+      });
+    }
+    return;
+  }
+  final t = n.text.toLowerCase();
+  if (t.contains('parking')) {
+    go(context, const ResParking());
+  } else if (t.contains('poll')) {
+    go(context, const ResPolls());
+  } else if (t.contains('booking') || t.contains('request')) {
+    app.setResTab(1);
+  } else if (t.contains('charge') || t.contains('payment') || t.contains('overdue') || t.contains('reminder from the office')) {
+    app.setResTab(3);
+  }
 }

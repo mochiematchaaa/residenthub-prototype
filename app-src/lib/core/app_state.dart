@@ -11,6 +11,7 @@ import 'doc_model.dart';
 import 'doc_seed.dart';
 import 'expenses.dart';
 import 'payments.dart';
+import 'reminders.dart';
 import 'rich_text.dart';
 import 'usage_forms.dart';
 
@@ -645,6 +646,10 @@ class AppState extends ChangeNotifier {
     polls.clear();
     walkins.clear();
     leaveNotes.clear();
+    book.clear();
+    remParking = RemCfg(days: 5, freq: 'every');
+    remDues = RemCfg(days: 2, freq: 'daily');
+    parkSoonDays = 5;
     smsLog.clear();
     _ballots.clear();
     pollCats
@@ -1227,6 +1232,125 @@ class AppState extends ChangeNotifier {
     _n();
   }
 
+  // ------------------------------------------------------------ reminders and the bell
+
+  RemCfg remParking = RemCfg(days: 5, freq: 'every');
+  RemCfg remDues = RemCfg(days: 2, freq: 'daily');
+
+  /// Read marks and "shown today" marks of the notification list and the reminder pop-up.
+  final NotifBook book = NotifBook();
+
+  RemCfg remOf(String kind) => kind == 'parking' ? remParking : remDues;
+
+  void setRem(String kind, RemCfg c) {
+    if (kind == 'parking') {
+      remParking = c;
+      parkSoonDays = c.on ? c.days : -9999;
+    } else {
+      remDues = c;
+    }
+    logActivity('Reminder changed: ${remNames[kind]} (${c.on ? '${c.days} days before, ${(remFreqLabels[c.freq] ?? '').toLowerCase()}' : 'off'})', 'Settings');
+    _n();
+  }
+
+  /// The message of a reminder, in the office's words when it has set them.
+  String remText(String kind, Map<String, String> vars) {
+    final t = remOf(kind).msg.trim();
+    return remFill(t.isEmpty ? remDefaultText[kind]! : t, vars);
+  }
+
+  /// Whether the office wrote its own words for this reminder.
+  bool remCustom(String kind) => remOf(kind).msg.trim().isNotEmpty;
+
+  /// Who the bell belongs to.
+  String get bellScope => role == Role.admin ? 'admin' : 'r-$myUnit';
+
+  /// The signed-in resident's notifications with read marks, newest first.
+  List<NotifItem> get myBell => book.list(bellScope, [
+        for (final n in myNotifs) (text: n[0], tone: n[1], dueId: n.length > 2 ? n[2] : null, icon: null, tab: null),
+      ]);
+
+  int bellBadge(List<NotifItem> items) => book.badge(bellScope, items);
+
+  void bellOpened(String scope) {
+    book.opened[scope] = DateTime.now().millisecondsSinceEpoch;
+    _n();
+  }
+
+  void bellRead(String key) {
+    book.read[key] = DateTime.now().millisecondsSinceEpoch;
+    _n();
+  }
+
+  void bellReadAll(List<NotifItem> items) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final n in items) {
+      book.read[n.key] = now;
+    }
+    _n();
+  }
+
+  /// Reminders this resident has right now (before the "how often" rule), most urgent first.
+  List<Reminder> get remCandidates {
+    final out = <Reminder>[];
+    final slot = slotOf(myUnit);
+    final pd = slot == null ? null : parkDueOf(slot);
+    if (remParking.on &&
+        remParking.freq != 'bell' &&
+        slot != null &&
+        pd != null &&
+        pd.soon &&
+        !leaveNotes.containsKey(myUnit) &&
+        renewProofOf(myUnit, slot.id) == null &&
+        walkinOf(myUnit, renew: true) == null) {
+      out.add(Reminder(
+        'park:${slot.id}:${pd.nextDue}',
+        'parking',
+        pd.late ? 'Your parking rental has ended or is due' : 'Your parking rental is almost up',
+        remText('parking', {'slot': slot.id, 'date': isoShort(pd.nextDue), 'days': parkDaysText(pd.days)}),
+        'Open Parking',
+        pd.late,
+        pd.days,
+      ));
+    }
+    if (remDues.on && remDues.freq != 'bell') {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      for (final d in myDues.where((d) => !d.paid)) {
+        if (myProofs.any((p) => p.status == 'Pending' && p.forText == d.note)) continue;
+        final due = parseShortDate(d.dueDate);
+        if (due == null) continue;
+        final n = DateTime(due.year, due.month, due.day).difference(today).inDays;
+        if (n > remDues.days) continue;
+        out.add(Reminder(
+          'due:${d.id}',
+          'dues',
+          n < 0 ? 'Overdue charge' : 'Charge coming due',
+          remText('dues', {'item': d.note, 'amount': peso(d.amt), 'when': remWhen(n), 'date': d.dueDate}),
+          'Pay now',
+          n < 0,
+          n,
+          '${d.id}',
+        ));
+      }
+    }
+    out.sort((a, b) => a.n.compareTo(b.n));
+    return out.take(4).toList();
+  }
+
+  /// The reminders to pop up now. Asking marks them as shown today.
+  List<Reminder> remPopupItems() {
+    final today = dayKey(DateTime.now());
+    if (book.snoozed[myUnit] == today) return [];
+    final items = remCandidates.where((r) => remOf(r.kind).freq == 'every' || book.shown['$myUnit|${r.key}'] != today).toList();
+    for (final r in items) {
+      book.shown['$myUnit|${r.key}'] = today;
+    }
+    return items;
+  }
+
+  void remSnoozeToday() => book.snoozed[myUnit] = dayKey(DateTime.now());
+
   /// Late charge added by the system when a charge is still unpaid [lateFeeDays] days after its due date.
   bool lateFeeOn = true;
   int lateFeeDays = 1;
@@ -1565,7 +1689,7 @@ class AppState extends ChangeNotifier {
       if (days < 0 && nLate < 4) {
         nLate++;
         out.insert(0, ['Overdue by ${-days} day${days == -1 ? '' : 's'}: ${d.note} (${peso(d.amt)}). Tap to pay and send your proof.', 'bad', '${d.id}']);
-      } else if (days >= 0 && days <= 2) {
+      } else if (days >= 0 && remDues.on && days <= remDues.days) {
         out.add([
           days == 0
               ? '${d.note} is due TODAY (${d.dueDate}). Pay within the day and send your proof so your dashboard updates.'
@@ -1613,7 +1737,9 @@ class AppState extends ChangeNotifier {
     final pd = mySlot == null ? null : parkDueOf(mySlot);
     if (mySlot != null && pd != null && pd.soon && !leaveNotes.containsKey(myUnit) && renewProofOf(myUnit, mySlot.id) == null && walkinOf(myUnit, renew: true) == null) {
       out.insert(0, [
-        'Your parking rental for ${mySlot.id} ${pd.late ? 'has ended or is due' : 'is almost up'}. The next payment is due ${isoShort(pd.nextDue)} (${parkDaysText(pd.days)}). Renew to keep your slot, or tell the office if you no longer plan to rent.',
+        remCustom('parking')
+            ? remText('parking', {'slot': mySlot.id, 'date': isoShort(pd.nextDue), 'days': parkDaysText(pd.days)})
+            : 'Your parking rental for ${mySlot.id} ${pd.late ? 'has ended or is due' : 'is almost up'}. The next payment is due ${isoShort(pd.nextDue)} (${parkDaysText(pd.days)}). Renew to keep your slot, or tell the office if you no longer plan to rent.',
         pd.late ? 'bad' : 'warn'
       ]);
     }

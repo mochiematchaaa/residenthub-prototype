@@ -318,14 +318,67 @@ document.addEventListener("click", function(e){
   if (state.bellOpen && !e.target.closest(".bell-wrap")) set({ bellOpen:false });
 });
 
-/* 8 ---------- Notification bell (each page defines bellItems()) ---------- */
+/* 8 ---------- Notification bell, Facebook style (each page defines bellItems()) ----------
+   Every notification is read or unread on its own (a blue dot, bold text), shows how long ago it appeared, and opens the page it is about.
+   There are two tabs (All, Unread) and "Mark all as read". The badge counts what is new since the bell was last opened.
+   The read marks live in this browser, one set for each person (the administrator, or each unit). */
+function bellScope(){ return typeof myUnit === "function" && myUnit() ? "r-" + myUnit() : "admin"; }
+function bellStore(){
+  try { const s = JSON.parse(localStorage.getItem("rh_bell_" + bellScope()) || "null"); if (s && s.read && s.seen) return s; } catch (e) { /* storage blocked */ }
+  return { read:{}, seen:{}, openedAt:0 };
+}
+function bellSave(s){ try { localStorage.setItem("rh_bell_" + bellScope(), JSON.stringify(s)); } catch (e) { /* storage blocked */ } }
+// A short code for one notification: the same words always give the same code, so "read" is remembered.
+function bellKey(n){
+  const t = String(n.t).replace(/<[^>]+>/g, "") + "|" + (n.v || "");
+  let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+// "Just now", "5m", "3h", "2d", "1w".
+function bellAgo(ts){
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return "Just now";
+  const m = Math.floor(s / 60); if (m < 60) return m + "m";
+  const h = Math.floor(m / 60); if (h < 24) return h + "h";
+  const d = Math.floor(h / 24); return d < 7 ? d + "d" : Math.floor(d / 7) + "w";
+}
+// The notifications with their code, when they first appeared and whether they are unread. Newest first.
+function bellList(){
+  const items = bellItems(), st = bellStore(), now = Date.now(); let dirty = false;
+  items.forEach(n => {
+    n.key = bellKey(n);
+    if (!st.seen[n.key]) { st.seen[n.key] = now; dirty = true; }
+    n.at = st.seen[n.key]; n.unread = !st.read[n.key];
+  });
+  Object.keys(st.seen).forEach(k => { if (now - st.seen[k] > 45 * 86400000) { delete st.seen[k]; delete st.read[k]; dirty = true; } });
+  if (dirty) bellSave(st);
+  return items.sort((a, b) => b.at - a.at);
+}
+function bellToggle(){
+  if (!state.bellOpen) { const st = bellStore(); st.openedAt = Date.now(); bellSave(st); }
+  set({ bellOpen: !state.bellOpen });
+}
+// Marks one notification as read, closes the bell and opens what it is about.
+function bellGo(key){
+  const n = bellList().filter(x => x.key === key)[0]; if (!n) return;
+  const st = bellStore(); st.read[key] = Date.now(); bellSave(st);
+  if (n.pay) { bellPay(String(n.pay).replace(/'/g, "")); return; }
+  set({ view: n.v, bellOpen: false, bellSeen: true });
+}
+function bellReadAll(){ const st = bellStore(), now = Date.now(); bellList().forEach(n => { st.read[n.key] = now; }); st.openedAt = now; bellSave(st); set({ bellSeen: true }); }
 function bellHtml(){
-  const items = bellItems();
-  const unread = state.bellSeen ? 0 : items.length;
+  const all = bellList(), st = bellStore(), tab = state.bellTab === "unread" ? "unread" : "all";
+  const unread = all.filter(n => n.unread), fresh = unread.filter(n => n.at > (st.openedAt || 0)).length;
+  const shown = tab === "unread" ? unread : all;
+  const row = n => `<button class="bn ${n.tone || "info"}${n.unread ? " unread" : ""}" onclick="bellGo('${n.key}')"><span class="bn-ico">${icon(NAV_ICONS[n.v] ? n.v : "bell")}</span><span class="bn-main"><span class="bn-t">${n.t}</span><small class="bn-time">${bellAgo(n.at)}${n.s && n.s !== "Open" ? " · " + n.s : ""}</small></span>${n.unread ? '<i class="bn-dot" aria-label="Unread"></i>' : ""}</button>`;
+  const news = shown.filter(n => n.unread), older = shown.filter(n => !n.unread);
+  const body = (news.length ? '<div class="bn-sec">New</div>' + news.map(row).join("") : "") + (older.length ? '<div class="bn-sec">Earlier</div>' + older.map(row).join("") : "") ||
+    `<p class="bn-empty">${tab === "unread" ? "No unread notifications." : "You're all caught up."}</p>`;
   return `<div class="bell-wrap">
-    <button class="icon-btn" title="Notifications" aria-label="Notifications" onclick="set({bellOpen:!state.bellOpen})">${icon("bell")}${unread?`<span class="badge">${unread}</span>`:""}</button>
-    ${state.bellOpen ? `<div class="bell-pop"><div class="bell-head"><b>Notifications</b><button onclick="set({bellSeen:true})">Mark all read</button></div>
-      ${items.length ? items.map(n=>`<button class="bell-item${n.tone==="bad"?" bad":n.tone==="warn"?" warn":""}" onclick="${n.pay?`bellPay('${String(n.pay).replace(/'/g,"")}')`:`set({view:'${n.v}',bellOpen:false,bellSeen:true})`}"><b>${n.t}</b><small>${n.s}</small></button>`).join("") : "<p>You're all caught up.</p>"}</div>` : ""}
+    <button class="icon-btn" title="Notifications" aria-label="Notifications${fresh ? ", " + fresh + " new" : ""}" onclick="bellToggle()">${icon("bell")}${fresh && !state.bellOpen ? `<span class="badge">${fresh > 9 ? "9+" : fresh}</span>` : ""}</button>
+    ${state.bellOpen ? `<div class="bell-pop bn-pop"><div class="bn-head"><b>Notifications</b><button onclick="bellReadAll()"${unread.length ? "" : " disabled"}>Mark all as read</button></div>
+      <div class="bn-tabs"><button class="${tab === "all" ? "on" : ""}" onclick="set({bellTab:'all'})">All</button><button class="${tab === "unread" ? "on" : ""}" onclick="set({bellTab:'unread'})">Unread${unread.length ? " (" + unread.length + ")" : ""}</button></div>
+      <div class="bn-list">${body}</div></div>` : ""}
   </div>`;
 }
 

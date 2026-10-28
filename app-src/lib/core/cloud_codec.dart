@@ -531,6 +531,9 @@ List<CRow> exportRows(AppState a) {
   add('setting', 'dues_rate_sqm', '', {'rate': a.duesRate});
   add('setting', 'poll_categories', '', {'list': a.pollCats});
   add('setting', 'autopost', '', {'on': a.autoPostOn, 'hours': a.autoPostHours});
+  add('setting', 'reminders', '', {
+    for (final k in remKinds) k: {'on': a.remOf(k).on ? 'yes' : 'no', 'days': a.remOf(k).days, 'freq': a.remOf(k).freq, 'msg': a.remOf(k).msg},
+  });
   add('setting', 'paycheck', '', {'pct': a.latePct});
   add('setting', 'latefee', '', {'on': a.lateFeeOn, 'days': a.lateFeeDays});
   add('setting', 'paymethods', '', {
@@ -679,6 +682,25 @@ void importRows(AppState a, Iterable<CRow> all) {
     a.autoPostOn = ap['on'] != false;
     final h = _num(ap, 'hours').toInt();
     a.autoPostHours = h > 0 ? h : 24;
+  }
+  final rm = st['reminders'];
+  for (final k in remKinds) {
+    final c = rm is Map ? rm[k] : null;
+    final d = k == 'parking' ? RemCfg(days: 5, freq: 'every') : RemCfg(days: 2, freq: 'daily');
+    if (c is Map) {
+      d.on = _s(c, 'on', 'yes') != 'no';
+      final n = _num(c, 'days').toInt();
+      if (n >= 1) d.days = n;
+      final f = _s(c, 'freq');
+      if (remFreqLabels.containsKey(f)) d.freq = f;
+      d.msg = _s(c, 'msg');
+    }
+    if (k == 'parking') {
+      a.remParking = d;
+      parkSoonDays = d.on ? d.days : -9999;
+    } else {
+      a.remDues = d;
+    }
   }
   final lateCfg = st['paycheck'];
   if (lateCfg != null && _num(lateCfg, 'pct') > 0) a.latePct = _num(lateCfg, 'pct');

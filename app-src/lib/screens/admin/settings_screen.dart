@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../widgets/widgets.dart';
+import '../resident/reminder_popup.dart';
 import '../shared/account_security.dart';
 import 'access_screen.dart';
 
@@ -28,6 +29,29 @@ class _AdminSettingsState extends State<AdminSettings> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _editReminder(String kind) {
+    final c = app.remOf(kind);
+    showFormSheet(
+      context,
+      title: 'Edit reminder: ${remNames[kind]}',
+      subtitle: 'You can use these words in the message and they are filled in for each resident: ${remTokens[kind]}. Leave the message empty to use the standard one.',
+      toggles: [ToggleSpec('on', 'Reminder on', c.on)],
+      fields: [
+        FieldSpec('days', 'Start reminding this many days before the due date', type: TextInputType.number, initial: '${c.days}'),
+        FieldSpec('msg', 'Message', lines: 4, hint: remDefaultText[kind], initial: c.msg),
+      ],
+      choices: [ChoiceSpec('freq', 'Pop-up on the resident\u2019s home screen', remFreqLabels.values.toList(), remFreqLabels[c.freq] ?? remFreqLabels['every']!)],
+      submit: 'Save',
+      onSubmit: (v) {
+        final days = int.tryParse('${v['days']}'.trim());
+        if (days == null || days < 1 || days > 60) return 'Choose between 1 and 60 days.';
+        final freq = remFreqLabels.entries.firstWhere((e) => e.value == v['freq'], orElse: () => remFreqLabels.entries.first).key;
+        app.setRem(kind, RemCfg(on: v['on'] == true, days: days, freq: freq, msg: '${v['msg']}'.trim()));
+        return null;
+      },
+    );
   }
 
   @override
@@ -65,6 +89,46 @@ class _AdminSettingsState extends State<AdminSettings> {
               ),
               const Icon(Icons.chevron_right_rounded),
             ]),
+          ),
+          RCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Reminders', style: hd(18)),
+                const SizedBox(height: 4),
+                Text(
+                  'Reminders pop up on the resident\u2019s home screen, appear in the notification bell and on the dashboard. Choose when they start, how often they pop up and what they say.',
+                  style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
+                ),
+                for (final k in remKinds) ...[
+                  const Divider(height: 26),
+                  Row(children: [
+                    Expanded(child: Text(remNames[k]!, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+                    Pill(app.remOf(k).on ? 'On' : 'Off', tone: app.remOf(k).on ? Tone.good : Tone.info),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(
+                    app.remOf(k).on
+                        ? 'Starts ${app.remOf(k).days} day${app.remOf(k).days == 1 ? '' : 's'} before the due date. Pop-up: ${(remFreqLabels[app.remOf(k).freq] ?? '').toLowerCase()}.'
+                        : 'Off. Residents are not reminded.',
+                    style: TextStyle(color: muted(context), fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: lav.withAlpha(40), borderRadius: BorderRadius.circular(14)),
+                    child: Text(app.remCustom(k) ? app.remOf(k).msg.trim() : remDefaultText[k]!, style: const TextStyle(fontSize: 12.5, height: 1.4)),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    FilledButton(onPressed: () => _editReminder(k), child: const Text('Edit reminder')),
+                    const SizedBox(width: 8),
+                    OutlinedButton(onPressed: () => showReminderPreview(context, k), child: const Text('Preview')),
+                  ]),
+                ],
+              ],
+            ),
           ),
           RCard(
             child: Column(

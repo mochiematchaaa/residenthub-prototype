@@ -41,7 +41,7 @@ class ResHome extends StatelessWidget {
         onAvatar: () => go(context, const ResSettings()),
         actions: [
           CircleBtn(Icons.search_rounded, tooltip: 'Search', onTap: () => showQuickSearch(context, _searchItems(context))),
-          CircleBtn(Icons.notifications_none_rounded, dot: true, tooltip: 'Notifications', onTap: () => showResNotifications(context)),
+          CircleBtn(Icons.notifications_none_rounded, badge: app.bellBadge(app.myBell), tooltip: 'Notifications', onTap: () => showResNotifications(context)),
         ],
       ),
       children: [

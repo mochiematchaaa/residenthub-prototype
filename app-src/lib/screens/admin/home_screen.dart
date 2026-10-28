@@ -16,7 +16,6 @@ class AdminHome extends StatelessWidget {
     final recent = app.announcements.take(3).toList();
     final upcoming = app.upcomingBookings;
     final settled = app.dues.length - app.unpaidCount;
-    final attentionTotal = app.unpaidCount + app.pendingBookings + app.newStatusUpdates + app.payCheckList.length;
 
     return TabPage(
       header: AppHeader(
@@ -26,7 +25,7 @@ class AdminHome extends StatelessWidget {
         onAvatar: () => go(context, const AdminSettings()),
         actions: [
           CircleBtn(Icons.search_rounded, tooltip: 'Search', onTap: () => showQuickSearch(context, adminSearchItems(context))),
-          CircleBtn(Icons.notifications_none_rounded, dot: attentionTotal > 0, tooltip: 'Needs attention', onTap: () => showAdminAttention(context)),
+          CircleBtn(Icons.notifications_none_rounded, badge: app.bellBadge(adminBellItems()), tooltip: 'Needs attention', onTap: () => showAdminAttention(context)),
         ],
       ),
       children: [

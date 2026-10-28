@@ -77,7 +77,7 @@ function notifs() {
   myOpenDues().forEach(function (r) {
     var rem = parseShort(r.v.remindedOn || ""), due = parseShort(r.v.dueDate || ""), days = due ? Math.round((due.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null;
     if (rem && Date.now() - rem.getTime() < 10 * 86400000) out.push(["Reminder from the office (" + r.v.remindedOn + ")" + (r.v.remindMsg ? ": " + r.v.remindMsg + " —" : ":") + " " + r.v.note + " (" + peso(Number(r.v.amount)) + ") " + (days == null ? "is waiting for your payment." : days < 0 ? "is overdue by " + (-days) + " day" + (days === -1 ? "" : "s") + "." : days === 0 ? "is due today." : "is due in " + days + " day" + (days === 1 ? "" : "s") + " (" + r.v.dueDate + ")."), days != null && days < 0 ? "bad" : "info", "dues"]);
-    else if (days != null && days >= 0 && days <= 2 && !hasPendingProof(r.v)) out.push([r.v.note + " (" + peso(Number(r.v.amount)) + ") is due " + (days === 0 ? "TODAY. Pay within the day and send your proof so your dashboard updates" : days === 1 ? "tomorrow" : "in " + days + " days") + " (" + r.v.dueDate + "). Tap to pay and send your proof.", days === 0 ? "bad" : "warn", "dues", r.id]);
+    else if (days != null && days >= 0 && days <= remCfg().dues.days && remCfg().dues.on !== "no" && !hasPendingProof(r.v)) out.push([r.v.note + " (" + peso(Number(r.v.amount)) + ") is due " + (days === 0 ? "TODAY. Pay within the day and send your proof so your dashboard updates" : days === 1 ? "tomorrow" : "in " + days + " days") + " (" + r.v.dueDate + "). Tap to pay and send your proof.", days === 0 ? "bad" : "warn", "dues", r.id]);
   });
   // every overdue charge, with a Pay button (the notice shows by itself the day after the due date)
   myOpenDues().filter(function (r) { return isOverdue(r.v) && !hasPendingProof(r.v); }).slice(0, 4).forEach(function (r) {
@@ -146,6 +146,7 @@ function render() {
   app.classList.toggle("enter-shell", authChanged);
   if (viewChanged && !authChanged) window.scrollTo({ top: 0, behavior: "smooth" });
   var isHome = state.view === "home";
+  if (viewChanged && isHome && state.authed) setTimeout(function () { if (typeof remPopup === "function") remPopup(); }, 500);   // reminder pop-up each time the dashboard opens
   keepFocus(function () {
     mountApp(app, '<div class="shell"><aside class="side"><div class="side-brand"><img src="logo.jpg" alt=""><span>ResidentHub</span></div>' +
       '<div class="side-label">' + tr("General") + '</div><nav>' + navBtn("home", "Home") + navBtn("book", "Book a facility") + navBtn("res", "Reservations") + navBtn("dues", "Dues") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("events", "Events") + "</nav>" +
