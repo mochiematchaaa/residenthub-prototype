@@ -273,13 +273,15 @@ function progressBar(label, value, total, tone){
 }
 
 /* 6 ---------- Toast message + popup window ---------- */
-function toast(message){
+function toast(message, ms){
   let box = document.getElementById("toasts");
   if (!box){ box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); }
+  // At most 3 messages at a time, so they never pile up over the page
+  while (box.children.length >= 3) box.firstChild.remove();
   const el = document.createElement("div");
   el.className = "toast"; el.textContent = message;
   box.appendChild(el);
-  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 350); }, 3200);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 350); }, ms || 3200);
 }
 // Shows a popup window with the given HTML.
 function openModal(html){

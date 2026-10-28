@@ -522,9 +522,12 @@
   var db = startData();
   function demoNote() {
     if (!window.__rhDemoWasReset) return;
+    var text = "Sample data restored. What you tried before the refresh was dropped. You can turn this off in Settings > General > Demo data.";
+    /* shown with the other messages, in the same place, so they never overlap */
+    if (typeof toast === "function") { toast(text, 6500); return; }
     var n = document.createElement("div");
-    n.textContent = "Sample data restored. What you tried before the refresh was dropped. You can turn this off in Settings > General > Demo data.";
-    n.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:99998;max-width:340px;padding:12px 16px;border-radius:14px;background:#16233f;color:#fff;font:600 13px/1.4 'Source Sans 3',system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:opacity .5s";
+    n.textContent = text;
+    n.style.cssText = "position:fixed;right:16px;top:16px;z-index:99998;max-width:340px;padding:12px 16px;border-radius:14px;background:#16233f;color:#fff;font:600 13px/1.4 'Source Sans 3',system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:opacity .5s";
     document.body.appendChild(n);
     setTimeout(function () { n.style.opacity = "0"; }, 5200); setTimeout(function () { n.remove(); }, 5800);
   }
