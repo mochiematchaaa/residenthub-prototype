@@ -405,8 +405,9 @@ html:has(.modal-back),html:has(.img-view),body:has(.modal-back),body:has(.img-vi
 .modal{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain}
 .img-view{overscroll-behavior:contain}
 textarea{overscroll-behavior:contain}
-/* Mouse and trackpad only. On a phone a swipe that starts on a table, a list or a card must always reach the page. */
-@media (hover:hover) and (pointer:fine){div,form,aside,section,ul,table{overscroll-behavior:contain}}
+/* Only real scrolling areas keep their scroll to themselves. Cards, charts and other boxes must never stop the mouse wheel from scrolling the page. */
+.card:has(> table),.fin-charges,.csv-scroll,.rental-table-wrap,.expense-table{overscroll-behavior-x:contain}
+.side,.search-out,.rh-search-results{overscroll-behavior-y:contain}
 
 /* Calendar: events, bookings, polls, elections and holidays, with a live clock */
 .cal-clock{display:flex;flex-direction:column;align-items:center;margin-bottom:10px}
