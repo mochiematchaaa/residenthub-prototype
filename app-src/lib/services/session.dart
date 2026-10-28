@@ -186,7 +186,10 @@ class SessionService {
         return 'Could not save. Check your internet connection and try again.';
       }
     }
+    final oldName = app.me?.name ?? '';
     app.setMyProfile(name.trim(), ph);
+    // a resident's change is written on their unit record, so the office sees it under Resident profiles
+    if (!admin && oldName != name.trim()) app.logMyChange([('Name', oldName, name.trim())]);
     return null;
   }
 

@@ -173,6 +173,11 @@ class RecordSheet extends StatelessWidget {
           ),
         _head(context, 'Vehicles', edit: self),
         _chips(context, u.vehicles, empty: 'None on file'),
+        if (u.selfLog.isNotEmpty) ...[
+          _head(context, 'Recent changes by the resident'),
+          for (final h in u.selfLog.take(6))
+            _row(context, h.field, '${h.from.isEmpty ? '' : '${h.from} → '}${h.to.isEmpty ? 'removed' : h.to} · ${shortDate(DateTime.fromMillisecondsSinceEpoch(h.at))}'),
+        ],
       ]),
     );
   }
