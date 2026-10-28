@@ -1683,7 +1683,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Admin: reserves a time of amenity [f] today for a unit (for example a walk-in at the office).
-  String? reserveSlot(int f, int i, String unitRaw) {
+  String? reserveAmenityTime(int f, int i, String unitRaw) {
     String norm(String t) => t.toLowerCase().replaceAll('unit', '').replaceAll(RegExp(r'[^a-z0-9]'), '');
     final key = norm(unitRaw);
     final u = key.isEmpty ? null : units.where((x) => norm(x.unit) == key).firstOrNull;

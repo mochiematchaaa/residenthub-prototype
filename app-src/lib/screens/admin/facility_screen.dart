@@ -116,7 +116,7 @@ class _AdminFacilityState extends State<AdminFacility> {
           app.toggleSlot(f, i);
           return null;
         }
-        return app.reserveSlot(f, i, v['unit'] as String);
+        return app.reserveAmenityTime(f, i, v['unit'] as String);
       },
     );
   }
