@@ -6,7 +6,7 @@ var state = {
   bellOpen: false, bellSeen: false,
   unitSearch: "", unitPage: 0, facIdx: 0,
   newPollQ: "", newPollOpts: "", pollFilter: "open",
-  finTab: "overview", expPage: 0, finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, pcAll: false, payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
+  finTab: "overview", expPage: 0, finView: "day", finExpDay: "", finMonth: null, finFilter: "unpaid", finQ: "", finPage: 0, pcAll: false, pcPage: 0, pcQ: "", pcFilter: "all", payUnit: "", payDues: [], payDate: "", payMethod: "", payRef: "", duesDraft: null, motorDraft: null, dailyDraft: null, logPage: 0,
   expMonth: "", expDay: "",
   manage: { name: "", email: "", phone: "", unit: "" }, manageSearch: "", manageErr: ""
 };

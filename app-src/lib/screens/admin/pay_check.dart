@@ -23,6 +23,11 @@ class PayCheckCard extends StatefulWidget {
 class _PayCheckCardState extends State<PayCheckCard> {
   bool _all = false;
 
+  /// The Finance page shows a few charges at a time (page by page), with a filter.
+  static const _pageSize = 8;
+  int _page = 0;
+  String _filter = 'All';
+
   String _when(int days) => days <= 0 ? 'Due today' : 'Overdue by $days day${days == 1 ? '' : 's'}';
 
   List<String> get _methods => [for (final m in app.payMethods) m.name];
@@ -159,7 +164,12 @@ class _PayCheckCardState extends State<PayCheckCard> {
     if (l.isEmpty) return const SizedBox.shrink();
     final units = {for (final x in l) x.due.unit};
     final total = l.fold<num>(0, (s, x) => s + x.due.amount);
-    final shown = (widget.limit > 0 && !_all) ? l.take(widget.limit).toList() : l;
+    final overdue = l.where((x) => x.days > 0).toList();
+    final paged = widget.limit == 0;
+    final filtered = !paged ? l : (_filter == 'Overdue' ? overdue : (_filter == 'Today' ? l.where((x) => x.days <= 0).toList() : l));
+    final pages = filtered.isEmpty ? 1 : (filtered.length + _pageSize - 1) ~/ _pageSize;
+    final pg = _page < 0 ? 0 : (_page > pages - 1 ? pages - 1 : _page);
+    final shown = paged ? filtered.skip(pg * _pageSize).take(_pageSize).toList() : ((widget.limit > 0 && !_all) ? l.take(widget.limit).toList() : l);
     return RCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,7 +191,30 @@ class _PayCheckCardState extends State<PayCheckCard> {
           ),
           const SizedBox(height: 8),
           Align(alignment: Alignment.centerLeft, child: OutlinedButton(onPressed: _askAll, child: const Text('Ask everyone to send proof'))),
+          if (paged) ...[
+            const SizedBox(height: 8),
+            FilterRow(
+              options: ['All (${l.length})', 'Overdue (${overdue.length})', 'Due today (${l.length - overdue.length})'],
+              selected: _filter == 'Overdue' ? 'Overdue (${overdue.length})' : (_filter == 'Today' ? 'Due today (${l.length - overdue.length})' : 'All (${l.length})'),
+              onSelect: (v) => setState(() {
+                _filter = v.startsWith('Overdue') ? 'Overdue' : (v.startsWith('Due today') ? 'Today' : 'All');
+                _page = 0;
+              }),
+            ),
+          ],
           for (final x in shown) _row(context, x.due, x.days),
+          if (paged && filtered.length > _pageSize)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton(onPressed: pg == 0 ? null : () => setState(() => _page = pg - 1), child: const Text('‹ Prev')),
+                  Text('${pg * _pageSize + 1}–${(pg + 1) * _pageSize > filtered.length ? filtered.length : (pg + 1) * _pageSize} of ${filtered.length}', style: TextStyle(color: muted(context), fontSize: 12.5)),
+                  OutlinedButton(onPressed: pg >= pages - 1 ? null : () => setState(() => _page = pg + 1), child: const Text('Next ›')),
+                ],
+              ),
+            ),
           if (widget.limit > 0 && l.length > widget.limit)
             Padding(
               padding: const EdgeInsets.only(top: 10),

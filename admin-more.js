@@ -120,11 +120,17 @@ function viewFin() {
     }).join("") || '<p class="hint" style="margin:0">No payments recorded yet.</p>') +
     '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div>';
   var tab = state.finTab || "overview";
-  var tabDefs = [["overview", "Overview" + (proofs.length ? " (" + proofs.length + " to verify)" : "")], ["charges", "Charges (" + open.length + " unpaid)"], ["pay", "Record payment"], ["daily", "Daily log"], ["units", "Unit dues"], ["settings", "Settings"]];
+  var pcCount = payCheckList().length;
+  var tabDefs = [["overview", "Overview"], ["verify", "To verify" + (proofs.length ? " (" + proofs.length + ")" : "")], ["paycheck", "Did they pay?" + (pcCount ? " (" + pcCount + ")" : "")], ["charges", "Charges (" + open.length + " unpaid)"], ["pay", "Record payment"], ["daily", "Daily log"], ["units", "Unit dues"], ["settings", "Settings"]];
   if (!tabDefs.some(function (t) { return t[0] === tab; })) tab = "overview";
   var tabBar = '<div class="filters fin-tabs" role="tablist" style="margin-bottom:16px">' + tabDefs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({finTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
   var chargesBar = '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><span class="hint" style="margin:0 auto 0 0">Bill every unit for the month, remind residents, or add a single charge.</span><button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button></div>';
-  var body = tab === "overview" ? statsHtml + (payCheckList().length ? '<div style="margin-top:16px">' + payCheckPanel(0) + "</div>" : "") + '<div style="margin-top:16px">' + verifyHtml + "</div>" + '<div style="margin-top:16px">' + summaryHtml + "</div>"
+  var todoCards = (proofs.length || pcCount) ? '<div class="grid cols-2" style="margin-top:16px">' +
+      (proofs.length ? '<div class="card fin-todo"><h2>' + proofs.length + " payment" + (proofs.length === 1 ? "" : "s") + ' to verify</h2><p class="hint" style="margin:4px 0 12px">Residents sent their payment details. Check them and post.</p><button class="btn primary" onclick="set({finTab:\'verify\'})">Open To verify</button></div>' : "") +
+      (pcCount ? '<div class="card fin-todo"><h2>' + pcCount + " charge" + (pcCount === 1 ? "" : "s") + ' to check</h2><p class="hint" style="margin:4px 0 12px">Due or past due with no payment on record. Ask: did they pay?</p><button class="btn primary" onclick="set({finTab:\'paycheck\',pcPage:0})">Open Did they pay?</button></div>' : "") + "</div>" : "";
+  var body = tab === "overview" ? statsHtml + todoCards + '<div style="margin-top:16px">' + summaryHtml + "</div>"
+    : tab === "verify" ? verifyHtml
+    : tab === "paycheck" ? (pcCount ? payCheckPanel(0) : '<div class="card"><h2>Did they pay?</h2><p class="hint" style="margin:6px 0 0">Nothing to check right now. Every charge that is due has a payment, or the resident has already sent their details.</p></div>')
     : tab === "charges" ? chargesBar + chargeTypesCard(dues) + chargesHtml
     : tab === "pay" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + deskHtml + '</div><aside class="fin-side">' + receiptsHtml + "</aside></div>"
     : tab === "daily" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + logHtml + '</div><aside class="fin-side">' + dailyExpHtml + "</aside></div>"
