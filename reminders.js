@@ -68,7 +68,7 @@ function custSettingsHtml() {
       var freq = CREM_FREQ.filter(function (f) { return f[0] === r.freq; })[0];
       return '<div class="rem-row"><div style="min-width:0;flex:1 1 240px"><b>' + esc(r.title) + '</b> <span class="chip ' + (r.on === "no" ? "" : "good") + '">' + (r.on === "no" ? "Off" : "On") + '</span><div class="hint" style="margin:2px 0 0">' + esc(r.text) + '</div><small class="hint">' + esc(custWhenText(r)) + " · " + esc(custAudText(r)) + " · " + esc(freq ? freq[1] : "") + '</small></div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="custForm(\'' + escAttr(r.id) + '\')">Edit</button><button class="btn" onclick="custToggle(\'' + escAttr(r.id) + '\')">' + (r.on === "no" ? "Turn on" : "Turn off") + '</button><button class="btn" onclick="custDelete(\'' + escAttr(r.id) + '\')">Delete</button></div></div>';
-    }).join("") + pagerHtml(l.length, 5, "custPage") : '<div class="rem-empty">No reminders of your own yet. Press “Add reminder” to write one.</div>') + "</div>";
+    }).join("") + pagerPN(l.length, 5, "custPage") : '<div class="rem-empty">No reminders of your own yet. Press “Add reminder” to write one.</div>') + "</div>";
 }
 function custForm(id) {
   var cur = id ? custList().filter(function (r) { return String(r.id) === String(id); })[0] : null, today = dayKey(new Date());

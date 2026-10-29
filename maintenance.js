@@ -562,7 +562,7 @@
           '<small class="gr-by">Reported by ' + esc(g.by || r.unit) + '</small><p class="gr-body">' + esc(g.body) + "</p>" +
           assignBlock(r) + '<div class="gr-steps">' + steps + "</div>" +
           '<div class="gr-actions"><button class="btn" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign repair") + '</button><button class="btn primary" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button></div></div>";
-      }).join("") + "</div>" + pagerHtml(active.length, 6, "grActPage") : emptyCard(grs.length ? "No active complaints. Finished ones are under Done." : "No complaints from residents yet."));
+      }).join("") + "</div>" + pagerPN(active.length, 6, "grActPage") : emptyCard(grs.length ? "No active complaints. Finished ones are under Done." : "No complaints from residents yet."));
     }
     // Done, compiled by the month it was finished
     var cost = done.reduce(function (t, r) { return t + (Number(r.v.cost) || 0); }, 0), groups = {}, order = [];
@@ -580,7 +580,7 @@
             (g.completion ? '<div style="font-size:13px;margin-top:3px">' + esc(g.completion) + "</div>" : "") + '</div><div style="text-align:right;font-size:13px;color:var(--muted);white-space:nowrap"><span class="chip good">Resolved</span><div style="margin-top:4px">' + (g.resolvedOn ? esc(fd(g.resolvedOn)) : "") + (g.cost ? " · " + money(g.cost) : "") + "</div></div></div>";
         }).join("") + "</div>";
     }).join("");
-    return bar + chips + (done.length ? '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(done.length, "Complaints resolved", "good") + statTile(money(cost), "Total repair cost", "") + "</div>" + body + pagerHtml(doneSorted.length, 8, "grDonePage") : emptyCard("Nothing is done yet. Resolved complaints are compiled here by month."));
+    return bar + chips + (done.length ? '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(done.length, "Complaints resolved", "good") + statTile(money(cost), "Total repair cost", "") + "</div>" + body + pagerPN(doneSorted.length, 8, "grDonePage") : emptyCard("Nothing is done yet. Resolved complaints are compiled here by month."));
   };
 
   /* ==========================================================================

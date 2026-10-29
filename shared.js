@@ -504,7 +504,7 @@ function pageCount(total, per){ return Math.max(1, Math.ceil(total / per)); }
 function pageNow(total, per, key){ return Math.min(Math.max(0, Number(state[key]) || 0), pageCount(total, per) - 1); }
 function pageSlice(list, per, key){ const p = pageNow(list.length, per, key); return list.slice(p * per, p * per + per); }
 // Previous / Next buttons with "Page 2 of 4". key is the state name that holds the page number.
-function pagerHtml(total, per, key){
+function pagerPN(total, per, key){
   const pages = pageCount(total, per), p = pageNow(total, per, key);
   if (pages <= 1) return "";
   const btn = (n, label, off) => `<button type="button" class="btn" ${off ? "disabled" : ""} onclick="set({${key}:${n}})">${label}</button>`;
