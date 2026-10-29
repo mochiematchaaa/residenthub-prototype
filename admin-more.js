@@ -983,13 +983,13 @@ function viewReq() {
     return '<div class="card"><div><div style="font:700 17px \'Bricolage Grotesque\',\'Source Sans 3\',sans-serif">' + esc(g.title) + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Reported by ' + esc(g.by || r.unit) + '</div><p style="font-size:13px;color:var(--muted);margin:8px 0 0">' + esc(g.body) + "</p></div>" +
       '<div style="display:flex;gap:6px;margin:10px 0">' + steps + "</div>" + (s < 2 ? '<button class="btn primary" style="width:100%" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start working on it" : "Mark resolved") + "</button>" : "") + "</div>";
   }).join("") + "</div>" : emptyCard("No complaints from residents yet.")) +
-    '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 18px"><h2 style="font-size:19px;flex-grow:1">Community documents</h2>' +
-    '<select id="docCat" style="height:38px">' + DOC_CATS.map(function (c) { return "<option>" + c + "</option>"; }).join("") + '</select><select id="docAud" style="height:38px"><option value="all">Everyone</option><option value="admin">Admin only</option></select>' +
-    '<input type="file" id="docFileInput" style="display:none" onchange="uploadDoc(this)"><button class="btn primary" onclick="document.getElementById(\'docFileInput\').click()">+ Upload file</button></div>' +
+    '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div class="doc-head"><h2>Community documents</h2><div class="doc-ctl">' +
+    '<select id="docCat" aria-label="Category">' + DOC_CATS.map(function (c) { return "<option>" + c + "</option>"; }).join("") + '</select><select id="docAud" aria-label="Who can see it"><option value="all">Everyone</option><option value="admin">Admin only</option></select>' +
+    '<input type="file" id="docFileInput" style="display:none" onchange="uploadDoc(this)"><button class="btn primary" onclick="document.getElementById(\'docFileInput\').click()">+ Upload file</button></div></div>' +
     (docs.map(function (r) {
       var d = r.v;
-      return '<div style="display:flex;align-items:center;gap:12px;padding:0 18px;min-height:50px;border-top:1px solid var(--border2);font-size:14px;flex-wrap:wrap"><span style="flex-grow:1;font-weight:700">' + esc(d.name) + '</span><span style="color:var(--muted)">' + esc(d.cat || "Other") + '</span><span style="color:var(--muted)">' + esc(d.date) + "</span>" +
-        (d.audience === "admin" ? '<span class="chip warn">Admin only</span>' : "") + '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="openDoc(\'' + escAttr(r.id) + '\')">View</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDoc(\'' + escAttr(r.id) + '\')">Delete</button></div>';
+      return '<div class="doc-row"><div class="doc-main"><b>' + esc(d.name) + '</b><div class="doc-meta"><span>' + esc(d.cat || "Other") + '</span><span>' + esc(d.date) + "</span>" + (d.audience === "admin" ? '<span class="chip warn">Admin only</span>' : "") + "</div></div>" +
+        '<div class="doc-act"><button class="btn" onclick="openDoc(\'' + escAttr(r.id) + '\')">View</button><button class="btn danger" onclick="removeDoc(\'' + escAttr(r.id) + '\')">Delete</button></div></div>';
     }).join("") || '<div style="padding:18px;border-top:1px solid var(--border2);color:var(--muted)">No documents yet. Upload a file (up to 2 MB).</div>') + "</div>";
 }
 // Moves a complaint to its next stage.
