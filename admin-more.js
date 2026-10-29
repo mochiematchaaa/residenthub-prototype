@@ -1368,12 +1368,12 @@ function viewRentals() {
   var rejected = flagged.filter(function (r) { return r.v.usageStatus === "rejected"; }).length;
   return '<div class="grid cols-3">' + statCard("Awaiting review", String(pending)) + statCard("Approved", String(approved)) + statCard("Rejected", String(rejected)) + "</div>" +
     '<div class="card" style="margin-top:16px;font-size:13px;color:var(--muted)">Residents declare this themselves under their portal\'s <b>Unit Status</b> page. Short-term rentals (e.g. Airbnb) and home-based businesses need your review here before they are marked Approved — owner-occupied units and long-term tenant leases do not need approval.</div>' +
-    (waiting.length === 0 ? '<div class="card" style="margin-top:16px;color:var(--muted)">Nothing is waiting for your review right now.' + (flagged.length ? '' : ' No unit has declared a short-term rental or business yet.') + '</div>' : '<div class="rental-grid">' + rentalCards(waiting) + "</div>") +
-    (decided.length ? '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">Already decided: ' + approved + " approved, " + rejected + ' rejected</summary><div class="rental-grid" style="margin-top:14px">' + rentalCards(decided) + "</div></details>" : "") +
+    (waiting.length === 0 ? '<div class="card" style="margin-top:16px;color:var(--muted)">Nothing is waiting for your review right now.' + (flagged.length ? '' : ' No unit has declared a short-term rental or business yet.') + '</div>' : '<div class="rental-grid">' + rentalCards(pageSlice(waiting, 6, "rentWaitPage")) + "</div>" + pagerPN(waiting.length, 6, "rentWaitPage")) +
+    (decided.length ? '<details class="card" style="margin-top:16px"' + (state.rentDecPage ? " open" : "") + '><summary style="cursor:pointer;font-weight:700">Already decided: ' + approved + " approved, " + rejected + ' rejected</summary><div class="rental-grid" style="margin-top:14px">' + rentalCards(pageSlice(decided, 6, "rentDecPage")) + "</div>" + pagerPN(decided.length, 6, "rentDecPage") + "</details>" : "") +
     '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;padding:14px 18px"><h2 style="font-size:19px;flex-grow:1">All units by usage</h2><button class="btn" onclick="exportUnits()">Export .csv</button></div>' +
-    tableRows(units.map(function (r) {
+    tableRows(pageSlice(units, 10, "rentAllPage").map(function (r) {
       return '<tr><td style="font-weight:700">' + esc(r.id) + "</td><td>" + esc(r.v.name || "—") + "</td><td>" + usageCellHtml(r.v) + '</td><td style="color:var(--muted)">' + esc(r.v.statusNote || "") + '</td><td><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="setUsageForm(\'' + escAttr(r.id) + '\')">Change</button></td></tr>';
-    }), ["UNIT", "RESIDENT", "USAGE", "NOTE", ""], "No units yet.") + "</div>";
+    }), ["UNIT", "RESIDENT", "USAGE", "NOTE", ""], "No units yet.") + pagerPN(units.length, 10, "rentAllPage") + "</div>";
 }
 // Approves or rejects a unit's rental/business usage request.
 function rentalAct(unit, decision) {
