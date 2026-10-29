@@ -670,6 +670,7 @@ class AppState extends ChangeNotifier {
     remDues = RemCfg(days: 2, freq: 'daily');
     customRems = [];
     complaintLimit = 1;
+    smsPayment = '';
     hiddenNav = {};
     parkSoonDays = 5;
     smsLog.clear();
@@ -1107,7 +1108,7 @@ class AppState extends ChangeNotifier {
   /// [proofs] as already confirmed, so the website shows the same receipt.
   PaymentRecord _addPayment(String unit, String payer, String forText,
       String method, String reference, num amount,
-      {PaymentProof? proof}) {
+      {PaymentProof? proof, String image = ''}) {
     final no = (proof != null && proof.receiptNo.isNotEmpty) ? proof.receiptNo : nextReceiptNo();
     final date = shortDate(DateTime.now());
     final rec = PaymentRecord(
@@ -1126,8 +1127,10 @@ class AppState extends ChangeNotifier {
       proofs.insert(
         0,
         PaymentProof(nextId(), unit, payer, method, rec.reference, date, amount,
-            status: 'Confirmed', forText: forText, receiptNo: no, confirmedOn: date, direct: true),
+            status: 'Confirmed', forText: forText, receiptNo: no, confirmedOn: date, direct: true, image: image),
       );
+    } else if (image.isNotEmpty && proof.image.isEmpty) {
+      proof.image = image;
     }
     return rec;
   }
@@ -1264,6 +1267,25 @@ class AppState extends ChangeNotifier {
 
   /// How many open complaints one unit may have at the same time (the office changes it in Settings).
   int complaintLimit = 1;
+
+  /// The office's own wording for the text message after a recorded payment ('' = the standard one).
+  String smsPayment = '';
+  String get smsPaymentText => smsPayment.trim().isEmpty ? kSmsPaymentDefault : smsPayment;
+
+  void setSmsPayment(String t) {
+    final s = t.trim();
+    smsPayment = s == kSmsPaymentDefault ? '' : s;
+    logActivity('Payment text message wording changed', 'Settings');
+    _n();
+  }
+
+  /// The mobile number (09XXXXXXXXX) of the resident account of a unit, or null when there is none.
+  String? phoneOfUnit(String unit) {
+    for (final a in trusted) {
+      if (a.role == 'Resident' && a.unit == unit && validMobile(normalizePhone(a.phone))) return normalizePhone(a.phone);
+    }
+    return null;
+  }
 
   /// Resident pages the office switched off: book, res, dues, parking, events, polls, directory, gr, docs.
   Set<String> hiddenNav = {};
@@ -2389,7 +2411,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Records a payment for a unit's dues and issues a receipt.
-  PaymentRecord? payDue(int id, {String method = officePay, String reference = ''}) {
+  PaymentRecord? payDue(int id, {String method = officePay, String reference = '', String image = ''}) {
     final d = dues.firstWhere((d) => d.id == id);
     if (d.paid) return null;
     d.paid = true;
@@ -2401,7 +2423,7 @@ class AppState extends ChangeNotifier {
       pending.receiptNo = nextReceiptNo();
       pending.confirmedOn = shortDate(DateTime.now());
     }
-    final rec = _addPayment(d.unit, d.name, d.note, method, reference, d.amt, proof: pending);
+    final rec = _addPayment(d.unit, d.name, d.note, method, reference, d.amt, proof: pending, image: image);
     logActivity('Payment recorded, ${d.unit}', 'Finance');
     _n();
     return rec;

@@ -1,10 +1,13 @@
 // ADMIN page: Finance (dues, payments, payment proofs).
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
 import '../../core/doc_seed.dart';
 import '../../services/doc_files.dart';
+import '../../services/texting.dart';
 import '../../widgets/widgets.dart';
 import '../shared/import_sheet.dart';
 import '../shared/document_viewer_screen.dart';
@@ -122,15 +125,44 @@ class _AdminFinanceState extends State<AdminFinance> {
 
   void _recordPayment(Due d) {
     final methods = [for (final m in app.payMethods) m.name];
+    final phone = app.phoneOfUnit(d.unit);
     showFormSheet(
       context,
       title: 'Record payment',
       subtitle: '${d.unit} · ${d.name} · ${peso(d.amt)}',
+      photo: const PhotoSpec('photo', 'Photo of proof (optional)', hint: 'A picture of the receipt, deposit slip or screenshot.'),
       choices: [ChoiceSpec('method', 'Paid through', methods, methods.first)],
-      fields: const [FieldSpec('ref', 'Reference no. (optional)', hint: 'From the payment receipt')],
+      fields: [
+        const FieldSpec('ref', 'Reference no. (optional)', hint: 'From the payment receipt'),
+        if (phone != null)
+          FieldSpec('smsText', 'Text message to the resident', lines: 4, initial: app.smsPaymentText, hint: 'Words in { } are filled in: {name} {unit} {amount} {items} {receipt} {date}'),
+      ],
+      toggles: [
+        if (phone != null) ToggleSpec('sms', 'Also prepare a text message for $phone', true),
+        if (phone != null) const ToggleSpec('saveTpl', 'Save this wording as the standard message', false),
+      ],
       submit: 'Record and issue receipt',
       onSubmit: (v) {
-        final rec = app.payDue(d.id, method: v['method'] as String, reference: v['ref'] as String);
+        final pic = v['photo'];
+        final rec = app.payDue(d.id, method: v['method'] as String, reference: v['ref'] as String, image: pic is Uint8List ? proofImageText(pic) : '');
+        final text = ((v['smsText'] as String?) ?? '').trim();
+        if (rec != null && phone != null && text.isNotEmpty) {
+          if (v['saveTpl'] == true) app.setSmsPayment(text);
+          if (v['sms'] == true) {
+            final first = d.name.trim().split(RegExp(r'\s+')).first;
+            final filled = remFill(text, {
+              'name': d.name.trim().isEmpty || d.name == '—' || d.name == d.unit ? 'Resident' : first,
+              'unit': d.unit,
+              'amount': peso(d.amt),
+              'items': d.note,
+              'receipt': rec.receiptNo,
+              'date': shortDate(DateTime.now()),
+            });
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) textNumbers(context, [phone], filled, '');
+            });
+          }
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && rec != null) msg(context, 'Payment recorded. Receipt ${rec.receiptNo} issued.');
         });
