@@ -38,6 +38,11 @@ const parkingPayFor = 'Motor parking rental';
 /// The parking sticker fee and the parking rental are one thing. Older records are read under the one name.
 String normPayFor(String t) => t == 'Parking sticker fee' ? parkingPayFor : t;
 
+/// The text message to the resident after a recorded payment, until the office changes the wording.
+/// {name} {unit} {amount} {items} {receipt} {date} are filled in for each payment.
+const kSmsPaymentDefault =
+    'Hi {name}, we received your payment of {amount} for {items} on {date}. Receipt no. {receipt}. Thank you! - City Residences Condominium Corp.';
+
 /// A payment proof sent by a resident, waiting for the admin to confirm.
 class PaymentProof {
   final int id;
@@ -61,7 +66,7 @@ class PaymentProof {
   bool auto;
 
   /// A photo of the online payment the resident attached (a "data:image/..." text, so the website shows it too). Empty = none.
-  final String image;
+  String image;
 
   /// The day the resident says they paid, like "Oct 27, 2026" (empty on older records).
   final String paidOn;
