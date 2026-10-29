@@ -819,7 +819,7 @@ function viewGr() {
         var info = g.assignee ? '<div style="margin-top:8px;font-size:13px;line-height:1.5">Assigned to <b>' + esc(g.assignee) + "</b>" + (g.target && s < 2 ? " · target " + esc(g.target) : "") +
           (g.equipName ? '<div style="color:var(--muted)">Related to: ' + esc(g.equipName) + "</div>" : "") + (g.notes && s < 2 ? '<div style="color:var(--muted)">Update from the office: ' + esc(g.notes) + "</div>" : "") + "</div>" : "";
         return '<div style="padding:12px 0;border-top:1px solid var(--border2)"><div style="font-weight:700;font-size:15px">' + esc(g.title) + '</div><div style="font-size:13px;color:var(--muted);margin:2px 0 6px">' + esc(g.body) + '</div><span class="chip ' + (s === 2 ? "good" : s === 1 ? "warn" : "info") + '">' + names[s] + "</span>" + info + "</div>";
-      }).join("") + pagerHtml(all.length, 5, "grPage")) + "</div></div>";
+      }).join("") + pagerPN(all.length, 5, "grPage")) + "</div></div>";
 }
 // Sends a complaint to the admin.
 function submitGr() {
