@@ -237,13 +237,13 @@ function annPostsPage(anns, drafts) {
   var pubN = anns.length - drafts;
   var side = '<aside class="gm-side"><button type="button" class="gm-compose" onclick="annCompose()">' + ICO_PEN + '<span>Compose</span></button>' +
     [["all", "All announcements", anns.length], ["Published", "Published", pubN], ["Draft", "Drafts", drafts]].map(function (t) {
-      return '<button type="button" class="gm-f' + (f === t[0] ? " on" : "") + '" onclick="set({annFilter:\'' + t[0] + '\',annOpen:\'\'})"><span>' + t[1] + "</span>" + (t[2] ? "<i>" + t[2] + "</i>" : "") + "</button>";
+      return '<button type="button" class="gm-f' + (f === t[0] ? " on" : "") + '" onclick="set({annFilter:\'' + t[0] + '\',annOpen:\'\',annPage:0})"><span>' + t[1] + "</span>" + (t[2] ? "<i>" + t[2] + "</i>" : "") + "</button>";
     }).join("") + "</aside>";
   var open = state.annOpen ? getRow("announcement", state.annOpen) : null;
   if (open) return '<div class="gm">' + side + '<div class="gm-main">' + annReader(open) + "</div></div>";
   var shown = anns.filter(function (r) { return f === "all" || (r.v.status || "Published") === f; });
   var title = f === "all" ? "All announcements" : f === "Draft" ? "Drafts" : "Published";
-  var rows = shown.map(function (r) {
+  var rows = pageSlice(shown, 10, "annPage").map(function (r) {
     var a = r.v, draft = (a.status || "Published") !== "Published", type = a.type || "General", id = escAttr(r.id), snip = annSnippet(a.body);
     return '<div class="gm-row' + (draft ? " draft" : "") + '" tabindex="0" onclick="annRowOpen(\'' + id + '\')" onkeydown="if(event.key===\'Enter\')annRowOpen(\'' + id + '\')">' +
       '<span class="gm-dot t-' + esc(type.toLowerCase()) + '" title="' + esc(type) + '"></span>' +
@@ -255,7 +255,7 @@ function annPostsPage(anns, drafts) {
       '<button type="button" title="Edit" onclick="annCompose(\'' + id + '\')">' + ICO_PEN + '</button><button type="button" title="Delete" onclick="deleteAnn(\'' + id + '\')">' + ICO_TRASH + "</button></span></div>";
   }).join("");
   return '<div class="gm">' + side + '<div class="gm-main"><div class="gm-bar"><b>' + title + "</b><small>" + shown.length + " " + (shown.length === 1 ? "message" : "messages") + "</small></div>" +
-    (rows || '<p class="gm-empty">' + (anns.length ? "Nothing in " + title.toLowerCase() + "." : "No announcements yet. Select Compose to write the first one.") + "</p>") + "</div></div>";
+    (rows || '<p class="gm-empty">' + (anns.length ? "Nothing in " + title.toLowerCase() + "." : "No announcements yet. Select Compose to write the first one.") + "</p>") + pagerPN(shown.length, 10, "annPage") + "</div></div>";
 }
 // A drafted message opens in the compose window; a published one opens to read.
 function annRowOpen(id) {
@@ -353,7 +353,7 @@ async function cmpPublish() {
   CMP = null;
   if (c.pushed) { cmpPopSkip = true; try { history.back(); } catch (e) { cmpPopSkip = false; } }
   toast(c.pub ? "Changes saved." : "Announcement published. Residents can see it now.");
-  set({ annFilter: c.pub ? state.annFilter : "Published", annOpen: "" });
+  set({ annFilter: c.pub ? state.annFilter : "Published", annOpen: "", annPage: 0 });
 }
 // Trash icon: drop what was typed (and the draft made from it).
 function cmpDiscard() {
@@ -372,8 +372,8 @@ function cmpDiscard() {
   done();
 }
 function annEventsPage(evs) {
-  return '<div class="ev-list">' + (evs.map(function (r) {
+  return '<div class="ev-list">' + (pageSlice(evs, 6, "evPage").map(function (r) {
     var e = r.v, going = list("rsvp").filter(function (x) { return Number(x.v.event) === Number(r.id); }).length, id = escAttr(r.id), when = String(e.date || "").split("·");
     return '<article class="card ev-card"><div class="ev-date"><b>' + esc((when[0] || "").trim() || "TBD") + "</b><small>" + esc((when[1] || "").trim()) + '</small></div><div class="ev-main"><h3>' + esc(e.title) + "</h3><small>" + esc(e.place || "Venue TBD") + (e.about ? " · " + esc(e.about) : "") + '</small></div><span class="chip ' + (going ? "good" : "") + '">' + going + ' going</span><span class="fx-act"><button class="btn" onclick="eventForm(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="deleteEvent(\'' + id + '\')">Delete</button></span></article>';
-  }).join("") || '<div class="card" style="text-align:center;color:var(--muted)">No events yet. Use “Add event” to create one.</div>') + "</div>";
+  }).join("") || '<div class="card" style="text-align:center;color:var(--muted)">No events yet. Use “Add event” to create one.</div>') + "</div>" + pagerPN(evs.length, 6, "evPage");
 }
