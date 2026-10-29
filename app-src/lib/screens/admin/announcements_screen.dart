@@ -17,6 +17,7 @@ class AdminAnnouncements extends StatefulWidget {
 class _AdminAnnouncementsState extends State<AdminAnnouncements> {
   int tab = 0; // 0 announcements, 1 events
   String filter = 'All'; // All | Published | Drafts
+  int _annPage = 0, _evPage = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +142,10 @@ class _AdminAnnouncementsState extends State<AdminAnnouncements> {
       FilterRow(
         options: [for (final o in opts) o == 'All' ? 'All (${all.length})' : o == 'Published' ? 'Published (${all.length - drafts})' : 'Drafts ($drafts)'],
         selected: filter == 'All' ? 'All (${all.length})' : filter == 'Published' ? 'Published (${all.length - drafts})' : 'Drafts ($drafts)',
-        onSelect: (v) => setState(() => filter = v.split(' ').first),
+        onSelect: (v) => setState(() {
+          filter = v.split(' ').first;
+          _annPage = 0;
+        }),
       ),
       if (list.isEmpty) EmptyBox(all.isEmpty ? 'No announcements yet. Tap Compose to write the first one.' : 'Nothing in this list.', icon: Icons.campaign_outlined)
       else
@@ -150,13 +154,14 @@ class _AdminAnnouncementsState extends State<AdminAnnouncements> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: Column(children: [
-              for (var i = 0; i < list.length; i++) ...[
+              for (var i = 0; i < pageOf(list, _annPage, 10).length; i++) ...[
                 if (i > 0) Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
-                _row(context, list[i]),
+                _row(context, pageOf(list, _annPage, 10)[i]),
               ],
             ]),
           ),
         ),
+      PagerBar(page: _annPage, per: 10, total: list.length, onPage: (p) => setState(() => _annPage = p)),
       Text('Swipe a message left to delete it. Tap a draft to keep writing.', style: TextStyle(color: muted(context), fontSize: 12)),
       const ImportBar(['announcements']),
     ];
@@ -165,7 +170,7 @@ class _AdminAnnouncementsState extends State<AdminAnnouncements> {
   List<Widget> _eventList(BuildContext context) {
     return [
         if (app.events.isEmpty) const EmptyBox('No upcoming events.', icon: Icons.celebration_outlined),
-        for (final e in app.events)
+        for (final e in pageOf(app.events, _evPage, 6))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: RCard(
@@ -191,6 +196,7 @@ class _AdminAnnouncementsState extends State<AdminAnnouncements> {
               ),
             ),
           ),
+        PagerBar(page: _evPage, per: 6, total: app.events.length, onPage: (p) => setState(() => _evPage = p)),
         const ImportBar(['events']),
     ];
   }

@@ -17,6 +17,7 @@ class AdminUnitStatus extends StatefulWidget {
 
 class _AdminUnitStatusState extends State<AdminUnitStatus> {
   String filter = 'all';
+  int _unitPage = 0, _reviewPage = 0;
 
   @override
   void initState() {
@@ -55,15 +56,20 @@ class _AdminUnitStatusState extends State<AdminUnitStatus> {
             ),
             if (review.isNotEmpty) ...[
               Text('Declarations to review', style: hd(18)),
-              for (final u in review) _reviewCard(context, u),
+              for (final u in pageOf(review, _reviewPage, 5)) _reviewCard(context, u),
+              PagerBar(page: _reviewPage, per: 5, total: review.length, onPage: (p) => setState(() => _reviewPage = p)),
             ],
             FilterRow(
               options: labels.values.toList(),
               selected: labels[filter]!,
-              onSelect: (v) => setState(() => filter = labels.entries.firstWhere((e) => e.value == v).key),
+              onSelect: (v) => setState(() {
+                filter = labels.entries.firstWhere((e) => e.value == v).key;
+                _unitPage = 0;
+              }),
             ),
             if (rows.isEmpty) const EmptyBox('No units in this state.', icon: Icons.apartment_outlined),
-            for (final u in rows) _unitCard(context, u),
+            for (final u in pageOf(rows, _unitPage, 8)) _unitCard(context, u),
+            PagerBar(page: _unitPage, per: 8, total: rows.length, onPage: (p) => setState(() => _unitPage = p)),
             Text('Recent updates', style: hd(18)),
             RCard(
               child: Column(
