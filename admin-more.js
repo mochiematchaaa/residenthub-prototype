@@ -111,7 +111,6 @@ function viewFin() {
     '<label class="fl">Reference no. (optional)<input id="payRef" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label>' +
     '<label class="fl">Date paid<input type="date" id="payDate" max="' + dayKey(new Date()) + '" value="' + escAttr(state.payDate || dayKey(new Date())) + '" onchange="state.payDate=this.value"></label>' +
     '<div class="fl"><span>Photo of proof (optional)</span>' + (state.payImage ? '<div class="pay-photo"><img alt="Proof of payment" src="' + escAttr(state.payImage) + '"><div><button type="button" class="btn" onclick="viewImage(state.payImage,\'Proof of payment\')">View</button><button type="button" class="btn" onclick="payPhotoPick()">Change</button><button type="button" class="btn" onclick="payPhotoClear()">Remove</button></div></div>' : '<div><button type="button" class="btn" onclick="payPhotoPick()">+ Add photo</button></div><small class="hint" style="margin:0">A picture of the receipt, deposit slip or screenshot. It is kept with the payment.</small>') + "</div>" +
-    paySmsHtml() +
     '<div class="kv" style="font-size:13px">' + (state.payUnit ? "<span>Charges ticked</span><b>" + state.payDues.length + "</b><span>Total received</span><b>" + peso(deskTotal) + "</b>" : '<span style="grid-column:1/-1">Choose a unit to begin.</span>') + "</div>" +
     '<button class="btn primary" onclick="recordPayment()">Record payment &amp; update dues</button></div>';
   var dailyExpHtml = dailyExpensesCard();
@@ -539,52 +538,12 @@ function saveRate(id, draftKey, label) {
 function deleteDue(id) {
   confirmBox("Delete this charge?", "It will be removed for the resident too.", "Delete", async function () { await del("due", id); logAct("Charge deleted", "Finance"); }, true);
 }
-/* ---------- Record payment: photo of proof and the text message to the resident ---------- */
-var SMS_DEFAULTS = {
-  payment: "Hi {name}, we received your payment of {amount} for {items} on {date}. Receipt no. {receipt}. Thank you! - City Residences Condominium Corp."
-};
-// The standard text for one kind of message: the office's own saved wording, or the built-in one.
-function smsTemplate(kind) { var t = setting("sms_templates")[kind]; return typeof t === "string" && t.trim() ? t : SMS_DEFAULTS[kind]; }
-// Fills {name} {unit} {amount} ... in a message.
-function smsFill(text, vars) { return String(text).replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }); }
+/* ---------- Record payment: photo of proof ---------- */
 // Choose a picture of the proof (receipt, slip, screenshot) for the payment being recorded.
 function payPhotoPick() {
   pickImage(1000, 0.7).then(function (img) { if (img) { state.payImage = img; render(); } });
 }
 function payPhotoClear() { state.payImage = ""; render(); }
-// The "text the resident" part of the payment desk.
-function paySmsHtml() {
-  if (!state.payUnit) return "";
-  var acct = accountOfUnit(state.payUnit), phone = acct && acct.phone ? acct.phone : "";
-  if (!phone) return '<div class="fl"><span>Text message</span><small class="hint" style="margin:0">This resident has no mobile number on file, so there is no text message to prepare.</small></div>';
-  var on = state.paySms !== false, text = state.paySmsText != null ? state.paySmsText : smsTemplate("payment");
-  return '<div class="fl pay-sms"><label style="display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;cursor:pointer"><input type="checkbox" style="width:18px;height:18px;min-height:0;padding:0;margin:0;flex:none;accent-color:#6C5CC7" ' + (on ? "checked" : "") + ' onchange="state.paySms=this.checked;render()"><span>Also prepare a text message for ' + esc(phone) + "</span></label>" +
-    (on ? '<textarea id="paySmsText" rows="4" oninput="state.paySmsText=this.value">' + esc(text) + '</textarea><small class="hint" style="margin:0">Words in { } are filled in for you: {name} {unit} {amount} {items} {receipt} {date}. Change the message if you like.</small>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" onclick="paySmsReset()">Use the standard message</button><button type="button" class="btn" onclick="paySmsSave()">Save as standard message</button></div>' : "") + "</div>";
-}
-// After a payment is recorded: the resident's mobile number and the message, ready to copy into a text message.
-function smsCopyForm(phone, message) {
-  openForm({
-    title: "Text message to the resident",
-    intro: "The payment is recorded. To text the resident, copy the mobile number and the message into your phone's messages. You can still change the message here.",
-    submit: "Copy number and message",
-    fields: [{ name: "nums", label: "Mobile number", value: phone }, { name: "msg", label: "Message", type: "textarea", value: message }],
-    onSubmit: async function (d) {
-      try { await navigator.clipboard.writeText("To: " + d.nums + "\n\n" + d.msg); toast("Copied."); } catch (e) { return { error: "Copy was blocked by the browser. Select the text above and copy it." }; }
-    }
-  });
-}
-function paySmsReset() { state.paySmsText = null; render(); }
-function paySmsSave() {
-  var el = document.getElementById("paySmsText"), t = el ? el.value.trim() : "";
-  if (!t) return toast("Write the message first.");
-  act(async function () {
-    await put("setting", "sms_templates", "", Object.assign({}, setting("sms_templates"), { payment: t }));
-    state.paySmsText = null;
-    logAct("Payment text message wording changed", "Settings");
-    toast("Saved. This is now the standard payment message.");
-  });
-}
 // Creates a payment record with a receipt number and marks the due as paid.
 async function issuePayment(unit, payer, forText, method, reference, amount, receiptNo, dateText) {
   var no = receiptNo || nextReceiptNo(), date = dateText || shortDate(new Date()), pid = nextId();
@@ -604,8 +563,7 @@ function recordPayment() {
     if (when.getTime() > Date.now()) return toast("The date paid cannot be in the future.");
   }
   var dateText = when ? shortDate(when) : shortDate(new Date());
-  var acct = accountOfUnit(state.payUnit), smsTo = state.paySms !== false && acct && acct.phone ? acct : null;
-  var smsText = state.paySmsText != null ? state.paySmsText : smsTemplate("payment"), img = state.payImage || "", smsMsg = "";
+  var img = state.payImage || "";
   act(async function () {
     var unit = state.payUnit, done = 0, total = 0, lastNo = "", notes = [], nos = [], payer = "";
     for (var k = 0; k < ids.length; k++) {
@@ -624,11 +582,8 @@ function recordPayment() {
     }
     if (!done) throw new Error("Those charges are already paid.");
     logAct("Payment recorded, " + unit + " (" + done + " charge" + (done === 1 ? "" : "s") + ", " + peso(total) + ")", "Finance");
-    if (smsTo) smsMsg = smsFill(smsText, { name: String(payer || unit).split(/\s+/)[0], unit: unit, amount: peso(total), items: notes.join(", "), receipt: nos.join(", "), date: dateText });
-    state.payUnit = ""; state.payDues = []; state.payRef = ""; state.payDate = ""; state.payImage = ""; state.paySmsText = null;
+    state.payUnit = ""; state.payDues = []; state.payRef = ""; state.payDate = ""; state.payImage = "";
     toast(done === 1 ? "Payment recorded. Receipt " + lastNo + " issued." : done + " charges marked paid (" + peso(total) + "). Receipts issued.");
-  }).then(function () {
-    if (smsMsg) setTimeout(function () { smsCopyForm(smsTo.phone, smsMsg); }, 300);
   });
 }
 /* ---------- "Payments to verify": one clear card per payment the resident sent ---------- */

@@ -670,7 +670,6 @@ class AppState extends ChangeNotifier {
     remDues = RemCfg(days: 2, freq: 'daily');
     customRems = [];
     complaintLimit = 1;
-    smsPayment = '';
     hiddenNav = {};
     parkSoonDays = 5;
     smsLog.clear();
@@ -1267,25 +1266,6 @@ class AppState extends ChangeNotifier {
 
   /// How many open complaints one unit may have at the same time (the office changes it in Settings).
   int complaintLimit = 1;
-
-  /// The office's own wording for the text message after a recorded payment ('' = the standard one).
-  String smsPayment = '';
-  String get smsPaymentText => smsPayment.trim().isEmpty ? kSmsPaymentDefault : smsPayment;
-
-  void setSmsPayment(String t) {
-    final s = t.trim();
-    smsPayment = s == kSmsPaymentDefault ? '' : s;
-    logActivity('Payment text message wording changed', 'Settings');
-    _n();
-  }
-
-  /// The mobile number (09XXXXXXXXX) of the resident account of a unit, or null when there is none.
-  String? phoneOfUnit(String unit) {
-    for (final a in trusted) {
-      if (a.role == 'Resident' && a.unit == unit && validMobile(normalizePhone(a.phone))) return normalizePhone(a.phone);
-    }
-    return null;
-  }
 
   /// Resident pages the office switched off: book, res, dues, parking, events, polls, directory, gr, docs.
   Set<String> hiddenNav = {};
