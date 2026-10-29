@@ -542,7 +542,6 @@ List<CRow> exportRows(AppState a) {
   });
   add('setting', 'custom_reminders', '', {'list': [for (final r in a.customRems) r.toJson()]});
   add('setting', 'complaint_limit', '', {'n': a.complaintLimit});
-  add('setting', 'sms_templates', '', {'payment': a.smsPayment});
   add('setting', 'resident_nav', '', {'hidden': a.hiddenNav.toList()..sort()});
   add('setting', 'paycheck', '', {'pct': a.latePct});
   add('setting', 'latefee', '', {'on': a.lateFeeOn, 'days': a.lateFeeDays});
@@ -719,8 +718,6 @@ void importRows(AppState a, Iterable<CRow> all) {
   ];
   final cl = st['complaint_limit'] == null ? 0 : _num(st['complaint_limit']!, 'n').toInt();
   a.complaintLimit = cl >= 1 ? (cl > 10 ? 10 : cl) : 1;
-  final sp = st['sms_templates']?['payment'];
-  a.smsPayment = sp is String ? sp : '';
   final hn = st['resident_nav']?['hidden'];
   a.hiddenNav = {if (hn is List) for (final k in hn) '$k'};
   final lateCfg = st['paycheck'];
