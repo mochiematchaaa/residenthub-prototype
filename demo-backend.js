@@ -559,24 +559,9 @@
     }
     return load();
   }
-  var db = startData(); db.audit = db.audit || [];
+  var db = startData();
   function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { } }
-  function reload() { db = load(); db.audit = db.audit || []; }
-  /* Audit trail: like the real database, every add / change / delete is written down with who did it. It can be read, never changed. */
-  var AUD_SKIP = ["activity", "tempcred"], AUD_DROP = ["image", "photo", "proofImage", "pw", "password"];
-  function aclean(v) {
-    if (v === null || v === undefined) return null;
-    var c = JSON.parse(JSON.stringify(v));
-    if (c && typeof c === "object" && !Array.isArray(c)) AUD_DROP.forEach(function (k) { delete c[k]; });
-    return c;
-  }
-  function audit(action, table, kind, id, unit, oldV, newV, actor) {
-    var u = actor || cur(), p = u ? u.profile : null;
-    var last = db.audit.length ? db.audit[db.audit.length - 1].id : 0;
-    db.audit.push({ id: last + 1, at: new Date().toISOString(), actor_id: u ? u.id : null, actor_name: p ? (p.name || u.email) : "System", actor_role: p ? p.role : "system", action: action, source_table: table, kind: kind, record_id: String(id == null ? "" : id), unit: unit || "", old_value: aclean(oldV), new_value: aclean(newV) });
-    if (db.audit.length > 1500) db.audit.splice(0, db.audit.length - 1500);
-  }
-  function aprofile(p) { var c = JSON.parse(JSON.stringify(p)); ["photo", "created_at", "updated_at", "last_change", "history"].forEach(function (k) { delete c[k]; }); return c; }
+  function reload() { db = load(); }
   var chans = [];
   window.addEventListener("storage", function (e) {
     if (e.key === KEY) { reload(); chans.forEach(function (cb) { cb({}); }); }
@@ -632,11 +617,8 @@
   function query(table) {
     var q = { table: table, op: "select", filters: [], order: null, range: null, patch: null, row: null, single: false };
     var api = {
-      select: function (cols, o) { q.count = !!(o && o.count); return api; },
+      select: function () { return api; },
       eq: function (c, v) { q.filters.push([c, v]); return api; },
-      ilike: function (c, v) { q.filters.push([c, v, "ilike"]); return api; },
-      gte: function (c, v) { q.filters.push([c, v, "gte"]); return api; },
-      lte: function (c, v) { q.filters.push([c, v, "lte"]); return api; },
       order: function () { return api; },
       range: function (a, b) { q.range = [a, b]; return api; },
       insert: function (row) { q.op = "insert"; q.row = row; return api; },
@@ -645,27 +627,11 @@
       maybeSingle: function () { q.single = true; return run(); },
       then: function (a, b) { return run().then(a, b); }
     };
-    function match(r) {
-      return q.filters.every(function (f) {
-        var a = r[f[0]], op = f[2] || "eq";
-        if (op === "ilike") return String(a == null ? "" : a).toLowerCase().indexOf(String(f[1]).replace(/%/g, "").toLowerCase()) >= 0;
-        if (op === "gte") return String(a) >= String(f[1]);
-        if (op === "lte") return String(a) <= String(f[1]);
-        return a === f[1];
-      });
-    }
+    function match(r) { return q.filters.every(function (f) { return r[f[0]] === f[1]; }); }
     function run() {
       return new Promise(function (resolve) {
         setTimeout(function () {
           reload();
-          if (table === "audit_log") {
-            if (q.op !== "select") return resolve({ data: null, error: err(q.op === "insert" ? "permission denied for table audit_log" : "The audit trail cannot be changed or deleted.") });
-            if (role() !== "admin") return resolve({ data: [], error: null, count: 0 });
-            var arows = db.audit.filter(match).sort(function (x, y) { return y.at < x.at ? -1 : y.at > x.at ? 1 : y.id - x.id; });
-            var total = arows.length;
-            if (q.range) arows = arows.slice(q.range[0], q.range[1] + 1);
-            return resolve({ data: JSON.parse(JSON.stringify(arows)), error: null, count: q.count ? total : null });
-          }
           if (table === "profiles") {
             var all = db.users.map(function (u) { return u.profile; });
             if (q.op === "select") {
@@ -678,10 +644,7 @@
               if (u) {
                 var kk = Object.keys(q.patch || {}), shown = { name: "Name", phone: "Mobile number", email: "Email address", unit: "Unit" }, hit = kk.filter(function (x) { return shown[x] && String(q.patch[x]) !== String(u.profile[x]); });
                 var before = {}; hit.forEach(function (x) { before[x] = u.profile[x]; });
-                var oldp = aprofile(u.profile);
                 Object.assign(u.profile, q.patch);
-                var newp = aprofile(u.profile);
-                if (JSON.stringify(oldp) !== JSON.stringify(newp)) audit("UPDATE", "profiles", "account", u.id, u.profile.unit, oldp, newp);
                 if (hit.length) { u.profile.history = (u.profile.history || []); hit.slice().reverse().forEach(function (x) { u.profile.history.unshift({ at: new Date().toISOString(), field: shown[x], from: before[x] == null ? "" : String(before[x]), to: String(q.patch[x]) }); }); u.profile.updated_at = new Date().toISOString(); u.profile.last_change = hit.map(function (x) { return shown[x]; }).join(", "); }
                 save(); chans.forEach(function (cb) { cb({}); }); }
               return resolve({ data: null, error: null });
@@ -700,9 +663,7 @@
               if (row.kind === "booking" && ["Pending", "Approved"].indexOf(row.value.status) >= 0 &&
                 db.records.some(function (r) { return r.kind === "booking" && r.value.place === row.value.place && r.value.day === row.value.day && r.value.slot === row.value.slot && ["Pending", "Approved"].indexOf(r.value.status) >= 0; }))
                 return resolve({ data: null, error: err("duplicate key", "23505") });
-              db.records.push(row);
-              if (AUD_SKIP.indexOf(row.kind) < 0) audit("INSERT", "records", row.kind, row.id, row.unit, null, row.value);
-              save(); chans.forEach(function (cb) { cb({}); });
+              db.records.push(row); save(); chans.forEach(function (cb) { cb({}); });
               return resolve({ data: null, error: null });
             }
             if (q.op === "update") {
@@ -713,10 +674,7 @@
               if (role() !== "admin" && !canRead(tgt)) return resolve({ data: null, error: null });
               var m2 = guard("update", nr, tgt);
               if (m2) return resolve({ data: null, error: err(m2) });
-              var ov0 = JSON.parse(JSON.stringify(tgt.value)), ou0 = tgt.unit;
-              Object.assign(tgt, nr);
-              if (AUD_SKIP.indexOf(tgt.kind) < 0 && (JSON.stringify(ov0) !== JSON.stringify(tgt.value) || ou0 !== tgt.unit)) audit("UPDATE", "records", tgt.kind, tgt.id, tgt.unit, ov0, tgt.value);
-              save(); chans.forEach(function (cb) { cb({}); });
+              Object.assign(tgt, nr); save(); chans.forEach(function (cb) { cb({}); });
               return resolve({ data: null, error: null });
             }
             if (q.op === "delete") {
@@ -725,7 +683,6 @@
                 var bad = del.filter(function (r) { return ["request", "booking", "rsvp"].indexOf(r.kind) < 0 || r.unit !== myunit(); });
                 if (bad.length) return resolve({ data: null, error: null });  // RLS silently hides
               }
-              del.forEach(function (r) { if (AUD_SKIP.indexOf(r.kind) < 0) audit("DELETE", "records", r.kind, r.id, r.unit, r.value, null); });
               db.records = db.records.filter(function (r) { return del.indexOf(r) < 0; });
               save(); chans.forEach(function (cb) { cb({}); });
               return resolve({ data: null, error: null });
@@ -767,14 +724,13 @@
                 if (db.users.some(function (u) { return u.email === b.email; })) return bad("An account with that email already exists.");
                 var id = "u" + (++db.seq);
                 db.users.push({ id: id, email: b.email, password: "Temp#Pass1x", profile: { id: id, email: b.email, name: b.name, role: "resident", unit: b.unit, phone: b.phone, suspended: false, must_change_password: true, contact_verified_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_change: "New account", history: [{ at: new Date().toISOString(), field: "Account created", from: "", to: "" }] } });
-                audit("INSERT", "profiles", "account", id, b.unit, null, { email: b.email, name: b.name, phone: b.phone || "", unit: b.unit, role: "resident" });
                 save(); return ok({ email: b.email, password: "Temp#Pass1x" });
               }
               var t = db.users.filter(function (u) { return u.id === b.userId; })[0];
               if (!t) return bad("Not found");
-              if (b.action === "reset-password") { t.password = "Temp#Pass2x"; t.profile.must_change_password = true; audit("UPDATE", "profiles", "account", t.id, t.profile.unit, { email: t.email, name: t.profile.name }, { email: t.email, name: t.profile.name, event: "Temporary password issued", must_change_password: true }); save(); return ok({ password: "Temp#Pass2x" }); }
-              if (b.action === "set-suspended") { audit("UPDATE", "profiles", "account", t.id, t.profile.unit, { name: t.profile.name, suspended: !!t.profile.suspended }, { name: t.profile.name, suspended: !!b.suspended }); t.profile.suspended = !!b.suspended; save(); return ok({}); }
-              if (b.action === "delete") { audit("DELETE", "profiles", "account", t.id, t.profile.unit, { email: t.email, name: t.profile.name, phone: t.profile.phone, unit: t.profile.unit, role: "resident" }, null); db.users = db.users.filter(function (u) { return u !== t; }); save(); return ok({}); }
+              if (b.action === "reset-password") { t.password = "Temp#Pass2x"; t.profile.must_change_password = true; save(); return ok({ password: "Temp#Pass2x" }); }
+              if (b.action === "set-suspended") { t.profile.suspended = !!b.suspended; save(); return ok({}); }
+              if (b.action === "delete") { db.users = db.users.filter(function (u) { return u !== t; }); save(); return ok({}); }
             }
             if (name === "verify-contact") {
               var me = cur();
