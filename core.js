@@ -728,9 +728,7 @@ function renderLogin(msg) {
   // One sign-in for everybody: after signing in, the system opens the administrator or the resident dashboard by itself.
   authPage("Sign in to ResidentHub",
     "CITY RESIDENCES CONDOMINIUM CORP.",
-    (window.RH_DEMO
-      ? fieldHtml("Email or mobile number", "email", "text", 'autocomplete="username" placeholder="you@email.com or 0917 123 4567"')   // demo only
-      : fieldHtml("Email address", "email", "email", 'autocomplete="username" placeholder="you@email.com"')) +
+    fieldHtml("Email address", "email", "email", 'autocomplete="username" placeholder="you@email.com"') +
     pwField("Password", "password") +
     '<button class="btn primary" type="submit">Continue</button>' + authErr("loginErr", msg) +
     '<div class="' + AUTH.divider + '"></div><div class="' + AUTH.links + '"><button type="button" class="linklike" id="forgotLink">Forgot password?</button></div>' +
@@ -743,14 +741,14 @@ function renderLogin(msg) {
   $("#authForm").addEventListener("submit", async function (e) {
     e.preventDefault();
     var f = e.target, err = $("#loginErr"), btn = $("button[type=submit]", f);
-    if (!f.email.value.trim() || !f.password.value) { err.textContent = window.RH_DEMO ? "Enter your email or mobile number and your password." : "Enter your email and password."; err.hidden = false; return; }
+    if (!f.email.value.trim() || !f.password.value) { err.textContent = "Enter your email and password."; err.hidden = false; return; }
     if (Date.now() < lockedUntil) { err.textContent = "Too many tries. Wait a minute and try again."; err.hidden = false; return; }
     btn.disabled = true; err.hidden = true;
     var r = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
     if (r.error) {
       fails++;
       if (fails >= 5) { lockedUntil = Date.now() + 60000; fails = 0; }
-      err.textContent = /invalid|credentials/i.test(r.error.message) ? (window.RH_DEMO ? "Wrong email, mobile number or password." : "Wrong email or password.") : errText(r.error);
+      err.textContent = /invalid|credentials/i.test(r.error.message) ? "Wrong email or password." : errText(r.error);
       err.hidden = false; btn.disabled = false;
       return;
     }

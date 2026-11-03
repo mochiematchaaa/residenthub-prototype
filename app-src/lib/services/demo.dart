@@ -23,29 +23,17 @@ const String kDemoResidentUnit = 'Unit 3B';
 const String kDemoAdminPhone = '0917 000 0000';
 const String kDemoResidentPhone = '0917 000 1108';
 
-/// A mobile number as only digits in the 09XXXXXXXXX form (so 0917 000 1108, +63 917 000 1108 and 9170001108 match).
-String _demoPhone(String raw) {
-  var d = raw.replaceAll(RegExp(r'[^\d]'), '');
-  if (d.startsWith('63')) d = '0${d.substring(2)}';
-  if (d.length == 10 && d.startsWith('9')) d = '0$d';
-  return d;
-}
-
-/// Message for things that need a real server (passwords, accounts, text-message codes).
-const String kDemoOff = kPrototype ? 'This feature is not available in the prototype.' : 'This is a demo, so this is turned off.';
-
-/// Signs in as the demo administrator or the demo resident, with an email OR a mobile number.
+/// Signs in as the demo administrator or the demo resident, with an email address.
 /// Returns an error message, or null.
 String? demoSignIn(String idRaw, String pass) {
   final id = idRaw.trim().toLowerCase();
-  if (id.isEmpty) return 'Enter your email or mobile number.';
+  if (id.isEmpty) return 'Enter your email address.';
   if (pass.isEmpty) return 'Enter your password.';
-  final phone = id.contains('@') ? '' : _demoPhone(id);
-  final admin = id == kDemoAdminEmail || (phone.isNotEmpty && phone == _demoPhone(kDemoAdminPhone));
-  final resident = id == kDemoResidentEmail || (phone.isNotEmpty && phone == _demoPhone(kDemoResidentPhone));
+  final admin = id == kDemoAdminEmail;
+  final resident = id == kDemoResidentEmail;
   if (pass != kDemoPassword || (!admin && !resident)) {
     if (kPrototype) return 'Sign-in details not recognized. Use Quick access below.';
-    return 'Demo logins: $kDemoAdminEmail or $kDemoAdminPhone (administrator), $kDemoResidentEmail or $kDemoResidentPhone (resident). Password $kDemoPassword.';
+    return 'Demo logins: $kDemoAdminEmail (administrator), $kDemoResidentEmail (resident). Password $kDemoPassword.';
   }
   startDemo(admin ? Role.admin : Role.resident);
   return null;

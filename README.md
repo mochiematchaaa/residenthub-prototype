@@ -40,12 +40,12 @@ The Sign In button on the website opens the resident portal. Open `admin.html` f
 
 ## Sign in
 
-Type an email or a mobile number, then the password `Demo@1234`.
+Type an email, then the password `Demo@1234`.
 
-| Role | Email | Mobile number |
-|---|---|---|
-| Administrator | `admin@demo.test` | `0917 000 0000` |
-| Resident (Maria Reyes, Unit 3B) | `resident@demo.test` | `0917 000 1108` |
+| Role | Email |
+|---|---|
+| Administrator | `admin@demo.test` |
+| Resident (Maria Reyes, Unit 3B) | `resident@demo.test` |
 
 Shortcuts: `admin.html?as=admin` and `resident.html?as=resident` open the dashboards already signed in.
 

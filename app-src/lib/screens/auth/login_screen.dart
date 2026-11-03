@@ -132,13 +132,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 18),
                           TextField(
                             controller: _email,
-                            keyboardType: kDemo ? TextInputType.text : TextInputType.emailAddress,
+                            keyboardType: TextInputType.text,
                             autocorrect: false,
                             enableSuggestions: false,
                             textInputAction: TextInputAction.next,
                             onChanged: (_) => setState(() => _error = null),
                             decoration: InputDecoration(
-                              labelText: kDemo ? 'Email or mobile number' : 'Email',
+                              labelText: 'Email',
                               prefixIcon: const Icon(Icons.alternate_email_rounded),
                             ),
                           ),
@@ -196,12 +196,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.4),
                             ),
                             const SizedBox(height: 6),
-                            if (kPrototype) const Text(
-                              'Or sign in above with an email or a mobile number. Administrator: admin@demo.test or 0917 000 0000. Resident: resident@demo.test or 0917 000 1108. Password: Demo@1234.',
-                              style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.4),
-                            ),
-                            if (!kPrototype) const Text(
-                              'You can also sign in above with an email or a mobile number. Administrator: admin@demo.test or 0917 000 0000. Resident: resident@demo.test or 0917 000 1108. Password: Demo@1234.',
+                            const Text(
+                              'Administrator: admin@demo.test. Resident: resident@demo.test. Password: Demo@1234.',
                               style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.4),
                             ),
                             const SizedBox(height: 12),

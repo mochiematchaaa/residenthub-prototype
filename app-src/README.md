@@ -20,8 +20,8 @@ Requirements: Flutter 3.22 or newer (Dart 3.3+). On Windows, turn on Developer M
    ```
 
 2. On the sign-in screen, choose **Continue as Administrator** or **Continue as Resident (Maria, Unit 3B)**.
-   You can also type an email or a mobile number and the password. Administrator: `admin@demo.test` or `0917 000 0000`.
-   Resident: `resident@demo.test` or `0917 000 1108`. Password for both: `Demo@1234`.
+   You can also type an email and the password. Administrator: `admin@demo.test`.
+   Resident: `resident@demo.test`. Password for both: `Demo@1234`.
 
 To make a web build you can host or open later, double-click `BUILD-PROTOTYPE-WEB.bat`
 (the files are created in `build\web`).
