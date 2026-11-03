@@ -1704,7 +1704,7 @@ function viewProfile() {
    Search and notifications
    ========================================================================== */
 function searchIndex() {
-  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Complaints", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
+  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Complaints", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Audit trail", "audit"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
   return [].concat(
     sortedUnits().map(function (r) { return { t: esc(r.id + " · " + (r.v.name || "—")), s: esc((r.v.type || "") + " · " + (r.v.contact || "")), tag: "Unit", v: "units" }; }),
     list("announcement").map(function (r) { return { t: esc(r.v.title), s: esc(r.v.body || ""), tag: "Announcement", v: "ann" }; }),
