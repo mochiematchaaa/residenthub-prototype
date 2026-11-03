@@ -4,7 +4,7 @@
    and can be reset from the DEMO panel. The sample dates are always built around today.
    Loaded INSTEAD of supabase-js and supabase-config.js. The real system does not use this file. */
 (function () {
-  var KEY = "__rhdemo_v16", SESS = "__rhdemo_session";
+  var KEY = "__rhdemo_v17", SESS = "__rhdemo_session";
   window.RH_SUPABASE = { url: "demo", anonKey: "demo" };
   window.RH_DEMO = true;
   var SHOW_TOOLS = /[?&]tools\b/.test(location.search);
@@ -446,6 +446,46 @@
     /* The prototype opens WITH the made-up sample data. "Clear all data" in the tools panel starts empty (only the settings and the two
        sign-in accounts stay) so the import can be tried on empty lists; "Load sample data" brings the made-up data back. */
     var sample = false; try { sample = localStorage.getItem("__rhdemo_mode") !== "empty"; } catch (e) { }
+    /* Payments are never confirmed automatically in this prototype until the administrator turns that on in Settings. */
+    R("setting", "autopost", "", { on: false, hours: 24 });
+    if (sample) {
+      /* The sample is kept small on purpose, so every list fits on one screen: 8 units (Unit 3B is the resident, Unit 2C has a
+         payment waiting) and only a few records of each other kind. */
+      var KEEP = ["Unit 1A", "Unit 1B", "Unit 1C", "Unit 2A", "Unit 2B", "Unit 2C", "Unit 3A", "Unit 3B"];
+      var CAP = { expense: 10, announcement: 4, event: 3, poll: 2, mtask: 5, doc: 4, activity: 12 }, taken = {};
+      var keepPoll = {}, keepEvent = {}, freeSlots = 0, waiting = 0;
+      recs = recs.filter(function (r) {
+        var k = r.kind, v = r.value || {};
+        if (k === "unit" || k === "due" || k === "payment") return KEEP.indexOf(r.unit) >= 0;
+        if (k === "proof") return v.status === "Pending" ? !(waiting++) : KEEP.indexOf(r.unit) >= 0;   /* only one payment waits for the office */
+        if (k === "grievance") return KEEP.indexOf(r.unit) >= 0 && r.unit !== "Unit 3B";   /* 3B starts with none, so the resident can send one */
+        if (k === "booking") return KEEP.indexOf(r.unit) >= 0 && v.status !== "Pending";
+        if (k === "request") return false;
+        if (k === "slot") { if (v.unit) return KEEP.indexOf(v.unit) >= 0; return ++freeSlots <= 6; }
+        if (k === "vote" || k === "rsvp") return KEEP.indexOf(r.unit) >= 0;
+        if (k === "activity") { var m = /Unit \d+[A-C]/.exec(v.title || ""); if (m && KEEP.indexOf(m[0]) < 0) return false; }
+        if (CAP[k]) {
+          taken[k] = (taken[k] || 0) + 1;
+          if (taken[k] > CAP[k]) return false;
+          if (k === "poll") keepPoll[String(v.id)] = 1;
+          if (k === "event") keepEvent[String(v.id)] = 1;
+        }
+        return true;
+      }).filter(function (r) {
+        if (r.kind === "vote") return keepPoll[String((r.value || {}).poll)];
+        if (r.kind === "rsvp") return keepEvent[String((r.value || {}).event)];
+        return true;
+      });
+      users = users.filter(function (u) { return u.id === "demo-admin" || !u.profile.unit || KEEP.indexOf(u.profile.unit) >= 0; });
+      /* the one payment waiting for the office: Unit 2C, bank transfer (the resident form's first choice), with a reference number the demo can reuse to show the duplicate flag */
+      recs.forEach(function (r) {
+        if (r.kind === "proof" && r.value.status === "Pending") {
+          r.unit = "Unit 2C";
+          r.value.unit = "Unit 2C"; r.value.payer = "Torres Household"; r.value.forText = "Association dues - November 2026";
+          r.value.method = "Bank transfer"; r.value.reference = "BT2026110301"; r.value.amount = 3000; delete r.value.slot;
+        }
+      });
+    }
     if (!sample) {
       users = users.filter(function (u) { return u.id === "demo-admin" || u.email === "resident@demo.test"; });
       recs = recs.filter(function (r) { return r.kind === "setting" || (r.kind === "unit" && r.id === "Unit 3B"); });
