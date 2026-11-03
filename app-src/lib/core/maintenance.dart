@@ -115,9 +115,9 @@ String _plural(int n, String w) => '$n $w${n == 1 ? '' : 's'}';
 class NoticeLog {
   final String title;
   final DateTime at;
-  final int count, textCount, noPhone;
-  final bool everyone, text;
-  const NoticeLog(this.title, this.at, this.count, {this.everyone = false, this.text = false, this.textCount = 0, this.noPhone = 0});
+  final int count;
+  final bool everyone;
+  const NoticeLog(this.title, this.at, this.count, {this.everyone = false});
 }
 
 class MaintenanceState extends ChangeNotifier {
@@ -273,9 +273,9 @@ class MaintenanceState extends ChangeNotifier {
   /// Posts a notice to the chosen residents (or everyone) and keeps a record of who it reached.
   /// [units] lists the units that can read it; empty means every resident.
   void sendNotice(AppState app, String title, String body,
-      {required List<String> units, required int count, required bool text, required int textCount, required int noPhone, String type = 'Maintenance'}) {
-    app.addAnnouncement(title, body, type, text, units: units);
-    notices.insert(0, NoticeLog(title, DateTime.now(), count, everyone: units.isEmpty, text: text, textCount: textCount, noPhone: noPhone));
+      {required List<String> units, required int count, String type = 'Maintenance'}) {
+    app.addAnnouncement(title, body, type, units: units);
+    notices.insert(0, NoticeLog(title, DateTime.now(), count, everyone: units.isEmpty));
     notifyListeners();
   }
 

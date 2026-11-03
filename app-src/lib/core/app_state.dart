@@ -275,12 +275,11 @@ class Grievance {
 class Announcement {
   final int id;
   String title, body, date, status, type;
-  bool sms;
 
   /// Units that should see this notice. Empty means every resident.
   List<String> units;
   Announcement(this.id, this.title, this.body, this.date, this.status,
-      this.type, this.sms, {List<String>? units}) : units = units ?? [];
+      this.type, {List<String>? units}) : units = units ?? [];
 
   /// True if a resident living in [unit] should see this notice.
   bool visibleTo(String unit) => units.isEmpty || units.contains(unit);
@@ -509,12 +508,6 @@ class AppState extends ChangeNotifier {
   /// Resident accounts, in unit order (the list the administrator picks recipients from).
   List<Account> get residentAccounts => [for (final a in trusted) if (a.role == 'Resident') a];
 
-  /// Mobile numbers of the resident accounts (used to text announcements).
-  List<String> get residentPhones => [
-        for (final a in trusted)
-          if (a.role == 'Resident' && validMobile(normalizePhone(a.phone))) normalizePhone(a.phone),
-      ];
-
   /// Turns a typed mobile number into the 09XXXXXXXXX form.
   static String normalizePhone(String raw) {
     var d = raw.replaceAll(RegExp(r'\D'), '');
@@ -672,7 +665,6 @@ class AppState extends ChangeNotifier {
     complaintLimit = 1;
     hiddenNav = {};
     parkSoonDays = 5;
-    smsLog.clear();
     _ballots.clear();
     pollCats
       ..clear()
@@ -1641,14 +1633,12 @@ class AppState extends ChangeNotifier {
           walkins.removeWhere((w) => w.unit == p.unit && w.renew);
           leaveNotes.remove(p.unit);
           logActivity('Parking rental renewed: ${sl.id} · ${p.unit} until ${isoShort(sl.until)}', 'Parking');
-          sendSms(p.unit, approvedSmsText(sl, p.receiptNo, p.amount, true));
         }
       } else {
         final req = parking.where((r) => r.unit == p.unit && !r.confirmed && r.slot == p.slot).firstOrNull;
         if (req != null && assignRequest(req) == null) {
           walkins.removeWhere((w) => w.unit == p.unit && !w.renew);
           logActivity('Parking slot ${p.slot} assigned to ${p.unit} (paid)', 'Parking');
-          if (sl != null) sendSms(p.unit, approvedSmsText(sl, p.receiptNo, p.amount, false));
         }
       }
     }
@@ -1842,10 +1832,6 @@ class AppState extends ChangeNotifier {
             : 'Your parking rental for ${mySlot.id} ${pd.late ? 'has ended or is due' : 'is almost up'}. The next payment is due ${isoShort(pd.nextDue)} (${parkDaysText(pd.days)}). Renew to keep your slot, or tell the office if you no longer plan to rent.',
         pd.late ? 'bad' : 'warn'
       ]);
-    }
-    // the texts the office sent (rental approved, next due date)
-    for (final m in smsLog.where((m) => m.unit == myUnit && DateTime.now().millisecondsSinceEpoch - m.at < 14 * 86400000).take(2)) {
-      out.add(['Text message to your phone: ${m.text}', 'good']);
     }
     // what the office reminds everyone of, then its announcements (maintenance news reaches residents here)
     for (final c in customRemsForMe) {
@@ -2721,15 +2707,11 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  // ---- walk-in, renewal and text messages (motor parking) ----
+  // ---- walk-in and renewal (motor parking) ----
 
-  /// Residents who said they will pay at the office, residents who said they will not renew (unit -> note), and the texts sent.
+  /// Residents who said they will pay at the office, residents who said they will not renew (unit -> note).
   final List<Walkin> walkins = [];
   final Map<String, String> leaveNotes = {};
-  final List<SmsMsg> smsLog = [];
-
-  /// What the last text did, for the message shown to the administrator ("A text was sent to 0917 ...").
-  String lastSmsNote = '';
 
   /// How the office can take a walk-in payment, and the method name written on the receipt.
   static const walkinOptions = ['Cash', 'Check', 'Card (debit or credit)', 'E-wallet (GCash or Maya)'];
@@ -2833,22 +2815,7 @@ class AppState extends ChangeNotifier {
     return out;
   }
 
-  /// "Sends" a text to a unit. The prototype only saves it; a real SMS service would deliver it from here.
-  void sendSms(String unit, String text) {
-    final phone = unitPhone(unit);
-    smsLog.insert(0, SmsMsg(nextId(), unit, phone, text, DateTime.now().millisecondsSinceEpoch, phone.isEmpty ? 'No number' : 'Sent'));
-    lastSmsNote = phone.isEmpty ? 'No mobile number is on file for $unit, so no text was sent.' : 'A text was sent to $phone.';
-    logActivity('Text ${phone.isEmpty ? 'not sent to $unit (no mobile number)' : 'sent to $unit ($phone)'}: $text', 'Parking');
-  }
-
-  /// The text a resident gets when their parking payment is approved: the rental period and the next due date.
-  String approvedSmsText(ParkingSlot s, String receipt, num amount, bool renewed) {
-    final d = parkDueOf(s);
-    return 'ResidentHub: Your parking payment of ${peso(amount)} is approved. Slot ${s.id} is ${renewed ? 'renewed' : 'yours'} until ${isoShort(s.until)}.'
-        '${d != null ? ' Next payment due: ${isoShort(d.nextDue)}.' : ' This daily rental ends on ${isoShort(s.until)}.'} Receipt $receipt. Thank you!';
-  }
-
-  /// Admin: a resident renews at the office. Records the payment (receipt), extends the rental and texts the resident.
+  /// Admin: a resident renews at the office. Records the payment (receipt), and extends the rental.
   String? parkingRenewOfficePayment(ParkingSlot s, String amountRaw, String via, String ref) {
     if (!s.used || s.daily) return 'This rental changed. Close this and try again.';
     final amt = double.tryParse(amountRaw.trim().replaceAll(',', ''));
@@ -3255,12 +3222,12 @@ class AppState extends ChangeNotifier {
     _n();
   }
 
-  /// Creates an announcement (and can text the residents).
-  void addAnnouncement(String title, String body, String type, bool sms, {List<String>? units, bool draft = false}) {
+  /// Creates an announcement.
+  void addAnnouncement(String title, String body, String type, {List<String>? units, bool draft = false}) {
     announcements.insert(
         0,
         Announcement(nextId(), title, body.isEmpty ? '—' : body, shortDate(DateTime.now()),
-            draft ? 'Draft' : 'Published', type, sms, units: units));
+            draft ? 'Draft' : 'Published', type, units: units));
     logActivity(draft ? 'Announcement saved as draft: $title' : 'Announcement published: $title', 'Announcements');
     _n();
   }
@@ -3282,21 +3249,20 @@ class AppState extends ChangeNotifier {
       }
     }
     final n = nextId();
-    announcements.insert(0, Announcement(n, t.isEmpty ? '(no title)' : t, b.isEmpty ? '—' : b, shortDate(DateTime.now()), 'Draft', type, false));
+    announcements.insert(0, Announcement(n, t.isEmpty ? '(no title)' : t, b.isEmpty ? '—' : b, shortDate(DateTime.now()), 'Draft', type));
     logActivity('Announcement saved as draft: ${t.isEmpty ? '(no title)' : t}', 'Announcements');
     _n();
     return n;
   }
 
   /// Publishes a draft (or updates a published announcement) from the compose window.
-  void publishAnnouncementFrom(int id, String title, String body, String type, {bool sms = false}) {
+  void publishAnnouncementFrom(int id, String title, String body, String type) {
     final i = announcements.indexWhere((a) => a.id == id);
     if (i < 0) return;
     final a = announcements[i];
     a.title = title.trim();
     a.body = body.trim().isEmpty ? '—' : body.trim();
     a.type = type;
-    a.sms = sms;
     if (a.status != 'Published') {
       a.status = 'Published';
       a.date = shortDate(DateTime.now());

@@ -1,11 +1,11 @@
 // ADMIN: the "Did they pay?" card. Charges that are due (or past due) with no payment on record and nothing sent by the
 // resident may already have been paid. For each one the office answers Yes (mark it paid, enter what was really paid;
-// a short payment leaves a balance) or No (optionally add a late charge, remind the resident, or call / text them).
+// a short payment leaves a balance) or No (optionally add a late charge, remind the resident, or call them).
 
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
-import '../../services/texting.dart';
+import '../../services/calling.dart';
 import '../../widgets/widgets.dart';
 
 class PayCheckCard extends StatefulWidget {
@@ -112,7 +112,6 @@ class _PayCheckCardState extends State<PayCheckCard> {
   Widget _row(BuildContext context, Due d, int days) {
     final ph = app.unitPhone(d.unit);
     final tone = days >= 3 ? Tone.bad : Tone.warn;
-    final sms = 'Good day! This is the administration office. Our records show ${d.note} (${peso(d.amount)}) is still unpaid. If you already paid, please send your payment details under Dues in the ResidentHub app so your balance updates. Thank you!';
     return Container(
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
@@ -147,10 +146,7 @@ class _PayCheckCardState extends State<PayCheckCard> {
             children: [
               FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 40)), onPressed: () => _yes(d), child: const Text('Yes, paid')),
               OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)), onPressed: () => _no(d), child: const Text('No')),
-              if (ph.isNotEmpty) ...[
-                TextButton.icon(onPressed: () => callNumber(context, ph), icon: const Icon(Icons.call_outlined, size: 18), label: const Text('Call')),
-                TextButton.icon(onPressed: () => textOne(context, ph, sms), icon: const Icon(Icons.sms_outlined, size: 18), label: const Text('SMS')),
-              ],
+              if (ph.isNotEmpty) TextButton.icon(onPressed: () => callNumber(context, ph), icon: const Icon(Icons.call_outlined, size: 18), label: const Text('Call')),
             ],
           ),
         ],

@@ -140,13 +140,6 @@ class Walkin {
   const Walkin(this.unit, this.name, this.slot, this.amount, this.renew, this.day, this.at);
 }
 
-/// A text message the office "sent" to a resident (saved here; a real SMS service would deliver it).
-class SmsMsg {
-  final int id, at;
-  final String unit, to, text, status;
-  const SmsMsg(this.id, this.unit, this.to, this.text, this.at, this.status);
-}
-
 /// The residents are told this many days before the next payment of a monthly rental is due.
 /// The office can change it (Settings > Reminders); a very low number means the reminder is off.
 int parkSoonDays = 5;

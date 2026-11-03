@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
-import '../../services/texting.dart';
 import '../../widgets/widgets.dart';
 import '../shared/import_sheet.dart';
 
@@ -51,10 +50,7 @@ class _AdminAnnouncementsState extends State<AdminAnnouncements> {
 
   /// Opens the compose page. Going back (or closing it) keeps what was typed as a draft, like Gmail.
   Future<void> _compose(BuildContext context, {Announcement? edit}) async {
-    final sent = await Navigator.of(context).push<Map<String, String>>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => AnnouncementCompose(existing: edit)));
-    if (sent != null && context.mounted && sent['sms'] == '1') {
-      textResidents(context, sent['title'] ?? '', sent['body'] ?? '');
-    }
+    await Navigator.of(context).push<void>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => AnnouncementCompose(existing: edit)));
   }
 
   void _newEvent(BuildContext context) {
@@ -274,7 +270,6 @@ class _AnnouncementComposeState extends State<AnnouncementCompose> {
   late String _type = widget.existing?.type ?? 'General';
   late final int _id = widget.existing?.id ?? 0;
   late final bool _pub = widget.existing != null && widget.existing!.status == 'Published';
-  bool _sms = false;
   bool _done = false; // published or discarded: nothing to keep as a draft any more
 
   @override
@@ -308,9 +303,9 @@ class _AnnouncementComposeState extends State<AnnouncementCompose> {
     if (id == 0) id = app.saveAnnouncementDraft(0, t, body, _type);
     final wasLive = _pub;
     _done = true;
-    app.publishAnnouncementFrom(id, t, body, _type, sms: _sms && !wasLive);
+    app.publishAnnouncementFrom(id, t, body, _type);
     final m = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop(<String, String>{'title': t, 'body': body, 'sms': _sms && !wasLive ? '1' : '0'});
+    Navigator.of(context).pop();
     m.showSnackBar(SnackBar(content: Text(wasLive ? 'Changes saved.' : 'Published. Residents can see it now.')));
   }
 
@@ -362,13 +357,6 @@ class _AnnouncementComposeState extends State<AnnouncementCompose> {
           ),
           if (!_pub) ...[
             const Divider(),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Also text residents'),
-              subtitle: const Text('Opens your messaging app when you publish.'),
-              value: _sms,
-              onChanged: (v) => setState(() => _sms = v),
-            ),
             Text('Going back keeps your text as a draft.', style: TextStyle(color: muted(context), fontSize: 12.5)),
           ],
         ],

@@ -220,7 +220,7 @@ class SessionService {
     }
     return VerifyOptions(
       emailReady: r['emailReady'] == true,
-      smsReady: r['smsReady'] == true,
+      smsReady: false, // mobile numbers are not verified by text message in this system
       email: (r['email'] ?? '').toString(),
       phone: (r['phone'] ?? '').toString(),
     );
@@ -271,7 +271,7 @@ class SessionService {
     if (kDemo) return const VerifyOptions(error: kDemoOff);
     final r = await _reset({'action': 'options'});
     if (r['error'] != null) return VerifyOptions(error: r['error'].toString());
-    return VerifyOptions(emailReady: r['emailReady'] == true, smsReady: r['smsReady'] == true);
+    return VerifyOptions(emailReady: r['emailReady'] == true);
   }
 
   /// Asks for a password reset: one code goes the way the person chose ('sms' or 'email').

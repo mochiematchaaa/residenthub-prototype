@@ -324,7 +324,7 @@ class ResHome extends StatelessWidget {
                               const SizedBox(height: 3),
                               Text(p.body, style: TextStyle(color: muted(context), fontSize: 13, height: 1.4)),
                               const SizedBox(height: 6),
-                              Text('${p.date}${p.sms ? '  ·  Texted to residents' : ''}', style: TextStyle(color: muted(context), fontSize: 11.5)),
+                              Text(p.date, style: TextStyle(color: muted(context), fontSize: 11.5)),
                             ],
                           ),
                         ),

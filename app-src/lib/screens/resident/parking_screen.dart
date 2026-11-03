@@ -57,7 +57,7 @@ void sendRenewalPayment(BuildContext context) {
     context,
     title: 'Renew ${s.id}',
     subtitle: 'Pay ${peso(app.parkRenewAmount(s))} with GCash, Maya or bank transfer${d != null ? ' (next payment due ${isoShort(d.nextDue)})' : ''}, then enter the reference number and add a screenshot of your payment. '
-        'The office checks it, extends your rental and sends you a text with your next due date.',
+        'The office checks it, extends your rental, and your next due date shows here.',
     photo: const PhotoSpec('photo', 'Screenshot of your payment', hint: 'It helps the office confirm your renewal faster.'),
     choices: [ChoiceSpec('method', 'Paid through', methods, methods.first)],
     fields: [
@@ -101,10 +101,10 @@ class RenewCard extends StatelessWidget {
       actions.add(OutlinedButton(onPressed: app.parkLeaveUndo, child: const Text('I changed my mind')));
     } else if (pr != null) {
       title = 'Renewal payment sent';
-      body = 'Reference ${pr.reference}. The office will verify it, then your rental is extended and you get a text message with your next due date.';
+      body = 'Reference ${pr.reference}. The office will verify it, then your rental is extended and your next due date shows here.';
     } else if (w != null) {
       title = 'Walk-in sent';
-      body = '${app.walkinText(w, 'You')} When the office records your payment, your rental is renewed and you get a text message with your next due date.';
+      body = '${app.walkinText(w, 'You')} When the office records your payment, your rental is renewed and your next due date shows here.';
       actions.add(OutlinedButton(onPressed: () => app.parkWalkInCancel(renew: true), child: const Text('Cancel walk-in')));
     } else {
       title = d.late ? 'Your parking rental has ended or is due now' : 'Your parking rental is almost up';
@@ -301,7 +301,7 @@ class ResParking extends StatelessWidget {
                           children: [
                             const Text('Walk-in sent', style: TextStyle(fontWeight: FontWeight.w800)),
                             const SizedBox(height: 2),
-                            Text('${app.walkinText(app.walkinOf(app.myUnit)!, 'You')} Pay at the counter with cash, check, card or e-wallet. When the office records it, your rental starts and you get a text with your next due date.',
+                            Text('${app.walkinText(app.walkinOf(app.myUnit)!, 'You')} Pay at the counter with cash, check, card or e-wallet. When the office records it, your rental starts and your next due date shows here.',
                                 style: const TextStyle(color: inkSoft, fontSize: 12.5, height: 1.35)),
                             TextButton(onPressed: app.parkWalkInCancel, child: const Text('Cancel walk-in')),
                           ],

@@ -337,7 +337,7 @@ final Map<String, ImportSpec> importSpecs = {
     (v, run) async {
       if (v['title']!.isEmpty) return 'No title';
       if (app.announcements.any((a) => a.title.toLowerCase() == v['title']!.toLowerCase())) return 'Same title already posted';
-      app.addAnnouncement(v['title']!, v['body']!, _pick(const ['General', 'Maintenance', 'Warning', 'Emergency'], v['type']!, 'General'), false);
+      app.addAnnouncement(v['title']!, v['body']!, _pick(const ['General', 'Maintenance', 'Warning', 'Emergency'], v['type']!, 'General'));
       return null;
     },
   ),

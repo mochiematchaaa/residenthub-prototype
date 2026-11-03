@@ -38,7 +38,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _load() async {
     var o = await session.resetOptions();
     // if the server could not be asked, offer both and let the server answer
-    if (o.error != null) o = const VerifyOptions(emailReady: true, smsReady: true);
+    if (o.error != null) o = const VerifyOptions(emailReady: true);
     if (!mounted) return;
     setState(() {
       _opts = o;

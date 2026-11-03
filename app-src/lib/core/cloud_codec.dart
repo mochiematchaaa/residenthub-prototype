@@ -237,14 +237,13 @@ Map<String, dynamic> _annJson(Announcement a) => {
       'date': a.date,
       'status': a.status,
       'type': a.type,
-      'sms': a.sms,
       if (a.units.isNotEmpty) 'units': a.units,
     };
 
 Announcement? _annFrom(Map<String, dynamic> j) {
   if (j['id'] is! num) return null;
   return Announcement(_i(j, 'id'), _s(j, 'title'), _s(j, 'body'), _s(j, 'date'),
-      _s(j, 'status', 'Published'), _s(j, 'type', 'General'), _b(j, 'sms'),
+      _s(j, 'status', 'Published'), _s(j, 'type', 'General'),
       units: j['units'] is List ? [for (final u in j['units'] as List) '$u'] : null);
 }
 

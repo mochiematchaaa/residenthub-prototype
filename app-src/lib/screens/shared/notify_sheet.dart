@@ -1,9 +1,8 @@
-// The Notify residents popup: pick everyone or chosen residents (with their mobile numbers), send a notice in the app, and optionally a text message.
+// The Notify residents popup: pick everyone or chosen residents and send a notice that appears under Announcements in their app.
 
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
-import '../../services/texting.dart';
 import '../../widgets/widgets.dart';
 
 /// Opens the Notify residents popup. With a maintenance [task] the title and message are filled in for you.
@@ -28,7 +27,6 @@ class _NotifySheet extends StatefulWidget {
 class _NotifySheetState extends State<_NotifySheet> {
   late final TextEditingController title, body, search;
   bool everyone = true;
-  bool text = true;
   final Set<String> picked = {};
   String? error;
 
@@ -57,7 +55,7 @@ class _NotifySheetState extends State<_NotifySheet> {
 
   List<Account> get _shown {
     final s = search.text.trim().toLowerCase();
-    return _all.where((a) => s.isEmpty || '${a.name} ${a.unit} ${a.phone}'.toLowerCase().contains(s)).toList();
+    return _all.where((a) => s.isEmpty || '${a.name} ${a.unit}'.toLowerCase().contains(s)).toList();
   }
 
   List<Account> get _recipients => everyone ? _all : _all.where((a) => picked.contains(a.id)).toList();
@@ -67,17 +65,12 @@ class _NotifySheetState extends State<_NotifySheet> {
     final rec = _recipients;
     if (t.isEmpty) return setState(() => error = 'Enter a title.');
     if (rec.isEmpty) return setState(() => error = 'Choose at least one resident.');
-    final phones = [for (final a in rec) if (a.hasMobile) AppState.normalizePhone(a.phone)];
-    if (text && phones.isEmpty) return setState(() => error = 'None of these residents has a mobile number on file. Turn off the text message or choose other residents.');
     final units = everyone ? <String>[] : rec.map((a) => a.unit).toSet().toList();
     final msgBody = body.text.trim();
-    maint.sendNotice(app, t, msgBody,
-        units: units, count: rec.length, text: text, textCount: phones.length, noPhone: rec.length - phones.length);
+    maint.sendNotice(app, t, msgBody, units: units, count: rec.length);
     final parent = widget.parent;
     Navigator.pop(context);
-    if (text) {
-      textNumbers(parent, phones, t, msgBody);
-    } else if (parent.mounted) {
+    if (parent.mounted) {
       msg(parent, 'Notice sent to ${everyone ? 'all residents' : '${rec.length} resident${rec.length == 1 ? '' : 's'}'}.');
     }
   }
@@ -85,7 +78,6 @@ class _NotifySheetState extends State<_NotifySheet> {
   @override
   Widget build(BuildContext context) {
     final rec = _recipients;
-    final withPhone = rec.where((a) => a.hasMobile).length;
     final shown = _shown;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -96,7 +88,7 @@ class _NotifySheetState extends State<_NotifySheet> {
           children: [
             Text('Notify residents', style: hd(22)),
             const SizedBox(height: 4),
-            Text('Choose who gets this notice and how. It appears under Announcements in their app.', style: TextStyle(color: muted(context), fontSize: 13)),
+            Text('Choose who gets this notice. It appears under Announcements in their app.', style: TextStyle(color: muted(context), fontSize: 13)),
             const SizedBox(height: 14),
             Text('Send to', style: TextStyle(color: muted(context), fontSize: 12.5, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
@@ -109,7 +101,7 @@ class _NotifySheetState extends State<_NotifySheet> {
               TextField(
                 controller: search,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(hintText: 'Search name, unit or number…', prefixIcon: Icon(Icons.search_rounded)),
+                decoration: const InputDecoration(hintText: 'Search name or unit…', prefixIcon: Icon(Icons.search_rounded)),
               ),
               Row(children: [
                 TextButton(onPressed: () => setState(() => picked.addAll(shown.map((a) => a.id))), child: const Text('Select shown')),
@@ -130,24 +122,14 @@ class _NotifySheetState extends State<_NotifySheet> {
                               value: picked.contains(a.id),
                               onChanged: (v) => setState(() => v == true ? picked.add(a.id) : picked.remove(a.id)),
                               title: Text('${a.name} · ${a.unit}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              subtitle: Text(a.hasMobile ? a.phone : 'No mobile number', style: TextStyle(color: a.hasMobile ? muted(context) : danger, fontSize: 12.5)),
                             ),
                         ],
                       ),
               ),
             ],
             const SizedBox(height: 14),
-            Text('How', style: TextStyle(color: muted(context), fontSize: 12.5, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Wrap(spacing: 8, children: [
-              ChoiceChip(label: const Text('Dashboard and app only'), selected: !text, onSelected: (_) => setState(() => text = false)),
-              ChoiceChip(label: const Text('Dashboard, app and text message'), selected: text, onSelected: (_) => setState(() => text = true)),
-            ]),
-            const SizedBox(height: 8),
             Text(
-              'Will reach ${rec.length} resident${rec.length == 1 ? '' : 's'}'
-              '${text ? ' on the dashboard and in the app, and by text message at the same time. $withPhone ${withPhone == 1 ? 'has' : 'have'} a mobile number to text${rec.length - withPhone > 0 ? ' (${rec.length - withPhone} without)' : ''}' : ''}.'
-              '${text ? ' The text opens in your phone\'s messaging app with their numbers filled in; you tap Send.' : ''}',
+              'Will reach ${rec.length} resident${rec.length == 1 ? '' : 's'} on the dashboard and in the app.',
               style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
             ),
             const SizedBox(height: 14),

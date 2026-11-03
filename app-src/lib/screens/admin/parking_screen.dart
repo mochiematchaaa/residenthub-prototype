@@ -78,12 +78,12 @@ class _AdminParkingState extends State<AdminParking> {
     );
   }
 
-  /// Walk-in: the resident pays at the counter (cash, check, card or e-wallet). Records the payment (receipt), gives the slot, texts the resident.
+  /// Walk-in: the resident pays at the counter (cash, check, card or e-wallet). Records the payment (receipt), and gives the slot.
   void _officePay(BuildContext context, ParkingReq p) {
     showFormSheet(
       context,
       title: 'Walk-in payment · ${p.unit}',
-      subtitle: 'Slot ${p.slot}. Enter what the office received. A receipt is issued, the slot is assigned and the resident gets a text with the next due date.',
+      subtitle: 'Slot ${p.slot}. Enter what the office received. A receipt is issued, and the slot is assigned.',
       choices: [ChoiceSpec('via', 'Paid at the counter by', AppState.walkinOptions, AppState.walkinOptions.first)],
       fields: [
         FieldSpec('amount', 'Amount received (PHP)', type: TextInputType.number, initial: p.amount > 0 ? '${p.amount}' : ''),
@@ -92,7 +92,7 @@ class _AdminParkingState extends State<AdminParking> {
       submit: 'Record payment and assign',
       onSubmit: (v) {
         final err = app.parkingOfficePayment(p, '${v['amount'] ?? ''}', '${v['ref'] ?? ''}', via: '${v['via'] ?? 'Cash'}');
-        if (err == null) msg(context, 'Payment recorded. ${p.slot} is now assigned to ${p.unit}. ${app.lastSmsNote}');
+        if (err == null) msg(context, 'Payment recorded. ${p.slot} is now assigned to ${p.unit}.');
         return err;
       },
     );
@@ -104,7 +104,7 @@ class _AdminParkingState extends State<AdminParking> {
     showFormSheet(
       context,
       title: 'Renew ${s.id} · ${s.unit}',
-      subtitle: '${d != null ? 'The rental runs until ${isoShort(d.until)}; one more month is added. ' : ''}Recording it issues a receipt, extends the rental and sends the resident a text with the next due date.',
+      subtitle: '${d != null ? 'The rental runs until ${isoShort(d.until)}; one more month is added. ' : ''}Recording it issues a receipt, and extends the rental.',
       choices: [ChoiceSpec('via', 'Paid at the counter by', AppState.walkinOptions, AppState.walkinOptions.first)],
       fields: [
         FieldSpec('amount', 'Amount received (PHP)', type: TextInputType.number, initial: '${app.parkRenewAmount(s)}'),
@@ -113,7 +113,7 @@ class _AdminParkingState extends State<AdminParking> {
       submit: 'Record payment and renew',
       onSubmit: (v) {
         final err = app.parkingRenewOfficePayment(s, '${v['amount'] ?? ''}', '${v['via'] ?? 'Cash'}', '${v['ref'] ?? ''}');
-        if (err == null) msg(context, 'Payment recorded. ${s.id} is renewed until ${isoShort(s.until)}. ${app.lastSmsNote}');
+        if (err == null) msg(context, 'Payment recorded. ${s.id} is renewed until ${isoShort(s.until)}.');
         return err;
       },
     );
@@ -330,7 +330,7 @@ class _AdminParkingState extends State<AdminParking> {
           style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
           onPressed: () {
             app.confirmProof(proof);
-            msg(context, 'Payment verified. ${p.slot} is now assigned to ${p.unit}. ${app.lastSmsNote}');
+            msg(context, 'Payment verified. ${p.slot} is now assigned to ${p.unit}.');
           },
           child: Text('Verify and assign ${p.slot}'),
         ),
@@ -511,7 +511,7 @@ class _AdminParkingState extends State<AdminParking> {
           style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
           onPressed: () {
             app.confirmProof(x.proof!);
-            msg(context, 'Payment verified. ${s.id} is renewed until ${isoShort(s.until)}. ${app.lastSmsNote}');
+            msg(context, 'Payment verified. ${s.id} is renewed until ${isoShort(s.until)}.');
           },
           child: Text('Verify and renew ${s.id}'),
         ),
@@ -553,38 +553,6 @@ class _AdminParkingState extends State<AdminParking> {
     );
   }
 
-  /// The texts sent to residents (the prototype only saves them; a real SMS service would deliver them).
-  Widget _smsLog(BuildContext context) {
-    final l = app.smsLog.take(6).toList();
-    return RCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Text messages to residents', style: hd(17)),
-          const SizedBox(height: 4),
-          Text(
-            'When a parking payment is approved, the resident gets a text with the rental period and the next due date. In this prototype the text is saved here and shown on the resident\'s dashboard; connecting an SMS service would send it to their phone.',
-            style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
-          ),
-          if (l.isEmpty)
-            Padding(padding: const EdgeInsets.only(top: 8), child: Text('No texts yet.', style: TextStyle(color: muted(context))))
-          else
-            for (final m in l)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${m.unit} · ${m.to.isEmpty ? 'no mobile number' : m.to} · ${clockText(DateTime.fromMillisecondsSinceEpoch(m.at))} · ${m.status}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                    Text(m.text, style: TextStyle(color: muted(context), fontSize: 12, height: 1.35)),
-                  ],
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-
   Widget _requestsTab(BuildContext context, List<ParkingReq> waiting) {
     final renewals = app.parkRenewals;
     return Column(
@@ -601,8 +569,6 @@ class _AdminParkingState extends State<AdminParking> {
           const EmptyBox('No new requests waiting.', icon: Icons.two_wheeler_outlined)
         else
           for (final p in waiting) _request(context, p),
-        const SizedBox(height: 4),
-        _smsLog(context),
       ],
     );
   }
