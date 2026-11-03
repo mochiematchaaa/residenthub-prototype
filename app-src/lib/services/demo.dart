@@ -1,7 +1,6 @@
 // DEMO MODE ONLY (build with --dart-define=DEMO=true). Fills the app with made-up sample data and never talks to the database.
 
 import '../core/core.dart';
-import 'audit_trail.dart' show DemoAudit;
 
 /// Demo build: `flutter build web --dart-define=DEMO=true`.
 ///
@@ -71,7 +70,6 @@ void startDemo(Role role) {
   }
   if (admin) app.setAccounts([for (final a in _demoAccounts()) if (kSampleData || a.unit == kDemoResidentUnit) a]);
   app.changed();
-  DemoAudit.begin(); // the audit trail starts empty and writes down every change made from here on
 }
 
 /// Without sample data only the settings (rates, payment methods, amenities, directory) and the demo resident's own
