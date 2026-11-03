@@ -155,17 +155,20 @@ function highlight(id) {
   if (menuLinks[id]) menuLinks[id].classList.add("active");
 }
 highlight("home");
-if ("IntersectionObserver" in window) {
-  var sectionObserver = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (entry.isIntersecting) highlight(entry.target.id);
-    });
-  }, { rootMargin: "-45% 0px -50% 0px" });
-  ["home", "amenities", "about", "contact"].forEach(function (id) {
+// The section being viewed is the last one whose top has passed 45% of the window; at the very bottom of the page it is Contact.
+var spyIds = ["home", "amenities", "about", "app", "contact"];
+function updateHighlight() {
+  var line = window.innerHeight * 0.45, current = "home";
+  spyIds.forEach(function (id) {
     var section = document.getElementById(id);
-    if (section) sectionObserver.observe(section);
+    if (section && section.getBoundingClientRect().top <= line) current = id;
   });
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = "contact";
+  highlight(current);
 }
+window.addEventListener("scroll", updateHighlight, { passive: true });
+window.addEventListener("resize", updateHighlight);
+updateHighlight();
 
 
 /* 9. Coming back with the browser's Back button (from the Sign In page) -- */
