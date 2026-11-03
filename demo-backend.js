@@ -545,7 +545,7 @@
     return fresh();
   }
   /* Demo mode: refreshing the page (F5 / Ctrl+R) puts the original sample data back, so every test starts clean and nothing tried is kept.
-     Opening a page or a link does not reset it, only a real refresh does. It can be switched off in Settings > General > Demo data. */
+     Opening a page or a link does not reset it, only a real refresh does. */
   window.rhDemoAutoReset = function () { try { return localStorage.getItem("__rhdemo_autoreset") !== "0"; } catch (e) { return true; } };
   window.rhDemoSetAuto = function (on) { try { localStorage.setItem("__rhdemo_autoreset", on ? "1" : "0"); } catch (e) { } };
   function startData() {
@@ -560,18 +560,6 @@
     return load();
   }
   var db = startData();
-  function demoNote() {
-    if (!window.__rhDemoWasReset) return;
-    var text = "Sample data restored. What you tried before the refresh was dropped. You can turn this off in Settings > General > Demo data.";
-    /* shown with the other messages, in the same place, so they never overlap */
-    if (typeof toast === "function") { toast(text, 6500); return; }
-    var n = document.createElement("div");
-    n.textContent = text;
-    n.style.cssText = "position:fixed;right:16px;top:16px;z-index:99998;max-width:340px;padding:12px 16px;border-radius:14px;background:#16233f;color:#fff;font:600 13px/1.4 'Source Sans 3',system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:opacity .5s";
-    document.body.appendChild(n);
-    setTimeout(function () { n.style.opacity = "0"; }, 5200); setTimeout(function () { n.remove(); }, 5800);
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", demoNote); else demoNote();
   function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { } }
   function reload() { db = load(); }
   var chans = [];
