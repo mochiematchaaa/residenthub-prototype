@@ -23,6 +23,9 @@ const String kDemoResidentUnit = 'Unit 3B';
 const String kDemoAdminPhone = '0917 000 0000';
 const String kDemoResidentPhone = '0917 000 1108';
 
+/// Message for things that need a real server (passwords, accounts, text-message codes).
+const String kDemoOff = kPrototype ? 'This feature is not available in the prototype.' : 'This is a demo, so this is turned off.';
+
 /// Signs in as the demo administrator or the demo resident, with an email address.
 /// Returns an error message, or null.
 String? demoSignIn(String idRaw, String pass) {
