@@ -80,7 +80,7 @@ async function auditLoad() {
     AUD.loaded = true; AUD.stale = false;
   }
   AUD.loading = false;
-  if (state.view === "log" && state.logTab === "audit") render();
+  if (state.view === "audit") render();
 }
 // Re-read from the database (used when opening the page and after filters change).
 function auditRefresh(resetPage) { if (resetPage) AUD.page = 0; AUD.open = {}; AUD.stale = true; AUD.loaded = false; auditLoad(); render(); }

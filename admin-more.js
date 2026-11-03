@@ -1428,13 +1428,8 @@ function pagerHtml(total, page, size, fn) {
 }
 // Goes to another page of the activity log.
 function goLogPage(n) { state.logPage = Math.max(0, n); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
-// PAGE: Activity log, with two tabs: what happened, and the locked audit trail.
+// PAGE: Activity log.
 function viewLog() {
-  var tab = state.logTab === "audit" ? "audit" : "activity";
-  return '<div class="filters" style="margin-bottom:14px"><button class="' + (tab === "activity" ? "active" : "") + '" onclick="set({logTab:\'activity\'})">Activity</button><button class="' + (tab === "audit" ? "active" : "") + '" onclick="set({logTab:\'audit\'})">Audit trail</button></div>' + (tab === "audit" ? viewAudit() : viewActivityList());
-}
-// The list of what the administrators did.
-function viewActivityList() {
   var rows = newest(list("activity")), pages = Math.max(1, Math.ceil(rows.length / LOG_PAGE));
   var page = Math.min(Math.max(0, state.logPage || 0), pages - 1);
   return '<div class="filters"><span style="font-size:13px;color:var(--muted)">' + rows.length + ' entries</span><button class="btn" style="margin-left:auto" onclick="exportLog()">Export to Excel (.csv)</button></div>' +
@@ -1709,7 +1704,7 @@ function viewProfile() {
    Search and notifications
    ========================================================================== */
 function searchIndex() {
-  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Complaints", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
+  var pages = [["Finance", "fin"], ["Reports", "reports"], ["Parking", "parking"], ["Polls", "polls"], ["Facility booking", "fac"], ["Announcements", "ann"], ["Complaints", "req"], ["Unit status", "rentals"], ["Expenses", "expenses"], ["Activity log", "log"], ["Audit trail", "audit"], ["Manage access", "manage"], ["Settings", "settings"], ["My profile", "profile"]];
   return [].concat(
     sortedUnits().map(function (r) { return { t: esc(r.id + " · " + (r.v.name || "—")), s: esc((r.v.type || "") + " · " + (r.v.contact || "")), tag: "Unit", v: "units" }; }),
     list("announcement").map(function (r) { return { t: esc(r.v.title), s: esc(r.v.body || ""), tag: "Announcement", v: "ann" }; }),
