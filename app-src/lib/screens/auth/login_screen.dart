@@ -180,7 +180,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  if (kDemo) ...[
+                  // The prototype has no demo card: the person signs in with the email and password. The official demo keeps its card.
+                  if (kDemo && !kPrototype) ...[
                     Reveal(
                       index: 2,
                       child: PastelCard(
@@ -189,10 +190,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(kPrototype ? 'Quick access' : 'Demo mode', style: hd(18, color: ink)),
+                            Text('Demo mode', style: hd(18, color: ink)),
                             const SizedBox(height: 4),
                             const Text(
-                              kPrototype ? 'Open the app as an administrator or as a resident.' : 'Everything here is made-up sample data. Nothing is saved to a database, and it resets when you close the page.',
+                              'Everything here is made-up sample data. Nothing is saved to a database, and it resets when you close the page.',
                               style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.4),
                             ),
                             const SizedBox(height: 6),
@@ -204,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(
                               width: double.infinity,
                               height: 48,
-                              child: FilledButton(onPressed: () => startDemo(Role.admin), child: const Text(kPrototype ? 'Continue as Administrator' : 'Try as Administrator')),
+                              child: FilledButton(onPressed: () => startDemo(Role.admin), child: const Text('Try as Administrator')),
                             ),
                             const SizedBox(height: 8),
                             SizedBox(
@@ -212,14 +213,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 48,
                               child: OutlinedButton(
                                 onPressed: () => startDemo(Role.resident),
-                                child: const Text(kPrototype ? 'Continue as Resident (Maria, Unit 3B)' : 'Try as Resident (Maria, Unit 3B)'),
+                                child: const Text('Try as Resident (Maria, Unit 3B)'),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ] else
+                  ] else if (!kDemo)
                   Reveal(
                     index: 2,
                     child: PastelCard(
