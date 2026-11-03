@@ -1,4 +1,4 @@
-// ADMIN page: Audit trail.
+// ADMIN: the Audit trail tab inside the Activity log.
 
 import 'dart:async';
 import 'dart:convert';
@@ -13,14 +13,14 @@ import '../shared/document_viewer_screen.dart';
 
 /// Administrator: a locked record of who added, changed or deleted what, and when.
 /// Entries are written by the database and cannot be edited or removed from the app.
-class AdminAudit extends StatefulWidget {
-  const AdminAudit({super.key});
+class AuditPanel extends StatefulWidget {
+  const AuditPanel({super.key});
 
   @override
-  State<AdminAudit> createState() => _AdminAuditState();
+  State<AuditPanel> createState() => _AuditPanelState();
 }
 
-class _AdminAuditState extends State<AdminAudit> {
+class _AuditPanelState extends State<AuditPanel> {
   static const _size = 20;
   final _who = TextEditingController();
   Timer? _debounce;
@@ -171,10 +171,7 @@ class _AdminAuditState extends State<AdminAudit> {
   Widget build(BuildContext context) {
     final kinds = auditKinds.keys.toList()..sort((a, b) => auditKindLabel(a).compareTo(auditKindLabel(b)));
     final filtered = _kind.isNotEmpty || _who.text.trim().isNotEmpty || _from != null || _to != null;
-    return SubPage(
-      title: 'Audit trail',
-      subtitle: 'A locked record of who added, changed or deleted what, and when. No one can edit or remove an entry.',
-      children: [
+    final items = <Widget>[
         RCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +292,10 @@ class _AdminAuditState extends State<AdminAudit> {
             },
           ),
         ],
-      ],
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [for (final w in items) Padding(padding: const EdgeInsets.only(bottom: 14), child: w)],
     );
   }
 }

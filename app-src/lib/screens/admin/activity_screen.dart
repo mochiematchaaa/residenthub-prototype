@@ -6,6 +6,7 @@ import '../../core/core.dart';
 import '../../services/doc_files.dart';
 import '../../widgets/widgets.dart';
 import '../shared/document_viewer_screen.dart';
+import 'audit_screen.dart';
 
 /// Administrator: the full log of what happened in the app.
 class AdminActivity extends StatefulWidget {
@@ -18,6 +19,7 @@ class AdminActivity extends StatefulWidget {
 class _AdminActivityState extends State<AdminActivity> {
   String _area = 'All';
   int _page = 0;
+  int _tab = 0; // 0 = Activity, 1 = Audit trail
   static const _pageSize = 15;
 
   List<DocBlock> _blocks(List<ActivityEntry> list) => [
@@ -40,10 +42,22 @@ class _AdminActivityState extends State<AdminActivity> {
         final pages = shown.isEmpty ? 1 : (shown.length / _pageSize).ceil();
         final page = _page.clamp(0, pages - 1);
         final slice = shown.skip(page * _pageSize).take(_pageSize).toList();
+        final tabs = SegmentedButton<int>(
+          segments: const [
+            ButtonSegment(value: 0, label: Text('Activity')),
+            ButtonSegment(value: 1, label: Text('Audit trail')),
+          ],
+          selected: {_tab},
+          onSelectionChanged: (v) => setState(() => _tab = v.first),
+        );
         return SubPage(
           title: 'Activity log',
-          subtitle: 'Everything that happened in the community, newest first.',
+          subtitle: _tab == 0
+              ? 'Everything that happened in the community, newest first.'
+              : 'A locked record of who added, changed or deleted what, and when. No one can edit or remove an entry.',
           children: [
+            tabs,
+            if (_tab == 1) const AuditPanel() else ...[
             FilterRow(options: areas, selected: _area, onSelect: (v) => setState(() {
               _area = v;
               _page = 0;
@@ -89,6 +103,7 @@ class _AdminActivityState extends State<AdminActivity> {
                     ),
                   ],
                 ),
+            ],
             ],
           ],
         );

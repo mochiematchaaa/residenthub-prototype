@@ -61,8 +61,7 @@ function titles() {
     polls: ["Polls & voting", "Ask residents what they think and see the results as votes come in."],
     reports: ["Reports", "Collections, occupancy, dues ageing, facility use and requests at a glance."],
     parking: ["Parking", "Motor parking slots, who has one, and requests waiting for approval."],
-    log: ["Activity log", "A record of what the administrators did, newest first."],
-    audit: ["Audit trail", "A locked record of who added, changed or deleted what, and when, with the value before and after."],
+    log: ["Activity log", "What happened in the system, and the locked audit trail of every change."],
     history: ["Resident profiles", "The record of every unit and resident: details, household, dues, payments, requests and history. Edit a record and the resident sees it on their dashboard."],
     settings: ["Settings", "Billing defaults, account and security, access and payments."],
     profile: ["My profile", "Your administrator account, recent activity and shortcuts."]
@@ -70,9 +69,9 @@ function titles() {
 }
 // Picks the page function to draw for state.view.
 function view() {
-  if (state.view !== "audit" && typeof AUD !== "undefined") AUD.stale = true; // the audit trail is read fresh each time it is opened
+  if (!(state.view === "log" && state.logTab === "audit") && typeof AUD !== "undefined") AUD.stale = true; // the audit trail is read fresh each time it is opened
   var f = { home: viewHome, units: viewUnits, fac: viewFac, expenses: viewExpenses, fin: viewFin, manage: viewManage, ann: viewAnn,
-    rentals: viewRentals, polls: viewPolls, reports: viewReports, parking: viewParking, log: viewLog, audit: viewAudit, settings: viewSettings,
+    rentals: viewRentals, polls: viewPolls, reports: viewReports, parking: viewParking, log: viewLog, settings: viewSettings,
     profile: viewProfile, req: viewReq, history: viewHistory }[state.view] || viewHome;
   return f();
 }
@@ -98,7 +97,7 @@ function render() {
       '<div class="side-label">' + tr("Tools") + '</div><nav>' + navBtn("fin", "Finance") +
       '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>" + tr("Expenses") + "</span></button>" +
       navBtn("history", "Resident profiles") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
-      '<div class="side-label">' + tr("Admin") + '</div><nav>' + navBtn("log", "Activity log") + navBtn("audit", "Audit trail") + navBtn("settings", "Settings") + "</nav>" +
+      '<div class="side-label">' + tr("Admin") + '</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + avatarInner(myPhoto(), adminName()) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>" + tr("Log out") + "</span></button></div></aside>" +
       "<main>" +
