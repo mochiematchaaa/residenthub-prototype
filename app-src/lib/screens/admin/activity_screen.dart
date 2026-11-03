@@ -18,7 +18,7 @@ class AdminActivity extends StatefulWidget {
 class _AdminActivityState extends State<AdminActivity> {
   String _area = 'All';
   int _page = 0;
-  static const _pageSize = 15;
+  static const _pageSize = 8;
 
   List<DocBlock> _blocks(List<ActivityEntry> list) => [
         const DocBlock.h1('Activity log'),

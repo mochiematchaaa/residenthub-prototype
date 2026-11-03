@@ -1414,7 +1414,7 @@ function setUsageForm(unit) {
 /* ==========================================================================
    Activity log
    ========================================================================== */
-var LOG_PAGE = 15;
+var LOG_PAGE = 8;
 /* page buttons: « ‹ 1 2 [3] 4 5 › » and a "Showing 31–45 of 120" line */
 function pagerHtml(total, page, size, fn) {
   var pages = Math.max(1, Math.ceil(total / size)), from = total ? page * size + 1 : 0, to = Math.min(total, (page + 1) * size);
