@@ -58,7 +58,7 @@ function payCheckPanel(limit) {
     return '<div class="pc-item"><span class="pc-unit">' + esc(String(d.unit).replace(/^Unit\s*/i, "")) + '</span><div class="pc-main"><b>' + esc(d.unit) + (d.name ? " · " + esc(d.name) : "") + "</b><small>" + esc(d.note) + " · due " + esc(d.dueDate) + '</small><span class="pc-tags"><span class="chip ' + tone + '">' + pcWhen(x.days) + "</span>" + (d.remindedOn ? '<span class="chip">Reminded ' + esc(d.remindedOn) + "</span>" : "") + "</span></div>" +
       '<div class="pc-amt">' + peso(Number(d.amount)) + "<small>Did they pay?</small></div>" +
       '<div class="pc-act"><button class="btn primary" onclick="payCheckYes(\'' + id + '\')">Yes, paid</button><button class="btn" onclick="payCheckNo(\'' + id + '\')">No</button>' +
-      (digits ? '<a class="btn" href="tel:' + escAttr(digits) + '" title="Call ' + escAttr(ph) + '">Call</a>' : "") + "</div></div>";
+      "</div></div>";
   }).join("");
   return '<div class="card pc"><div class="pc-head"><div><h2>Did they pay?</h2><p class="hint" style="margin:4px 0 0"><b>' + l.length + " charge" + (l.length === 1 ? "" : "s") + "</b> from <b>" + nu + " unit" + (nu === 1 ? "" : "s") + "</b> (" + peso(total) + ") " + (l.length === 1 ? "is" : "are") + " due or past due with no payment on record. They may have paid without updating the app. Residents who send their payment details are handled by themselves, so only these are left.</p></div>" +
     '<button class="btn" onclick="payCheckAskAll()">Ask everyone to send proof</button></div>' + pager + '<div class="pc-list">' + rows + "</div>" + (limit ? "" : state._pcEnd || "") +
@@ -109,7 +109,7 @@ function payCheckYes(id) {
 function payCheckNo(id) {
   var row = getRow("due", id); if (!row) return;
   var cur = row.value, cfg = payCheckCfg(), ph = unitPhone(cur.unit), digits = ph.replace(/[^\d+]/g, "");
-  var contact = digits ? ' You can also <a href="tel:' + escAttr(digits) + '"><b>call ' + esc(ph) + '</b></a>."' : " There is no mobile number on file for this unit.";
+  var contact = "";
   openForm({
     title: cur.unit + " has not paid",
     intro: esc(cur.note) + " · " + peso(Number(cur.amount)) + " (" + pcWhen(Math.max(0, Math.round((pcDayStart(new Date()) - pcDayStart(parseShort(cur.dueDate) || new Date())) / 86400000))).toLowerCase() + "). Choose what to do." + contact,

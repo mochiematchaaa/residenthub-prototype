@@ -387,7 +387,7 @@ class _AdminParkingState extends State<AdminParking> {
               child: proof == null
                   ? Text(
                       walk != null
-                          ? 'Walk-in. ${app.walkinText(walk, p.name.isEmpty ? p.unit : p.name)} They pay at the counter. Record it when they do (cash, check, card or e-wallet). The slot is assigned and they get a text with the next due date.'
+                          ? 'Walk-in. ${app.walkinText(walk, p.name.isEmpty ? p.unit : p.name)} They pay at the counter. Record it when they do (cash, check, card or e-wallet).'
                           : 'No payment yet. The resident pays on the Parking page, or taps Walk-in to pay at the office. The slot is only assigned after payment.',
                       style: TextStyle(color: t.fg, fontSize: 12.5, height: 1.35))
                   : Column(

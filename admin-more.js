@@ -1151,16 +1151,10 @@ function parkRenewalCards() {
     return '<article class="card park-req"><div class="park-req-h"><span class="vp-av">' + esc(String(v.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(v.unit) + "</b><small>Renewal of " + esc(s.id) + "</small></div>" + chip + "</div>" + facts + body + (btns ? '<div class="vp-actions">' + btns + "</div>" : "") + "</article>";
   }).join("") + "</div>";
 }
-// The texts sent to residents (the prototype only saves them; a real SMS service would deliver them).
-function smsLogCard() {
-  var l = newest(list("sms")).slice(0, 6);
-  return '<div class="card sms-log" style="margin-top:16px"><h2 style="margin:0 0 4px;font-size:17px">Text messages to residents</h2><p class="hint" style="margin:0 0 6px">When a parking payment is approved, the resident gets a text with the rental period and the next due date. In this prototype the text is saved here and shown on the resident\'s dashboard; connecting an SMS service would send it to their phone.</p>' +
-    (l.length ? l.map(function (r) { return '<div class="sms-row"><b>' + esc(r.unit) + "</b> · " + esc(r.v.to || "no mobile number") + " · " + esc(clockText(Number(r.v.at))) + ' <span class="chip ' + (r.v.status === "Sent" ? "good" : "warn") + '">' + esc(r.v.status) + "</span><small>" + esc(r.v.text) + "</small></div>"; }).join("") : '<p class="empty" style="margin:0">No texts yet.</p>') + "</div>";
-}
 // Requests tab: renewals first, then one card for each resident request, with the payment they sent (reference, date, screenshot).
 function parkRequestsPage(reqs) {
   var renewals = parkRenewalCards();
-  if (!reqs.length) return renewals + '<div class="card"><p class="empty" style="margin:0">No new requests waiting. When a resident reserves a slot it shows up here.</p></div>' + smsLogCard();
+  if (!reqs.length) return renewals + '<div class="card"><p class="empty" style="margin:0">No new requests waiting. When a resident reserves a slot it shows up here.</p></div>';
   return renewals + (renewals ? '<h3 class="park-h">New requests</h3>' : "") + '<p class="hint" style="margin:0 0 12px">A reserved slot is assigned only after its payment is verified. Check the reference number and the screenshot, then verify. A resident who chose Walk-in shows here too; record the payment when they come to the office.</p><div class="park-reqs">' + reqs.map(function (r) {
     var v = r.v, id = escAttr(r.id), pr = v.slot ? parkProof(r.id, v.slot) : null, pst = pr ? pr.v.status : "", priced = !!(v.slot && v.amount), w = walkinOf(r.id, false);
     var wchip = '<span class="chip warn">Walk-in · ' + (w && w.value.day === dayKey(new Date()) ? "coming today" : w ? "expected " + esc(usageDate(w.value.day)) : "") + "</span>";
@@ -1171,7 +1165,7 @@ function parkRequestsPage(reqs) {
       pay = parkPayBox(pr, v.amount);
       btns = pst === "Confirmed" ? '<button class="btn primary" onclick="approveParking(\'' + id + '\')">Assign ' + esc(v.slot) + "</button>" : '<button class="btn primary" onclick="confirmProof(\'' + escAttr(pr.id) + '\')">Verify and assign ' + esc(v.slot) + '</button><button class="btn" onclick="rejectProof(\'' + escAttr(pr.id) + '\')">Reject payment</button>';
     } else if (priced && w) {
-      pay = '<div class="park-pay wait"><b>Walk-in.</b> ' + esc(walkinText(w.value, v.who || v.unit)) + " They pay at the counter. Record it when they do (cash, check, card or e-wallet). The slot is assigned and they get a text with the next due date.</div>";
+      pay = '<div class="park-pay wait"><b>Walk-in.</b> ' + esc(walkinText(w.value, v.who || v.unit)) + " They pay at the counter. Record it when they do (cash, check, card or e-wallet).</div>";
       btns = '<button class="btn primary" onclick="parkOfficePay(\'' + id + '\')">Record walk-in payment</button>';
     } else if (priced) {
       pay = '<div class="park-pay wait"><b>No payment yet.</b> The slot can only be assigned after the payment is verified. The resident sends the reference number and a screenshot from their Parking page, or taps Walk-in to pay at the office.</div>';
@@ -1181,7 +1175,7 @@ function parkRequestsPage(reqs) {
     }
     return '<article class="card park-req"><div class="park-req-h"><span class="vp-av">' + esc(String(v.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(v.unit) + "</b><small>" + esc(v.who || "") + "</small></div>" + chip + "</div>" + facts + pay +
       '<div class="vp-actions">' + btns + '<span style="flex:1"></span><button class="btn" onclick="editParkReq(\'' + id + '\')">Edit</button><button class="btn" style="color:#A02B1D" onclick="declineParking(\'' + id + '\')">Decline</button></div></article>';
-  }).join("") + "</div>" + smsLogCard();
+  }).join("") + "</div>";
 }
 /* who has a slot: one row each, with how long the rental runs and a Remove button */
 function rentalsCard(slots) {
@@ -1326,7 +1320,7 @@ function parkOfficePay(unit) {
   var rq = getRow("request", unit); if (!rq || !rq.value.slot) return;
   openForm({
     title: "Walk-in payment",
-    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a receipt, assigns the slot and sends the resident a text with the rental period and the next due date.",
+    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a receipt and assigns the slot.",
     fields: officePayFields(rq.value.amount),
     submit: "Record payment and assign",
     onSubmit: async function (d) {
@@ -1345,7 +1339,7 @@ function parkRenewPay(slotId) {
   var unit = sl.value.unit, d0 = parkDueInfo(sl.value);
   openForm({
     title: "Renew " + slotId + " · " + unit,
-    intro: esc(unit) + " pays to renew " + esc(slotId) + (d0 ? ". The rental now runs until " + esc(usageDate(d0.until)) + "; one more month is added" : "") + ". Recording it issues a receipt, extends the rental and sends the resident a text with the next due date.",
+    intro: esc(unit) + " pays to renew " + esc(slotId) + (d0 ? ". The rental now runs until " + esc(usageDate(d0.until)) + "; one more month is added" : "") + ". Recording it issues a receipt and extends the rental.",
     fields: officePayFields(parkRenewAmount(slotId, sl.value)),
     submit: "Record payment and renew",
     onSubmit: async function (d) {
@@ -1513,7 +1507,7 @@ function viewManage() {
   var accs = DB.accounts.filter(function (a) { return !q || (a.name + " " + a.email + " " + (a.unit || "") + " " + a.role).toLowerCase().indexOf(q) >= 0; });
   var units = unitNames();
   return '<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:19px">Create a resident account</h2>' +
-    '<p style="margin:0;font-size:13px;color:var(--muted)">This is the sign-up. There is no public sign-up form; every resident account is added by hand. A temporary password is shown once. The resident must choose their own password, then confirm their account with a code sent to their email (or by text message, when that is set up).</p>' +
+    '<p style="margin:0;font-size:13px;color:var(--muted)">This is the sign-up. There is no public sign-up form; every resident account is added by hand. A temporary password is shown once. The resident must choose their own password, then confirm their account with a code sent to their email.</p>' +
     (units.length ? '<div class="manage-row" style="flex-wrap:wrap"><div class="field"><label>Full name</label><input id="mName" value="' + escAttr(m.name) + '" oninput="state.manage.name=this.value" placeholder="e.g. Ana Reyes"></div>' +
       '<div class="field"><label>Email address</label><input id="mEmail" value="' + escAttr(m.email) + '" oninput="state.manage.email=this.value" placeholder="e.g. ana@email.com"></div>' +
       '<div class="field"><label>Mobile number (optional)</label><input id="mPhone" value="' + escAttr(m.phone) + '" oninput="state.manage.phone=this.value" placeholder="e.g. 0917 555 0000"></div>' +
@@ -1561,7 +1555,7 @@ function pwCell(a, adm) {
 function accById(id) { return DB.accounts.filter(function (a) { return a.id === id; })[0]; }
 // Shows a temporary password once, right after creating or resetting an account.
 function showPassword(name, email, pw) {
-  openInfo("Temporary password", '<p>Give this to <b>' + esc(name) + "</b> (" + esc(email) + '). It stays visible in the Access list until they choose their own. They must choose their own password when they sign in, then enter a code sent to their email (or by text message, when that is set up).</p><p style="font:700 22px monospace;letter-spacing:.06em;background:var(--beige);padding:12px;border-radius:12px;text-align:center;user-select:all">' + esc(pw) + "</p>");
+  openInfo("Temporary password", '<p>Give this to <b>' + esc(name) + "</b> (" + esc(email) + '). It stays visible in the Access list until they choose their own. They must choose their own password when they sign in, then enter a code sent to their email.</p><p style="font:700 22px monospace;letter-spacing:.06em;background:var(--beige);padding:12px;border-radius:12px;text-align:center;user-select:all">' + esc(pw) + "</p>");
 }
 /* Unit box on "Create a resident account": type to search, or pick from the list (styled, not the browser's own list) */
 function unitNorm(t) { return String(t || "").toLowerCase().replace(/unit/g, "").replace(/[^a-z0-9]/g, ""); }

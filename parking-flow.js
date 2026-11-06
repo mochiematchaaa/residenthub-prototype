@@ -57,12 +57,7 @@ function walkinMethod(via) { var f = WALKIN_VIA.filter(function (x) { return x[0
 
 /* ---------- text messages (the administrator "sends" them) ---------- */
 // Saves a text for a unit and returns a short note for the toast. No real SMS leaves the prototype.
-async function sendSms(unit, text) {
-  var phone = typeof unitPhone === "function" ? unitPhone(unit) : "", id = nextId();
-  await put("sms", id, unit, { id: id, unit: unit, to: phone, text: text, at: Date.now(), status: phone ? "Sent" : "No number" });
-  logAct("Text " + (phone ? "sent to " + unit + " (" + phone + ")" : "not sent to " + unit + " (no mobile number)") + ": " + text, "Parking");
-  return phone ? "A text was sent to " + phone + "." : "No mobile number is on file for " + unit + ", so no text was sent.";
-}
+async function sendSms(unit, text) { return ""; }   // texts are not used; the resident sees the approval in the app
 // The text a resident gets when a parking payment is approved.
 function approvedSmsText(slotId, slotVal, receipt, amount, renewed) {
   var d = parkDueInfo(slotVal);
@@ -150,10 +145,10 @@ function walkBlockHtml(fixed) {
   var renew = !!fixed.renew, w = walkinOf(myUnit(), renew), inner;
   if (w) {
     inner = "<b>Walk-in sent</b><span>" + (w.value.day === dayKey(new Date()) ? "The office expects you today." : "You told the office you would come on " + esc(usageDate(w.value.day)) + ".") +
-      " Pay at the counter with cash, check, card or e-wallet. When the office records your payment, your " + (renew ? "rental is renewed" : "rental starts") + " and you get a text message with your next due date.</span>" +
+      " Pay at the counter with cash, check, card or e-wallet. When the office records your payment, your " + (renew ? "rental is renewed" : "rental starts") + ".</span>" +
       '<button class="btn dz-mini" type="button" onclick="parkWalkInCancel(' + renew + ')">Cancel walk-in</button>';
   } else {
-    inner = "<b>Paying at the office?</b><span>Tap the button so the office knows you are coming today. Pay at the counter with cash, check, card or e-wallet. The office records it and your " + (renew ? "rental is renewed" : "rental starts") + "; you get a text message with your next due date.</span>" +
+    inner = "<b>Paying at the office?</b><span>Tap the button so the office knows you are coming today. Pay at the counter with cash, check, card or e-wallet. The office records it and your " + (renew ? "rental is renewed" : "rental starts") + ".</span>" +
       '<button class="btn primary dz-send" type="button" onclick="parkWalkIn(' + renew + ')">I\'ll walk in today</button>';
   }
   return '<div class="dz-step"><span class="n ok">3</span><div class="dz-walk">' + inner + "</div></div>";
@@ -169,7 +164,7 @@ function parkRenewCardHtml(mine) {
     acts = '<button class="btn" onclick="parkLeaveUndo()">I changed my mind</button>';
   } else if (pr) {
     title = "Renewal payment sent";
-    body = "Reference " + esc(pr.v.reference) + ". The office will verify it, then your rental is extended and you get a text message with your next due date.";
+    body = "Reference " + esc(pr.v.reference) + ". The office will verify it, then your rental is extended.";
   } else if (w && !state.parkRenew) {
     title = "Walk-in sent";
     body = walkinText(w.value, "You") + " When the office records your payment, your rental is renewed.";

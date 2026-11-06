@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/core.dart';
-import '../../services/calling.dart';
 import '../../widgets/widgets.dart';
 
 class PayCheckCard extends StatefulWidget {
@@ -62,11 +61,10 @@ class _PayCheckCardState extends State<PayCheckCard> {
   }
 
   void _no(Due d) {
-    final ph = app.unitPhone(d.unit);
     showFormSheet(
       context,
       title: '${d.unit} has not paid',
-      subtitle: '${d.note} · ${peso(d.amount)}. Choose what to do. ${ph.isEmpty ? 'There is no mobile number on file for this unit.' : 'You can also call or text ${d.unit} from the list.'}',
+      subtitle: '${d.note} · ${peso(d.amount)}. Choose what to do.',
       choices: [
         ChoiceSpec('late', 'Add a late charge?', const ['Yes, add a late charge', 'No late charge'], d.lateFeeId > 0 ? 'No late charge' : 'Yes, add a late charge'),
         const ChoiceSpec('notify', 'Tell the resident in the app?', ['Yes, send a reminder', 'No'], 'Yes, send a reminder'),
@@ -110,7 +108,6 @@ class _PayCheckCardState extends State<PayCheckCard> {
   }
 
   Widget _row(BuildContext context, Due d, int days) {
-    final ph = app.unitPhone(d.unit);
     final tone = days >= 3 ? Tone.bad : Tone.warn;
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -146,7 +143,6 @@ class _PayCheckCardState extends State<PayCheckCard> {
             children: [
               FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 40)), onPressed: () => _yes(d), child: const Text('Yes, paid')),
               OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)), onPressed: () => _no(d), child: const Text('No')),
-              if (ph.isNotEmpty) TextButton.icon(onPressed: () => callNumber(context, ph), icon: const Icon(Icons.call_outlined, size: 18), label: const Text('Call')),
             ],
           ),
         ],

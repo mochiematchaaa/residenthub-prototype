@@ -99,8 +99,6 @@ function notifs() {
   // a monthly rental that is about to end (or already ended): did they forget, or are they leaving?
   var pd = slot ? parkDueInfo(slot.v) : null;
   if (pd && pd.soon && !leaveNoteOf(unit) && !renewProofOf(unit, slot.id) && !walkinOf(unit, true)) out.unshift(["Your parking rental for " + slot.id + " " + (pd.late ? "has ended or is due" : "is almost up") + ". The next payment is due " + usageDate(pd.nextDue) + " (" + parkDaysText(pd.days) + "). Renew to keep your slot, or tell the office if you no longer plan to rent.", pd.late ? "bad" : "warn", "parking"]);
-  // the texts the office sent (rental approved, next due date)
-  newest(list("sms")).filter(function (r) { return r.unit === unit && Date.now() - Number(r.v.at || 0) < 14 * 86400000; }).slice(0, 2).forEach(function (r) { out.push(["Text message to your phone: " + r.v.text, "good", "parking"]); });
   // every recent announcement from the office is a notification (maintenance notices are announcements too)
   publishedAnns().filter(function (r) { var d = parseShort(r.v.date || ""); return !d || Date.now() - d.getTime() < 14 * 86400000; }).slice(0, 4).forEach(function (r) {
     var m = r.v.type === "Maintenance", em = r.v.type === "Emergency", t = String(r.v.title || "").replace(/^Maintenance notice:\s*/i, "").replace(/[.\s]+$/, "");
