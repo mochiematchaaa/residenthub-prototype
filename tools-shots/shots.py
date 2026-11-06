@@ -28,7 +28,8 @@ TEXTS = """
 class Shot:
     def __init__(self, pg): self.pg = pg; self.n = 0
     def snap(self, name):
-        self.pg.wait_for_timeout(900)
+        self.pg.mouse.move(388, 430)
+        self.pg.wait_for_timeout(5200 if name in ('a_fin','r_dues','a_home') else 1600)
         self.pg.screenshot(path=OUT + name + '.png'); log('SNAP', name)
     def find(self, text, nav=False):
         return self.pg.evaluate(FIND, [text, nav])
@@ -83,10 +84,10 @@ with sync_playwright() as p:
                 sh.snap(name); continue
             if sh.tap(label, True): sh.snap(name)
         if role == 'r':
-            for tile, name in [('Calendar','r_calendar'),('My reservations','r_res'),('Complaints','r_gr'),('Unit status','r_unit'),('Events','r_events'),('Polls & voting','r_polls'),('Directory & house rules','r_dir')]:
+            for tile, name in [('My reservations','r_res'),('Complaints','r_gr'),('Events','r_events'),('Polls & voting','r_polls')]:
                 more_tile(sh, tile, name)
         else:
-            for tile, name in [('Announcements & events','a_ann'),('Complaints','a_req'),('Polls & voting','a_polls'),('Maintenance','a_maint'),('Expenses','a_exp'),('Activity log','a_log'),('Calendar','a_calendar'),('Reports','a_reports'),('Resident profiles','a_prof'),('Settings','a_settings')]:
+            for tile, name in [('Announcements & events','a_ann'),('Complaints','a_req'),('Polls & voting','a_polls'),('Maintenance','a_maint'),('Expenses','a_exp'),('Activity log','a_log')]:
                 more_tile(sh, tile, name)
         ctx.close()
     b.close()
