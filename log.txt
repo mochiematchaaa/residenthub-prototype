@@ -1,0 +1,33 @@
+SNAP r_login
+r after login texts: ['MR', 'MR', 'MR', 'MR', 'MR', 'MR', 'MR', 'MR', 'Search', 'Notifications 9+', 'Typhoon advisory — Please keep windows closed and move plants indoors. The guards will lock the pool and the gym when the signal is raised.', 'Calendar', 'Calendar', 'Calendar', 'Calendar', 'Book', 'Report concern', 'Polls', 'Events', 'Directory', 'Check', 'Check', 'Edit my details', 'Edit my details', 'Home Home']
+SNAP r_home
+SNAP r_book
+SNAP r_parking
+SNAP r_dues
+SNAP r_more
+SNAP r_res
+after r_res ['More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'MR Maria Reyes Unit 3B resident@demo.test']
+SNAP r_gr
+after r_gr ['More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'MR Maria Reyes Unit 3B resident@demo.test']
+SNAP r_events
+after r_events ['More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'MR Maria Reyes Unit 3B resident@demo.test']
+SNAP r_polls
+after r_polls ['More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'More Everything else for your unit.', 'MR Maria Reyes Unit 3B resident@demo.test']
+a after login texts: ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'Search', 'Needs attention 5', 'Calendar', 'Calendar', 'Calendar', 'Calendar', 'Create announcement', 'Add event', 'Finance', 'Upload file', 'Ask everyone to send proof', 'Ask everyone to send proof', 'Yes, paid', 'No', 'Call', 'Yes, paid', 'No']
+SNAP a_home
+SNAP a_units
+SNAP a_fac
+SNAP a_fin
+SNAP a_more
+SNAP a_ann
+after a_ann ['More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'Calendar Events and facility bookings']
+SNAP a_req
+after a_req ['More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'Calendar Events and facility bookings']
+SNAP a_polls
+after a_polls ['More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'Calendar Events and facility bookings']
+SNAP a_maint
+after a_maint ['More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'Calendar Events and facility bookings']
+SNAP a_exp
+after a_exp ['Calendar Events and facility bookings', 'Calendar Events and facility bookings', 'Calendar Events and facility bookings', 'Calendar Events and facility bookings', 'Calendar Events and facility bookings', 'Calendar Events and facility bookings', 'Calendar Events and facility bookings', 'Calendar Events and facility bookings']
+SNAP a_log
+after a_log ['More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'More Community tools and administration.', 'Calendar Events and facility bookings']
