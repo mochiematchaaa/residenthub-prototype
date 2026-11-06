@@ -1950,8 +1950,42 @@ class AppState extends ChangeNotifier {
     return l.isEmpty ? null : l.first;
   }
 
+  /// True while a reservation still counts: a pending request, or an approved one that is not over yet.
+  bool bookingStillActive(Booking b) {
+    if (b.status != 'Pending' && b.status != 'Approved') return false;
+    final now = DateTime.now();
+    final today = dayKey(now);
+    if (b.day.isEmpty || b.day.compareTo(today) < 0) return false;
+    if (b.day.compareTo(today) > 0) return true;
+    final a = amenities.where((x) => x.name == b.place).firstOrNull;
+    if (a == null || b.slot < 0) return true;
+    final end = (toMinutes(a.open) ?? 0) + (b.slot + 1) * a.mins;
+    return end > now.hour * 60 + now.minute;
+  }
+
+  /// The reservation that stops my unit from booking again (one reservation at a time), or null.
+  Booking? get activeBooking {
+    for (final b in myBookings) {
+      if (bookingStillActive(b)) return b;
+    }
+    return null;
+  }
+
+  /// Resident: cancels one of my unit's reservations, so its time becomes free.
+  void cancelMyBooking(Booking b) {
+    if (b.unit != myUnit) return;
+    bookings.remove(b);
+    logActivity('${b.place} reservation cancelled, ${b.unit}', 'Facilities');
+    _n();
+  }
+
   /// Resident: asks for one time of an amenity on [day] (yyyy-mm-dd, today when empty).
-  void submitBooking(int f, int slot, {String day = ''}) {
+  /// A unit can hold one reservation at a time. Returns a message when the request cannot be sent.
+  String? submitBooking(int f, int slot, {String day = ''}) {
+    final held = activeBooking;
+    if (held != null) {
+      return 'You already have a reservation: ${held.place}, ${held.when} (${held.status}). You can book again once it is finished, or cancel it under My reservations.';
+    }
     final date = DateTime.tryParse(day) ?? DateTime.now();
     bookings.insert(
         0,
@@ -1960,6 +1994,7 @@ class AppState extends ChangeNotifier {
             day: dayKey(date), slot: slot));
     logActivity('Booking request for the ${amenities[f].name} on ${shortDate(date)}, $myUnit', 'Facilities');
     _n();
+    return null;
   }
 
   /// Sends a new grievance.

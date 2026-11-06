@@ -77,7 +77,8 @@ class _ResBookState extends State<ResBook> {
     final slots = cur.slots;
     if (pick != null && pick! >= slots.length) pick = null;
     final d = day;
-    if (pick != null && app.slotState(fac, pick!, d) != 'open') pick = null;
+    final held = app.activeBooking;
+    if (pick != null && (held != null || app.slotState(fac, pick!, d) != 'open')) pick = null;
     return TabPage(
       title: 'Book a facility',
       subtitle: 'Check availability and send a reservation request.',
@@ -152,6 +153,14 @@ class _ResBookState extends State<ResBook> {
             },
           ),
         ),
+        if (held != null)
+          RCard(
+            color: toneOf(context, Tone.warn).bg,
+            child: Text(
+              'You already have a reservation: ${held.place}, ${held.when} (${held.status}). You can book again once it is finished, or cancel it under My reservations.',
+              style: TextStyle(color: toneOf(context, Tone.warn).fg, fontWeight: FontWeight.w600, height: 1.4),
+            ),
+          ),
         Text('Slot counts for ${label(d)}. Select a facility, date, and available time.', style: TextStyle(color: muted(context), fontSize: 12.5)),
         _calendar(context),
         RCard(
@@ -236,9 +245,9 @@ class _ResBookState extends State<ResBook> {
                       setState(() => pick = null);
                       return;
                     }
-                    app.submitBooking(fac, pick!, day: d);
+                    final err = app.submitBooking(fac, pick!, day: d);
                     setState(() => pick = null);
-                    msg(context, 'Request sent. Track it under My reservations.');
+                    msg(context, err ?? 'Request sent. Track it under My reservations.');
                   },
                   child: const Text('Request'),
                 ),
@@ -363,7 +372,7 @@ class _ResBookState extends State<ResBook> {
 
   Widget _slot(BuildContext context, int i, String label, String d) {
     final st = app.slotState(fac, i, d);
-    final open = st == 'open';
+    final open = st == 'open' && app.activeBooking == null;
     final picked = open && pick == i;
     final tone = st == 'pending' ? Tone.warn : (st == 'booked' ? Tone.bad : (open ? Tone.good : Tone.info));
     final t = toneOf(context, tone);

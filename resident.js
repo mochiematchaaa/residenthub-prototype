@@ -291,6 +291,7 @@ function viewBook() {
   var fl = facilities();
   if (!fl.length) return '<div class="card"><p class="empty">No facilities can be booked yet. Please check again later.</p></div>';
   var i = Math.min(state.facIdx || 0, fl.length - 1), pick = state.pick, cur = fl[i], day = bookDay(), c = dayCounts(i, day);
+  var held = activeBooking();
   var cards = fl.map(function (f, idx) {
     var k = dayCounts(idx, day);
     return '<button id="bk-fac-' + idx + '" class="bk-fac ' + (i === idx ? "active" : "") + '" aria-pressed="' + (i === idx) + '" onclick="pickFacility(' + idx + ')"><span class="bk-fic">' + (BK_ICON[f.id] || BK_ICON.hall) + '</span><span class="bk-ftxt"><b>' + esc(f.name) + "</b><small>" + esc(f.hours) + "</small>" + (f.note ? "<small>" + esc(f.note) + "</small>" : "") +
@@ -300,9 +301,9 @@ function viewBook() {
     var st = slotState(i, idx, day), picked = pick === idx && st === "open";
     var cls = picked ? "picked" : st === "open" ? "open" : st === "pending" ? "pending" : st === "past" || st === "closed" ? "off" : "booked";
     var lab = picked ? "Selected" : st === "open" ? "Vacant" : st === "pending" ? "Pending" : st === "closed" ? ((slotBlock(i, idx, day) || {}).reason || "Unavailable") : st === "past" ? "Unavailable" : "Booked";
-    return '<button class="slot ' + cls + '" ' + (st === "open" ? "" : "disabled") + (picked ? ' title="Click again to clear"' : "") + ' onclick="pickSlot(' + idx + ')"><span style="font-size:12px;font-weight:700">' + esc(t) + '</span><span style="font-size:12px">' + lab + "</span>" + (picked ? '<span class="slot-x" aria-hidden="true">×</span>' : "") + "</button>";
+    return '<button class="slot ' + cls + '" ' + (st === "open" && !held ? "" : "disabled") + (picked ? ' title="Click again to clear"' : "") + ' onclick="pickSlot(' + idx + ')"><span style="font-size:12px;font-weight:700">' + esc(t) + '</span><span style="font-size:12px">' + lab + "</span>" + (picked ? '<span class="slot-x" aria-hidden="true">×</span>' : "") + "</button>";
   }).join("");
-  var req = pick != null && slotState(i, pick, day) === "open" ? '<div class="bk-req"><div><div class="bk-req-k">Your reservation request</div><div class="bk-req-v">' + esc(cur.name) + "</div><div class=\"bk-req-s\">" + esc(bookLabel(day)) + " · " + esc(cur.slots[pick]) + '</div></div><div class="bk-req-b"><button class="btn primary" onclick="submitBooking()">Request this time</button><button class="btn" style="font-size:20px;line-height:1;min-width:44px;padding:0" aria-label="Clear selection" title="Clear selection" onclick="clearPick()">×</button></div></div>' : '<p class="hint" style="margin:6px 0 0">Pick an open time to send a request.</p>';
+  var req = held ? '<div class="bk-note warn" role="status"><b>You already have a reservation.</b> ' + esc(held.place + ", " + held.when + " (" + held.status + ")") + ". You can book again once it is finished, or cancel it under My reservations.</div>" : pick != null && slotState(i, pick, day) === "open" ? '<div class="bk-req"><div><div class="bk-req-k">Your reservation request</div><div class="bk-req-v">' + esc(cur.name) + "</div><div class=\"bk-req-s\">" + esc(bookLabel(day)) + " · " + esc(cur.slots[pick]) + '</div></div><div class="bk-req-b"><button class="btn primary" onclick="submitBooking()">Request this time</button><button class="btn" style="font-size:20px;line-height:1;min-width:44px;padding:0" aria-label="Clear selection" title="Clear selection" onclick="clearPick()">×</button></div></div>' : '<p class="hint" style="margin:6px 0 0">Pick an open time to send a request.</p>';
   return '<div class="bk-wrap"><div class="bk-facs" onkeydown="onFacKey(event)">' + cards + '</div><p class="hint" style="margin:0">Slot counts for ' + esc(bookLabel(day)) + ". Select a facility, date, and available time.</p>" +
     '<div class="bk-cols">' + bookCalendarHtml(i) +
     '<div class="card bk-day-card"><h2 style="font-size:19px">' + esc(cur.name) + '</h2><p class="hint" style="margin:2px 0 10px">' + esc(bookLabel(day)) + '</p><label class="dz-lab">Choose a date<input type="date" min="' + dayKey(new Date()) + '" max="' + maxBookDay() + '" value="' + day + '" onchange="pickDay(this.value)"></label>' +
@@ -341,9 +342,28 @@ function goToday() { pickDay(dayKey(new Date())); }
 function pickSlot(idx) { state.pick = state.pick === idx ? null : idx; render(); }
 // Clears the chosen time slot.
 function clearPick() { state.pick = null; render(); }
+/* One reservation at a time: a unit that has a pending request, or an approved reservation that is not finished yet, cannot send another one. */
+function activeBooking() {
+  var now = new Date(), today = dayKey(now), nowMin = now.getHours() * 60 + now.getMinutes();
+  var hit = myBookings().filter(function (r) {
+    var b = r.v;
+    if (b.status !== "Pending" && b.status !== "Approved") return false;
+    if (!b.day || b.day < today) return false;
+    if (b.day > today) return true;
+    var a = facilities().filter(function (f) { return f.name === b.place; })[0], n = Number(b.slot);
+    return !a || !(n >= 0) || slotStartMin(a, n) + (Number(a.mins) || 120) > nowMin;
+  })[0];
+  return hit ? hit.v : null;
+}
+// The sentence shown to a resident who already has a reservation.
+function activeBookingText(b) {
+  return "You already have a reservation: " + b.place + ", " + b.when + " (" + b.status + "). You can book again once it is finished, or cancel it under My reservations.";
+}
 // Sends the booking request. The database blocks a double booking of the same slot.
 async function submitBooking() {
   if (state.pick == null) return;
+  var held = activeBooking();
+  if (held) { toast(activeBookingText(held)); state.pick = null; return render(); }
   var f = state.facIdx, i = state.pick, unit = myUnit(), fac = facilities()[f], day = bookDay(), date = keyToDate(day);
   if (!fac || !fac.slots[i] || !date) { state.pick = null; return render(); }
   if (slotState(f, i, day) !== "open") { toast("That time is no longer available."); state.pick = null; return render(); }

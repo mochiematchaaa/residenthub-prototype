@@ -45,7 +45,21 @@ class ResReservations extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Pill(b.status),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Pill(b.status),
+                        if (app.bookingStillActive(b))
+                          TextButton(
+                            onPressed: () async {
+                              final ok = await confirmDialog(context, 'Cancel this reservation?', '${b.place}, ${b.when}. The time becomes free for others.',
+                                  confirm: 'Cancel reservation', destructive: true);
+                              if (ok) app.cancelMyBooking(b);
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
