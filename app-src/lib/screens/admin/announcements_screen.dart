@@ -59,14 +59,17 @@ class _AdminAnnouncementsState extends State<AdminAnnouncements> {
       title: 'Add event',
       fields: const [
         FieldSpec('title', 'Event title'),
-        FieldSpec('date', 'Date & time', hint: 'e.g. Oct 4, 2026 · 7:00 AM'),
         FieldSpec('place', 'Venue'),
       ],
+      dates: [DateSpec('day', 'Date', dayKey(DateTime.now()))],
+      times: const [TimeSpec('time', 'Time', '09:00')],
       submit: 'Add event',
       onSubmit: (v) {
         final t = (v['title'] as String).trim();
         if (t.isEmpty) return 'Add an event title first.';
-        app.addEvent(t, (v['date'] as String).trim(), (v['place'] as String).trim());
+        final day = DateTime.tryParse('${v['day']}');
+        final when = day == null ? '' : '${shortDate(day)} · ${timeLabel('${v['time']}')}';
+        app.addEvent(t, when, (v['place'] as String).trim());
         return null;
       },
     );

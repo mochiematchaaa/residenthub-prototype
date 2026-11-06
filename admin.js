@@ -448,17 +448,32 @@ function publishAnn(id) {
 function deleteAnn(id) {
   confirmBox("Delete announcement?", "Residents will no longer see it.", "Delete", async function () { await del("announcement", id); if (String(state.annOpen) === String(id)) state.annOpen = ""; logAct("Announcement deleted", "Announcements"); }, true);
 }
+// An event's date is kept as text like "Oct 24, 2026 · 7:00 AM". These two turn it into the value of the calendar-and-time picker and back.
+function eventWhenInput(text) {
+  var m = /^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})(?:\D+(\d{1,2}):(\d{2})\s*([AaPp][Mm]))?/.exec(String(text || "").trim());
+  if (!m) return "";
+  var mo = MONTHS.indexOf(m[1].charAt(0).toUpperCase() + m[1].slice(1, 3).toLowerCase());
+  if (mo < 0) return "";
+  var h = m[4] ? Number(m[4]) % 12 + (/p/i.test(m[6]) ? 12 : 0) : 8, mi = m[5] ? Number(m[5]) : 0;
+  return m[3] + "-" + pad(mo + 1) + "-" + pad(Number(m[2])) + "T" + pad(h) + ":" + pad(mi);
+}
+function eventWhenText(value) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(value || ""));
+  if (!m) return "";
+  var h = Number(m[4]);
+  return shortDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) + " · " + (h % 12 || 12) + ":" + m[5] + " " + (h < 12 ? "AM" : "PM");
+}
 // Popup form to add or edit an event.
 function eventForm(id) {
   var e = id ? (getRow("event", id) || {}).value || {} : {};
   openForm({
     title: id ? "Edit event" : "Add event",
-    fields: [{ name: "title", label: "Event title", value: e.title }, { name: "date", label: "Date & time", placeholder: "e.g. Oct 24, 2026 · 7:00 AM", value: e.date },
+    fields: [{ name: "title", label: "Event title", value: e.title }, { name: "when", label: "Date & time", type: "datetime-local", value: eventWhenInput(e.date) },
       { name: "place", label: "Venue", value: e.place }, { name: "about", label: "Details (optional)", type: "textarea", value: e.about }],
     onSubmit: async function (d) {
       if (!d.title) return { error: "Enter the event title." };
       var eid = id || nextId();
-      await put("event", eid, "", { id: Number(eid), title: d.title, date: d.date || "Date TBD", place: d.place || "Venue TBD", about: d.about });
+      await put("event", eid, "", { id: Number(eid), title: d.title, date: eventWhenText(d.when) || e.date || "Date TBD", place: d.place || "Venue TBD", about: d.about });
       logAct((id ? "Event updated: " : "Event added: ") + d.title, "Events");
     }
   });
