@@ -304,7 +304,7 @@ final Map<String, ImportSpec> importSpecs = {
   ),
   'slots': ImportSpec(
     'slots',
-    'motor parking slots',
+    'parking slots',
     const [
       ImportCol('name', 'Slot name', ['slot', 'slot name', 'slot no', 'slot number', 'name', 'parking', 'number'], req: true),
     ],
@@ -318,7 +318,7 @@ final Map<String, ImportSpec> importSpecs = {
       if (app.slots.any((s) => s.id.toLowerCase() == n.toLowerCase())) return 'Slot already exists';
       app.slots.add(ParkingSlot(n));
       app.slots.sort((a, b) => naturalCompare(a.id, b.id));
-      app.logActivity('Motor parking slot added: $n', 'Parking');
+      app.logActivity('Parking slot added: $n', 'Parking');
       app.changed();
       return null;
     },

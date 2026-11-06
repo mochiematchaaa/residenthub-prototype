@@ -7,7 +7,7 @@ import '../../widgets/widgets.dart';
 import '../shared/import_sheet.dart';
 import '../shared/payment_widgets.dart';
 
-/// Administrator: the motor parking slots and the residents asking for one.
+/// Administrator: the parking slots and the residents asking for one.
 class AdminParking extends StatefulWidget {
   const AdminParking({super.key});
 
@@ -581,7 +581,7 @@ class _AdminParkingState extends State<AdminParking> {
                   onPressed: () => showFormSheet(
                     context,
                     title: 'Add parking slots',
-                    subtitle: app.slots.isEmpty ? 'How many motor parking slots does the building have?' : 'You have ${app.slots.length} slots. How many more should be added?',
+                    subtitle: app.slots.isEmpty ? 'How many parking slots does the building have?' : 'You have ${app.slots.length} slots. How many more should be added?',
                     choices: [ChoiceSpec('size', 'Slot size', [for (final z in app.parkSizes) z.name], 'Regular')],
                     fields: const [FieldSpec('n', 'Number of slots', type: TextInputType.number, hint: 'e.g. 24')],
                     submit: 'Add slots',
@@ -696,7 +696,7 @@ class _AdminParkingState extends State<AdminParking> {
         final free = app.freeSlotCount;
         final rented = app.slots.where((s) => s.used).toList()..sort((a, b) => naturalCompare(a.unit, b.unit));
         return SubPage(
-          title: 'Motor parking',
+          title: 'Parking rental',
           subtitle: 'Assign slots to residents and release them when they are done.',
           children: [
             const ImportBar(['slots']),

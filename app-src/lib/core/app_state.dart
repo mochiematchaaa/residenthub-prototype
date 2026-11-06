@@ -1569,7 +1569,7 @@ class AppState extends ChangeNotifier {
   /// What is wrong (if anything) with a payment the resident sent. Clean ones can be posted automatically.
   ProofCheck proofCheck(PaymentProof p) {
     final why = <String>[];
-    final isParking = p.forText == parkingPayFor;
+    final isParking = isParkingPay(p.forText);
     final named = _openDueNamed(p.unit, p.forText);
     num? expected;
     if (named != null) {
@@ -1668,7 +1668,7 @@ class AppState extends ChangeNotifier {
     p.auto = auto;
     p.receiptNo = nextReceiptNo();
     p.confirmedOn = shortDate(DateTime.now());
-    final isParking = p.forText == parkingPayFor;
+    final isParking = isParkingPay(p.forText);
     final due = _openDueNamed(p.unit, p.forText) ?? (isParking ? null : _firstOpenDue(p.unit));
     final String forText;
     if (due != null) {
@@ -1883,7 +1883,7 @@ class AppState extends ChangeNotifier {
       out.add(['$pollsToVote poll${pollsToVote > 1 ? 's' : ''} waiting for your vote.', 'info']);
     }
     final mySlot = slotOf(myUnit);
-    if (mySlot != null) out.add(['Motor parking slot ${mySlot.id} is assigned to your unit.', 'good']);
+    if (mySlot != null) out.add(['Parking slot ${mySlot.id} is assigned to your unit.', 'good']);
     // a monthly rental that is about to end (or already ended): did they forget, or are they leaving?
     final pd = mySlot == null ? null : parkDueOf(mySlot);
     if (mySlot != null && pd != null && pd.soon && !leaveNotes.containsKey(myUnit) && renewProofOf(myUnit, mySlot.id) == null && walkinOf(myUnit, renew: true) == null) {
@@ -2009,7 +2009,7 @@ class AppState extends ChangeNotifier {
   /// Sends a parking request.
   void requestParking() {
     if (!parkingRequested) parking.add(ParkingReq(myUnit, myHousehold));
-    logActivity('Motor parking requested, $myUnit', 'Parking');
+    logActivity('Parking rental requested, $myUnit', 'Parking');
     _n();
   }
 
@@ -2763,7 +2763,7 @@ class AppState extends ChangeNotifier {
   /// The latest payment a unit sent for a parking slot that was not rejected.
   PaymentProof? parkingProofFor(String unit, String slot) {
     for (final p in proofs) {
-      if (p.unit == unit && p.forText == parkingPayFor && p.slot == slot && p.status != 'Rejected') return p;
+      if (p.unit == unit && isParkingPay(p.forText) && p.slot == slot && p.status != 'Rejected') return p;
     }
     return null;
   }
@@ -2778,7 +2778,7 @@ class AppState extends ChangeNotifier {
     if (daily && (days < 1 || days > 365)) return 'Enter 1 to 365 days.';
     final d = daily ? days : 0;
     parking.add(ParkingReq(myUnit, myHousehold, slot: id, amount: parkAmount(plan, d, size: s.size), plan: daily ? 'day' : 'month', days: d));
-    logActivity('Motor parking slot $id reserved (${parkPlanText(daily ? 'day' : 'month', d)}), $myUnit', 'Parking');
+    logActivity('Parking slot $id reserved (${parkPlanText(daily ? 'day' : 'month', d)}), $myUnit', 'Parking');
     _n();
     return null;
   }
@@ -2803,7 +2803,7 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  // ---- walk-in and renewal (motor parking) ----
+  // ---- walk-in and renewal (parking rental) ----
 
   /// Residents who said they will pay at the office, residents who said they will not renew (unit -> note).
   final List<Walkin> walkins = [];
@@ -2827,7 +2827,7 @@ class AppState extends ChangeNotifier {
   /// The renewal payment of a unit that waits for the office, or null.
   PaymentProof? renewProofOf(String unit, String slot) {
     for (final p in proofs) {
-      if (p.unit == unit && p.forText == parkingPayFor && p.renew && p.slot == slot && p.status == 'Pending') return p;
+      if (p.unit == unit && isParkingPay(p.forText) && p.renew && p.slot == slot && p.status == 'Pending') return p;
     }
     return null;
   }
@@ -2941,7 +2941,7 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  /// Admin: adds [raw] more motor parking slots (M-01, M-02, ...). New names never reuse a name that is taken.
+  /// Admin: adds [raw] more parking slots (M-01, M-02, ...). New names never reuse a name that is taken.
   String? addSlots(String raw, {String size = 'Regular'}) {
     final n = int.tryParse(raw.trim());
     if (n == null || n < 1 || n > 200) return 'Enter how many slots to add (1 to 200).';
@@ -2961,7 +2961,7 @@ class AppState extends ChangeNotifier {
       }
     }
     slots.sort((a, b) => naturalCompare(a.id, b.id));
-    logActivity('$n motor parking slot${n == 1 ? '' : 's'} added', 'Parking');
+    logActivity('$n parking slot${n == 1 ? '' : 's'} added', 'Parking');
     _n();
     return null;
   }
@@ -2997,7 +2997,7 @@ class AppState extends ChangeNotifier {
       return 'You already sent a payment for this slot. Please contact the office.';
     }
     parking.removeWhere((r) => r.unit == myUnit && !r.confirmed);
-    logActivity('Motor parking request cancelled, $myUnit', 'Parking');
+    logActivity('Parking rental request cancelled, $myUnit', 'Parking');
     _n();
     return null;
   }

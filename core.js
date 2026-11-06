@@ -371,10 +371,11 @@ function payMethods() {
 }
 // Unique key of one facility time slot.
 function slotKey(f, i) { var a = facilities()[f]; return (a ? a.id : f) + "-" + i; }
-/* Motor parking: a resident picks a free slot, pays, and the office confirms the payment.
+/* Parking rental: a resident picks a free slot, pays, and the office confirms the payment.
    The request row holds the chosen slot ("slot") and the rental ("amount"). */
-var PARK_FOR = "Motor parking rental";
-/* Motor parking is priced by the size of the slot. Each size has its own monthly and daily rate.
+var PARK_FOR = "Parking rental";
+function isParkFor(x) { return x === PARK_FOR || x === "Motor parking rental"; }   // older payments were saved under the old name
+/* Parking rental is priced by the size of the slot. Each size has its own monthly and daily rate.
    Rates live in the "park_sizes" setting; until the office sets them they come from the old single rates. */
 var PARK_SIZE_DEFAULT = [["Small", 2, 0.7], ["Regular", 3, 1], ["Large", 4.5, 1.5]];
 function parkSizes() {
@@ -432,7 +433,7 @@ function heldSlots() {
 }
 /* the latest payment a unit sent for a parking slot that was not rejected */
 function parkProof(unit, slotId) {
-  return newest(list("proof")).filter(function (r) { return r.unit === unit && r.v.forText === PARK_FOR && r.v.slot === slotId && r.v.status !== "Rejected"; })[0] || null;
+  return newest(list("proof")).filter(function (r) { return r.unit === unit && isParkFor(r.v.forText) && r.v.slot === slotId && r.v.status !== "Rejected"; })[0] || null;
 }
 /* "5 free" for the navigation, or "" when no parking slots are set up */
 function parkingFreeTag() {

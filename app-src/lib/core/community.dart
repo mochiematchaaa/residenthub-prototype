@@ -1,5 +1,5 @@
 /// Community features that match the website dashboards:
-/// polls, motor parking slots and the resident directory.
+/// polls, parking slots and the resident directory.
 /// Pure data. It does not import the app state, so app_state.dart can use it.
 
 /// One choice in a poll (used for the results of the first question).
@@ -166,7 +166,7 @@ ParkDue? parkDueOf(ParkingSlot s) {
 /// "in 3 days", "tomorrow", "today", "2 days ago".
 String parkDaysText(int d) => d > 1 ? 'in $d days' : (d == 1 ? 'tomorrow' : (d == 0 ? 'today' : '${-d} day${d == -1 ? '' : 's'} ago'));
 
-/// One motor parking slot. [unit] is empty when the slot is free.
+/// One parking slot. [unit] is empty when the slot is free.
 class ParkingSlot {
   final String id;
   String unit;
@@ -210,7 +210,7 @@ String parkUntil(String plan, int days, DateTime from) {
 String parkPlanText(String plan, int days) =>
     plan == 'day' ? 'Daily${days > 0 ? ' · $days day${days == 1 ? '' : 's'}' : ''}' : 'Monthly';
 
-/// Slot names for a motor parking area with [n] slots: M-01, M-02, ...
+/// Slot names for a parking rental area with [n] slots: M-01, M-02, ...
 List<String> slotNames(int n) => [for (var i = 1; i <= n; i++) 'M-${i.toString().padLeft(2, '0')}'];
 
 // ---------------------------------------------------------------- directory
@@ -238,7 +238,7 @@ const directoryFaq = [
     'Open Unit status and tell us how your unit is used. Long-term leases are saved right away. Short-term rentals and home businesses need the administrator\'s approval.'
   ],
   [
-    'How do I request motor parking?',
+    'How do I request parking rental?',
     'Open Parking, tap a free slot on the map and pay the monthly rental. When the office verifies your payment, the slot is yours.'
   ],
   [

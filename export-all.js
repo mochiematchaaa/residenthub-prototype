@@ -392,7 +392,7 @@
 
     add("Facilities", "Parking slots", [["Slot"], ["Size"], ["Unit"], ["Plan"], ["From", "date"], ["Until", "date"], ["Amount", "money", { sum: 1 }]],
       sorted(list("slot"), function (a, b) { return naturalCompare(a.id, b.id); }).map(function (r) { var s = r.v; return [r.id, s.size || "Regular", s.unit || "Free", s.plan === "month" ? "Monthly" : s.plan === "day" ? "Daily" : "", s.from, s.until, s.unit ? money(s.amount) : ""]; }),
-      "Motor parking slots and who rents them");
+      "Parking slots and who rents them");
 
     add("Facilities", "Parking requests", [["Unit"], ["Household", "text", { w: 26 }], ["Slot"], ["Plan"], ["Days", "int"], ["Amount", "money"], ["Confirmed", "status", { cf: "pay" }]],
       list("request").map(function (r) { var q = r.v; return [q.unit, q.who, q.slot, q.plan === "month" ? "Monthly" : "Daily", Number(q.days || 1), money(q.amount), q.confirmed ? "Yes" : "Waiting"]; }),
@@ -707,7 +707,7 @@
     g.span(r, 0, NC - 1, "About this unit", secS, false); g.h[r] = 26; r++;
     var facts = [["Unit", unit], ["Household / owner", u.name && u.name !== "—" ? u.name : ""], ["Occupancy", (u.type || "Owner") + " · " + (u.status || "Occupied")], ["Contact", u.contact || ""],
       ["Resident account", S.accounts.map(function (a) { return a.email; }).join(", ") || "None yet"], ["Floor area", d.area ? d.area + " sqm" : "Not set"], ["Dues due on", Number(u.dueDay) > 0 ? "Day " + u.dueDay + " of every month" : "Not set"],
-      ["Monthly dues", d.monthly || 0, "money"], ["Usage of the unit", usageLabel(u.usage) + (u.usageStatus ? " (" + u.usageStatus + ")" : "")], ["Motor parking", S.slot ? "Slot " + S.slot.id : "None"], ["Open complaints", S.openReq]];
+      ["Monthly dues", d.monthly || 0, "money"], ["Usage of the unit", usageLabel(u.usage) + (u.usageStatus ? " (" + u.usageStatus + ")" : "")], ["Parking rental", S.slot ? "Slot " + S.slot.id : "None"], ["Open complaints", S.openReq]];
     facts.forEach(function (k, i) {
       var base = { v: "center", fill: i % 2 ? C.band : undefined, bb: ["thin", C.line] };
       g.span(r, 0, 3, k[0], sty(Object.assign({ h: "left", indent: 1, b: 1 }, base)));

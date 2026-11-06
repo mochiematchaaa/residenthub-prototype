@@ -101,7 +101,7 @@ List<HistEvent> unitEvents(String unit) {
       DateTime.fromMillisecondsSinceEpoch(q.at > 1000000000000 ? q.at : 0),
       'requests',
       'Parking',
-      'Motor parking request${q.slot.isEmpty ? '' : ' · slot ${q.slot}'}',
+      'Parking rental request${q.slot.isEmpty ? '' : ' · slot ${q.slot}'}',
       '${q.plan == 'month' ? 'Monthly' : 'By the day'}${q.amount > 0 ? ' · ${peso(q.amount)}' : ''}',
       chip: q.confirmed ? 'Approved' : 'Pending',
       tone: q.confirmed ? Tone.good : Tone.warn,

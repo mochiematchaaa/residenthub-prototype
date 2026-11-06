@@ -23,7 +23,7 @@ const _fil = <String, String>{
   'Settings': 'Settings', 'Calendar': 'Calendar', 'Complaints': 'Mga Reklamo', 'Maintenance': 'Maintenance',
   'My unit': 'Unit Ko', 'Community': 'Community', 'Account': 'Account', 'Operations': 'Operations', 'Administration': 'Administration',
   'Money and files': 'Pera at Files', 'Documents': 'Mga Dokumento',
-  'My reservations': 'Mga Reservation Ko', 'Motor parking': 'Parking ng Motor', 'Community documents': 'Mga Dokumento ng Community',
+  'My reservations': 'Mga Reservation Ko', 'Parking rental': 'Pagrenta ng Parking', 'Community documents': 'Mga Dokumento ng Community',
   'Announcements & events': 'Mga Announcement at Event', 'Directory & house rules': 'Directory at House Rules',
   'Directory and house rules': 'Directory at House Rules', 'Activity log': 'Activity Log', 'Expenses': 'Mga Gastos',
   'Finance documents': 'Mga Finance Document', 'Reports': 'Mga Report', 'Resident profiles': 'Profile ng mga Resident',

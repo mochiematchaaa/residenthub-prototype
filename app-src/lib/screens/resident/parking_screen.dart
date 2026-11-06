@@ -475,8 +475,8 @@ class ResParking extends StatelessWidget {
           ),
         ];
         return tab
-            ? TabPage(title: 'Motor parking', subtitle: 'Your parking slot, your charge, and which slots are free.', children: kids)
-            : SubPage(title: 'Motor parking', subtitle: 'Your parking slot, your charge, and which slots are free.', children: kids);
+            ? TabPage(title: 'Parking rental', subtitle: 'Your parking slot, your charge, and which slots are free.', children: kids)
+            : SubPage(title: 'Parking rental', subtitle: 'Your parking slot, your charge, and which slots are free.', children: kids);
       },
     );
   }

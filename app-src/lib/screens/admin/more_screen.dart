@@ -68,7 +68,7 @@ class AdminMore extends StatelessWidget {
           ),
           NavTile(
             icon: Icons.two_wheeler_outlined,
-            title: 'Motor parking',
+            title: 'Parking rental',
             subtitle: '${app.slotsUsed} of ${app.slots.length} slots used${app.pendingParking > 0 ? ' · ${app.pendingParking} waiting' : ''}',
             onTap: () => go(context, const AdminParking()),
             trailing: app.pendingParking > 0 ? Pill('${app.pendingParking}', tone: Tone.warn) : null,

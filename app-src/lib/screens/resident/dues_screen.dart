@@ -628,7 +628,7 @@ class _ResDuesState extends State<ResDues> {
             app.myParkingReq!.slot.isNotEmpty &&
             app.myParkingReq!.amount > 0 &&
             app.slotOf(app.myUnit) == null &&
-            !all.any((d) => !d.paid && d.note == parkingPayFor))
+            !all.any((d) => !d.paid && isParkingPay(d.note)))
           Builder(builder: (context) {
             final r = app.myParkingReq!;
             final proof = app.parkingProofFor(app.myUnit, r.slot);
@@ -641,7 +641,7 @@ class _ResDuesState extends State<ResDues> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Motor parking · ${r.slot}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text('Parking rental · ${r.slot}', style: const TextStyle(fontWeight: FontWeight.w800)),
                         Text('${peso(r.amount)} · ${parkPlanText(r.plan, r.days)} · ${proof == null ? 'waiting for your payment' : (proof.status == 'Confirmed' ? 'paid' : 'payment sent, waiting for the office')}',
                             style: TextStyle(color: muted(context), fontSize: 12.5)),
                       ],
@@ -760,7 +760,7 @@ class _ResDuesState extends State<ResDues> {
               Row(children: [
                 const IconBadge(Icons.two_wheeler_rounded, accent: true),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Motor parking rental', style: hd(17))),
+                Expanded(child: Text('Parking rental', style: hd(17))),
               ]),
               const SizedBox(height: 10),
               Text.rich(
@@ -783,7 +783,7 @@ class _ResDuesState extends State<ResDues> {
               ),
               const SizedBox(height: 8),
               if (app.slots.isEmpty)
-                Text('The office has not set up motor parking slots yet.', style: TextStyle(color: muted(context), fontSize: 13)),
+                Text('The office has not set up parking slots yet.', style: TextStyle(color: muted(context), fontSize: 13)),
               if (app.slots.isNotEmpty)
               GridView.count(
                 crossAxisCount: 6,

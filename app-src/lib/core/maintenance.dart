@@ -484,7 +484,7 @@ class MaintenanceState extends ChangeNotifier {
       Equipment(7, 'Pool filtration pump', 'Pool', 'Pool deck', 'Working', inDays(-5)),
       Equipment(8, 'Treadmill 2', 'Gym', 'Gym', 'Needs repair', inDays(-40)),
       Equipment(9, 'Lobby aircon', 'Air conditioning', 'Lobby', 'Working', inDays(-29)),
-      Equipment(10, 'Parking gate sensor', 'Security', 'Motor parking gate', 'Under maintenance', inDays(-12)),
+      Equipment(10, 'Parking gate sensor', 'Security', 'Parking gate', 'Under maintenance', inDays(-12)),
       Equipment(11, 'Gym shower water heater', 'Plumbing', 'Gym', 'Needs repair', inDays(-90)),
       Equipment(12, 'CCTV system', 'Security', 'Security office', 'Working', inDays(-3)),
     ];

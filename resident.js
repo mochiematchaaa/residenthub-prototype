@@ -95,7 +95,7 @@ function notifs() {
   else if (u.usageStatus === "rejected") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " was not approved. " + (u.usageRemark || ""), "bad", "rental"]);
   else if (u.usageStatus === "pending") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " is waiting for the administrator.", "info", "rental"]);
   var slot = list("slot").filter(function (r) { return r.v.unit === unit; })[0];
-  if (slot) out.push(["Motor parking slot " + slot.id + " is assigned to your unit.", "good", "parking"]);
+  if (slot) out.push(["Parking slot " + slot.id + " is assigned to your unit.", "good", "parking"]);
   // a monthly rental that is about to end (or already ended): did they forget, or are they leaving?
   var pd = slot ? parkDueInfo(slot.v) : null;
   if (pd && pd.soon && !leaveNoteOf(unit) && !renewProofOf(unit, slot.id) && !walkinOf(unit, true)) out.unshift(["Your parking rental for " + slot.id + " " + (pd.late ? "has ended or is due" : "is almost up") + ". The next payment is due " + usageDate(pd.nextDue) + " (" + parkDaysText(pd.days) + "). Renew to keep your slot, or tell the office if you no longer plan to rent.", pd.late ? "bad" : "warn", "parking"]);
@@ -119,7 +119,7 @@ function titles() {
     book: ["Book a facility", "Check availability and send a reservation request."],
     res: ["My reservations", "Every facility request you've made, and its current status."],
     dues: ["Dues & payment status", "Your monthly charges and outstanding balance."],
-    parking: ["Motor parking", "Your parking slot, your request, and which slots are free."],
+    parking: ["Parking rental", "Your parking slot, your request, and which slots are free."],
     events: ["Community events", "See what is coming up and tell us you are going."],
     polls: ["Polls & voting", "Have your say on community decisions. One vote per unit."],
     directory: ["Directory", "Who to call, house rules, and answers to common questions."],
@@ -399,7 +399,7 @@ function viewRes() {
 }
 
 /* ==========================================================================
-   Dues, payments and motor parking
+   Dues, payments and parking rental
    ========================================================================== */
 /* ---- Dues: ring, payment trail, charge cards and a three-step pay panel ---- */
 var DZ_ICON = {
@@ -428,10 +428,10 @@ function dueItems() {
     return { id: r.id, title: d.note, amount: Number(d.amount || 0), due: d.dueDate || "", st: st, d: d, billed: billedOn(r.id, d), receipt: conf ? conf.id : "", sent: pend ? proofSentAt(pend.v) : 0, mon: (d.dueDate && parseShort(d.dueDate)) ? MONTHS[parseShort(d.dueDate).getMonth()] : "" };
   });
   var prq = getRow("request", myUnit());
-  var hasParkDue = items.some(function (i) { return i.title === PARK_FOR && i.st !== "paid"; });   // one parking item only: the charge the office billed
+  var hasParkDue = items.some(function (i) { return isParkFor(i.title) && i.st !== "paid"; });   // one parking item only: the charge the office billed
   if (prq && prq.value.slot && prq.value.amount && !prq.value.confirmed && !hasParkDue) {
     var pp = parkProof(myUnit(), prq.value.slot);
-    items.unshift({ id: "parking", title: "Motor parking rental · " + prq.value.slot + " · " + parkPlanText(prq.value.plan, prq.value.days), amount: Number(prq.value.amount), due: "On reservation", st: pp ? (pp.v.status === "Confirmed" ? "paid" : "pending") : "open", d: {}, receipt: "", mon: "P", park: true });
+    items.unshift({ id: "parking", title: "Parking rental · " + prq.value.slot + " · " + parkPlanText(prq.value.plan, prq.value.days), amount: Number(prq.value.amount), due: "On reservation", st: pp ? (pp.v.status === "Confirmed" ? "paid" : "pending") : "open", d: {}, receipt: "", mon: "P", park: true });
   }
   return items;
 }
@@ -645,7 +645,7 @@ function submitPaymentProof() {
     var proofRec = { id: id, unit: myUnit(), payer: myHousehold(), forText: forText, method: state.payMethod, reference: ref, amount: amount, date: shortDate(new Date()), at: Date.now(), status: "Pending", paidOn: shortDate(paidDay) };
     if (state.payImg) proofRec.image = state.payImg;
     var prq = getRow("request", myUnit());
-    if (forText === PARK_FOR && prq && prq.value.slot && !renewing) proofRec.slot = prq.value.slot;
+    if (isParkFor(forText) && prq && prq.value.slot && !renewing) proofRec.slot = prq.value.slot;
     if (renewing) { proofRec.slot = mineSlot.id; proofRec.renew = true; }
     await put("proof", id, myUnit(), proofRec);
     logAct("Payment reference sent, " + myUnit(), "Finance");
@@ -671,7 +671,7 @@ function myPaymentsHtml() {
 function payAgain(id) {
   var p = getRow("proof", id); if (!p) return;
   var d = myOpenDues().filter(function (x) { return x.v.note === p.value.forText; })[0];
-  state.payFor = p.value.forText === PARK_FOR ? "parking" : d ? d.id : "other";
+  state.payFor = isParkFor(p.value.forText) ? "parking" : d ? d.id : "other";
   state.payMethod = p.value.method; state.payAmt = String(p.value.amount || ""); state.payRef = ""; state.payImg = ""; state.payDate = ""; state.payPulse = true;
   render();
   var el = document.getElementById("payPanel"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -682,8 +682,8 @@ function slotsSorted() { return list("slot").sort(function (a, b) { return natur
 function parkingLinkHtml() {
   var mine = slotsSorted().filter(function (s) { return s.v.unit === myUnit(); })[0], rq = getRow("request", myUnit());
   var pick = rq && rq.value.slot, proof = pick ? parkProof(myUnit(), pick) : null;
-  var text = mine ? "Your slot is <b>" + esc(mine.id) + "</b> · " + esc(parkRentalLine(mine.v) || "Monthly") + (parkExpired(mine.v) ? " (ended)" : "") + "." : pick ? "Slot <b>" + esc(pick) + "</b> is reserved for you. " + (proof ? "Payment " + (proof.v.status === "Confirmed" ? "confirmed" : "sent, waiting for the office") + "." : "<b>" + peso(Number(rq.value.amount || 0)) + "</b> is waiting to be paid.") : rq ? "Your request is waiting for the office." : "Rent a motor parking slot for your unit.";
-  return '<div class="card"><h2 style="font-size:17px;margin-bottom:4px">Motor parking</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">' + text + '</p>' +
+  var text = mine ? "Your slot is <b>" + esc(mine.id) + "</b> · " + esc(parkRentalLine(mine.v) || "Monthly") + (parkExpired(mine.v) ? " (ended)" : "") + "." : pick ? "Slot <b>" + esc(pick) + "</b> is reserved for you. " + (proof ? "Payment " + (proof.v.status === "Confirmed" ? "confirmed" : "sent, waiting for the office") + "." : "<b>" + peso(Number(rq.value.amount || 0)) + "</b> is waiting to be paid.") : rq ? "Your request is waiting for the office." : "Rent a parking slot for your unit.";
+  return '<div class="card"><h2 style="font-size:17px;margin-bottom:4px">Parking rental</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">' + text + '</p>' +
     (pick && !proof && rq.value.amount ? '<button class="btn primary" style="margin-right:8px" onclick="payForParking()">Pay now</button>' : "") + '<button class="btn" onclick="set({view:\'parking\'})">Open Parking</button></div>';
 }
 // PAGE: Parking.
@@ -705,10 +705,10 @@ function viewParkingPage() {
   // Slot reserved but not paid yet: the payment form sits right here (method, screenshot, send).
   var payCard = "";
   if (!mine && req && pick && !proof && amount) {
-    var pi = dueItems().filter(function (i) { return (i.park || i.title === PARK_FOR) && (i.st === "open" || i.st === "overdue"); })[0];
+    var pi = dueItems().filter(function (i) { return (i.park || isParkFor(i.title)) && (i.st === "open" || i.st === "overdue"); })[0];
     if (pi) {
       if (state.payFor !== pi.id) { state.payFor = pi.id; state.payAmt = String(pi.amount); }
-      var shown = Object.assign({}, pi, { amount: amount, title: pi.park ? pi.title : "Motor parking rental · " + pick + " · " + parkPlanText(rv.plan, rv.days) });
+      var shown = Object.assign({}, pi, { amount: amount, title: pi.park ? pi.title : "Parking rental · " + pick + " · " + parkPlanText(rv.plan, rv.days) });
       if (state.payAmt !== String(amount)) state.payAmt = String(amount);
       payCard = payFormHtml(shown);
     }
@@ -746,7 +746,7 @@ function reserveSlot(id) {
       if (!sl2 || sl2.value.unit || heldSlots()[id]) return { error: "That slot was just taken. Please pick another." };
       var q = parkQuote(plan, days, size);
       await put("request", unit, unit, { unit: unit, who: myHousehold(), when: "Just now", at: Date.now(), slot: id, plan: q.plan, days: q.days, amount: q.amount });
-      logAct("Motor parking slot " + id + " reserved (" + parkPlanText(q.plan, q.days) + "), " + unit, "Parking");
+      logAct("Parking slot " + id + " reserved (" + parkPlanText(q.plan, q.days) + "), " + unit, "Parking");
       toast(q.amount ? "Reserved. Pay " + peso(q.amount) + " to finish." : "Request sent to the administrator.");
     }
   });
@@ -765,7 +765,7 @@ function payForParking() {
 function cancelParkingRequest() {
   var rq = getRow("request", myUnit()), slot = rq && rq.value.slot;
   if (slot && parkProof(myUnit(), slot)) return toast("You already sent a payment for this slot. Please contact the office.");
-  confirmBox("Cancel your parking reservation?", "The slot is released for others. You can reserve again any time.", "Cancel reservation", async function () { await del("request", myUnit()); logAct("Motor parking request cancelled, " + myUnit(), "Parking"); }, true);
+  confirmBox("Cancel your parking reservation?", "The slot is released for others. You can reserve again any time.", "Cancel reservation", async function () { await del("request", myUnit()); logAct("Parking rental request cancelled, " + myUnit(), "Parking"); }, true);
 }
 
 /* ==========================================================================
@@ -811,7 +811,7 @@ var FAQ = [
   ["How do I book the pool or the Function Hall?", "Open Book a facility, pick the place, tap an open time slot and send your request. The office approves it and you will see the result under Reservations."],
   ["When are monthly dues due?", "Your balance, due dates and history are under Dues."],
   ["I rent out my unit. What do I need to do?", "Open Unit status and declare how your unit is used. Long-term leases are saved right away. Short-term rentals and home businesses need the administrator's approval."],
-  ["How do I request motor parking?", "Open Parking, tap a free slot on the map and pay the monthly rental. When the office verifies your payment, the slot is yours."],
+  ["How do I request parking rental?", "Open Parking, tap a free slot on the map and pay the monthly rental. When the office verifies your payment, the slot is yours."],
   ["How do I report a problem in the building?", "Use Complaints to describe the concern. You can follow its status from Open to In progress to Resolved."]
 ];
 // The saved contacts and house rules.
@@ -982,7 +982,7 @@ function changePasswordForm() {
 
 /* ---------- search and bell ---------- */
 function searchIndex() {
-  var pages = [["Book a facility", "book"], ["My reservations", "res"], ["Dues and payments", "dues"], ["Motor parking", "parking"], ["Community events", "events"], ["Polls", "polls"], ["Directory", "directory"], ["Complaints", "gr"], ["Documents", "docs"], ["Unit status", "rental"], ["Settings", "settings"]];
+  var pages = [["Book a facility", "book"], ["My reservations", "res"], ["Dues and payments", "dues"], ["Parking rental", "parking"], ["Community events", "events"], ["Polls", "polls"], ["Directory", "directory"], ["Complaints", "gr"], ["Documents", "docs"], ["Unit status", "rental"], ["Settings", "settings"]];
   var d = directory();
   return [].concat(
     list("event").map(function (r) { return { t: esc(r.v.title), s: esc((r.v.date || "") + " · " + (r.v.place || "")), tag: "Event", v: "events" }; }),

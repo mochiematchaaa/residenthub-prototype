@@ -60,7 +60,7 @@ function titles() {
     rentals: ["Unit status", "Approve what residents declare about their unit, and keep the occupancy registry up to date."],
     polls: ["Polls & voting", "Ask residents what they think and see the results as votes come in."],
     reports: ["Reports", "Collections, occupancy, dues ageing, facility use and requests at a glance."],
-    parking: ["Parking", "Motor parking slots, who has one, and requests waiting for approval."],
+    parking: ["Parking", "Parking slots, who has one, and requests waiting for approval."],
     log: ["Activity log", "A record of what the administrators did, newest first."],
     history: ["Resident profiles", "The record of every unit and resident: details, household, dues, payments, requests and history. Edit a record and the resident sees it on their dashboard."],
     settings: ["Settings", "Billing defaults, account and security, access and payments."],

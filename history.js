@@ -40,7 +40,7 @@ function histEvents(unit) {
   });
   list("request").filter(function (r) { return r.unit === unit; }).forEach(function (r) {
     var q = r.v;
-    ev.push({ ts: Number(q.at) || 0, cat: "requests", kind: "Parking", title: "Motor parking request" + (q.slot ? " · slot " + q.slot : ""), sub: (q.plan === "month" ? "Monthly" : "By the day") + (q.amount ? " · " + peso(Number(q.amount)) : ""), chip: [q.confirmed ? "Approved" : "Pending", q.confirmed ? "good" : "warn"] });
+    ev.push({ ts: Number(q.at) || 0, cat: "requests", kind: "Parking", title: "Parking rental request" + (q.slot ? " · slot " + q.slot : ""), sub: (q.plan === "month" ? "Monthly" : "By the day") + (q.amount ? " · " + peso(Number(q.amount)) : ""), chip: [q.confirmed ? "Approved" : "Pending", q.confirmed ? "good" : "warn"] });
   });
   list("rsvp").filter(function (r) { return r.unit === unit; }).forEach(function (r) {
     var e = getRow("event", r.v.event);

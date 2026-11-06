@@ -493,7 +493,7 @@ function togglePayDue(id, on) {
   render();
 }
 // Saves a changed rate (dues or parking).
-// "Motor parking rental" settings: the rental depends on the size of the slot, so every size has its own monthly and daily rate.
+// "Parking rental" settings: the rental depends on the size of the slot, so every size has its own monthly and daily rate.
 function parkRatesCard() {
   var sizes = parkSizes();
   var rows = sizes.map(function (z, i) {
@@ -503,7 +503,7 @@ function parkRatesCard() {
       '<td><input type="number" min="0" id="psDay' + i + '" value="' + escAttr(z.day || "") + '" aria-label="' + escAttr(z.name) + ' daily rate"></td><td style="color:var(--muted);white-space:nowrap">' + perSqm + ' / sqm / month</td></tr>';
   }).join("");
   var counts = {}; list("slot").forEach(function (r) { var k = r.v.size || "Regular"; counts[k] = (counts[k] || 0) + 1; });
-  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Motor parking rental</h2><p class="hint" style="margin:0">The rental depends on the <b>size of the slot</b>. Give every size its own monthly and daily rate. Residents see the price of each slot on the parking map. Set the size of each slot under Parking. Leave a daily rate empty to hide the daily option for that size.</p>' +
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Parking rental</h2><p class="hint" style="margin:0">The rental depends on the <b>size of the slot</b>. Give every size its own monthly and daily rate. Residents see the price of each slot on the parking map. Set the size of each slot under Parking. Leave a daily rate empty to hide the daily option for that size.</p>' +
     '<div style="overflow:auto"><table class="psz"><thead><tr><th>SLOT SIZE</th><th>SQM</th><th>₱ / MONTH</th><th>₱ / DAY</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
     '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" onclick="saveParkSizes()">Save parking rates</button><span style="font-size:13px;color:var(--muted)">Slots now: ' + (sizes.map(function (z) { return (counts[z.name] || 0) + " " + z.name.toLowerCase(); }).join(" · ")) + "</span></div></div>";
 }
@@ -624,7 +624,7 @@ function verifyPanel(proofs) {
 function proofCheck(r) {
   var p = r.v, why = [], amount = Number(p.amount) || 0;
   var open = list("due").filter(function (d) { return d.v.unit === p.unit && !d.v.paid; }).sort(function (a, b) { return Number(a.id) - Number(b.id); });
-  var named = open.filter(function (d) { return d.v.note === p.forText; })[0], expected = null, parking = p.forText === PARK_FOR;
+  var named = open.filter(function (d) { return d.v.note === p.forText; })[0], expected = null, parking = isParkFor(p.forText);
   if (named) expected = Number(named.v.amount) || 0;
   else if (parking) {
     var prq = getRow("request", p.unit), slotId = p.slot || (prq && prq.value.slot) || "", mr = 0, rslot = p.renew ? getRow("slot", slotId) : null;
@@ -668,7 +668,7 @@ async function postProof(id, auto) {
   // the charge the resident named, else the oldest open charge (parking and "other" payments settle no charge)
   var open = vals("due").filter(function (d) { return d.unit === p.unit && !d.paid; }).sort(function (a, b) { return a.id - b.id; });
   var named = open.filter(function (d) { return d.note === p.forText; })[0];
-  var other = p.forText === "Motor parking rental" || p.forText === "Other charge";
+  var other = isParkFor(p.forText) || p.forText === "Other charge";
   var due = named || (other ? null : open[0]);
   if (due) {
     await put("due", due.id, p.unit, Object.assign({}, due, { paid: true }));
@@ -680,7 +680,7 @@ async function postProof(id, auto) {
   logAct((auto ? "Payment posted automatically, " : "Payment recorded, ") + p.unit + (auto ? " (" + p.receiptNo + ")" : ""), "Finance");
   // a paid parking reservation: the chosen slot goes to the resident straight away. A paid renewal extends the rental.
   var assigned = "", renewedTo = "", smsNote = "";
-  if (p.forText === PARK_FOR && p.slot) {
+  if (isParkFor(p.forText) && p.slot) {
     var sl = getRow("slot", p.slot);
     if (p.renew) {
       if (sl && sl.value.unit === p.unit) {
@@ -1108,7 +1108,7 @@ function viewParking() {
   var monthlyIncome = slots.filter(function (s) { return s.v.unit && s.v.plan !== "day" && !parkExpired(s.v); }).reduce(function (t, s) { return t + (Number(s.v.amount) || parkRatesFor(s.v.size || "Regular").month); }, 0);
   var reqs = list("request").filter(function (r) { return !r.v.confirmed; }).sort(function (a, b) { return (a.v.at || 0) - (b.v.at || 0); });
   if (!slots.length) {
-    return '<div class="card" style="display:flex;flex-direction:column;gap:10px;max-width:520px"><h2>Set up motor parking</h2><p class="hint" style="margin:0">There are no slots yet. Tell the system how many motor parking slots the building has. They are named M-01, M-02, and so on.</p>' +
+    return '<div class="card" style="display:flex;flex-direction:column;gap:10px;max-width:520px"><h2>Set up parking rental</h2><p class="hint" style="margin:0">There are no slots yet. Tell the system how many parking slots the building has. They are named M-01, M-02, and so on.</p>' +
       '<button class="btn primary" onclick="addSlotsForm()">Add slots</button></div>' + (reqs.length ? '<p class="hint" style="margin-top:12px">' + reqs.length + " resident request(s) are waiting for slots.</p>" : "");
   }
   var tab = parkTab(), active = slots.filter(function (s) { return s.v.unit && !parkExpired(s.v); }).length, nRenew = parkRenewalItems().length;
@@ -1119,7 +1119,7 @@ function viewParking() {
 }
 // Slots tab: the map of every slot.
 function parkSlotsPage(slots, sizes) {
-  return '<div class="card"><h2>Motor parking slots</h2>' +
+  return '<div class="card"><h2>Parking slots</h2>' +
     '<p class="hint">Tap a slot to assign it, edit the rental, remove the resident, rename it or delete it. The price depends on the slot size: ' + sizes.map(function (z) { return "<b>" + esc(z.name) + "</b> " + (z.month ? peso(z.month) + "/month" : "not set") + (z.day ? " · " + peso(z.day) + "/day" : ""); }).join(" · ") + ". Change the rates under Finance &gt; Settings.</p>" +
     '<div class="slotgrid">' + slots.map(function (s) { var h = heldSlots()[s.id]; return '<button class="pslot ' + (s.v.unit ? "used" : h ? "held" : "free") + '" onclick="openSlot(\'' + escAttr(s.id) + '\')"><b>' + esc(s.id) + "</b><small>" + esc(s.v.unit || (h ? "Held · " + h : "Free")) + '</small><small class="psz-tag">' + esc(s.v.size || "Regular") + "</small></button>"; }).join("") + "</div></div>";
 }
@@ -1205,7 +1205,7 @@ function freshSlotIds(n) {
 // Popup form to add parking slots.
 function addSlotsForm() {
   openForm({
-    title: "Add motor parking slots", intro: "How many slots should be added? Existing slots stay as they are.",
+    title: "Add parking slots", intro: "How many slots should be added? Existing slots stay as they are.",
     fields: [{ name: "n", label: "Number of slots to add", type: "number", value: sortedSlots().length ? "" : "24" }, { name: "size", label: "Slot size", type: "select", options: parkSizes().map(function (z) { return z.name + (z.sqm ? " (" + z.sqm + " sqm)" : ""); }), value: "Regular" + (parkRatesFor("Regular").sqm ? " (" + parkRatesFor("Regular").sqm + " sqm)" : "") }], submit: "Add",
     onSubmit: async function (d) {
       var n = parseInt(d.n, 10);
@@ -1213,7 +1213,7 @@ function addSlotsForm() {
       var ids = freshSlotIds(n);
       var size = String(d.size || "Regular").replace(/ \(.*$/, "");
       for (var i = 0; i < ids.length; i++) await put("slot", ids[i], "", { id: ids[i], size: size });
-      logAct(n + " " + size.toLowerCase() + " motor parking slot" + (n === 1 ? "" : "s") + " added", "Parking");
+      logAct(n + " " + size.toLowerCase() + " parking slot" + (n === 1 ? "" : "s") + " added", "Parking");
     }
   });
 }
@@ -1715,7 +1715,7 @@ function saveResNav() {
 function viewSettingsGeneral() {
   var d = directory();
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Billing</h2><p class="hint" style="margin:0">Monthly dues: <b>' + (setting("dues_rate_sqm").rate ? peso(setting("dues_rate_sqm").rate) + " per sqm" : "not set") + "</b> · Motor parking: <b>" + (setting("motor_rate").rate ? peso(setting("motor_rate").rate) : "not set") + '</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\'})">Open Finance</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
+    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Billing</h2><p class="hint" style="margin:0">Monthly dues: <b>' + (setting("dues_rate_sqm").rate ? peso(setting("dues_rate_sqm").rate) + " per sqm" : "not set") + "</b> · Parking rental: <b>" + (setting("motor_rate").rate ? peso(setting("motor_rate").rate) : "not set") + '</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\'})">Open Finance</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
     grLimitCardHtml() + resNavCardHtml() + '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Your preferences</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn primary" onclick="set({setTab:\'account\',acctTab:\'overview\'})">Account &amp; security</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div></div></div>' +
     '<div style="display:flex;flex-direction:column;gap:16px"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
     (d.contacts.map(function (c, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(c.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(c.note || "") + " · " + esc(c.tel || "") + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'contacts\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No contacts yet.</p>') + "</div>" +

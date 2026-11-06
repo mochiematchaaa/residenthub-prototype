@@ -32,8 +32,10 @@ class PaymentRecord {
 
 /// A resident's "I have paid" message with the reference number, waiting for
 /// the administrator to check it.
-/// What a motor parking payment is for. Same text as the website.
-const parkingPayFor = 'Motor parking rental';
+/// What a parking rental payment is for. Same text as the website.
+const parkingPayFor = 'Parking rental';
+/// Older payments were saved under the old name, so both are accepted.
+bool isParkingPay(String t) => t == parkingPayFor || t == 'Motor parking rental';
 
 /// The parking sticker fee and the parking rental are one thing. Older records are read under the one name.
 String normPayFor(String t) => t == 'Parking sticker fee' ? parkingPayFor : t;

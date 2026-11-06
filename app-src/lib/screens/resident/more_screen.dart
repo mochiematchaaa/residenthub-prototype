@@ -45,7 +45,7 @@ class ResMore extends StatelessWidget {
           if (!app.navHidden('parking'))
           NavTile(
             icon: Icons.two_wheeler_rounded,
-            title: 'Motor parking',
+            title: 'Parking rental',
             subtitle: app.slotOf(app.myUnit) != null
                 ? 'Your slot: ${app.slotOf(app.myUnit)!.id}'
                 : (app.parkingRequested ? 'Request sent, waiting for the office' : 'Request a parking slot'),

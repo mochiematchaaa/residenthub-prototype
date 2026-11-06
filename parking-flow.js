@@ -1,5 +1,5 @@
 /* ==========================================================================
-   parking-flow.js: walk-in payments, renewals and text messages for motor parking.
+   parking-flow.js: walk-in payments, renewals and text messages for parking rental.
    Shared by the resident and the administrator pages.
 
    WALK-IN   A resident who will pay at the office taps "I'll walk in today" on the Parking page. That saves a "walkin"
@@ -44,7 +44,7 @@ function parkRenewAmount(slotId, v) {
 function walkinOf(unit, renew) { return getRow("walkin", unit + (renew ? "|renew" : "")); }
 function leaveNoteOf(unit) { return getRow("renewal", unit); }
 function renewProofOf(unit, slotId) {
-  return newest(list("proof")).filter(function (r) { return r.unit === unit && r.v.forText === PARK_FOR && r.v.renew && r.v.slot === slotId && r.v.status === "Pending"; })[0] || null;
+  return newest(list("proof")).filter(function (r) { return r.unit === unit && isParkFor(r.v.forText) && r.v.renew && r.v.slot === slotId && r.v.status === "Pending"; })[0] || null;
 }
 // "Come today" / "said they would come on Oct 27": how a walk-in reads.
 function walkinText(w, who) {
@@ -181,7 +181,7 @@ function parkRenewCardHtml(mine) {
   }
   var form = "";
   if (state.parkRenew && !leave && !pr) {
-    var item = { id: "parking-renew", park: true, renew: true, title: "Motor parking renewal · " + mine.id + " · Monthly", amount: parkRenewAmount(mine.id, mine.v), dueText: usageDate(d.nextDue) };
+    var item = { id: "parking-renew", park: true, renew: true, title: "Parking rental renewal · " + mine.id + " · Monthly", amount: parkRenewAmount(mine.id, mine.v), dueText: usageDate(d.nextDue) };
     state.payFor = "parking-renew"; state.payAmt = String(item.amount);
     form = payFormHtml(item) + '<div><button class="btn" onclick="parkRenewClose()">Close the payment form</button></div>';
   }

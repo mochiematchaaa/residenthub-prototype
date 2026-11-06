@@ -24,7 +24,7 @@ var LANG_FIL = {
   "My reservations": "Mga Reservation Ko", "Community events": "Mga Event sa Community", "Complaints & documents": "Mga Reklamo at Dokumento",
   "Units & residents": "Mga Unit at Resident", "Facility booking": "Facility Booking", "Polls & voting": "Mga Poll at Botohan",
   "Manage access": "I-manage ang Access", "My profile": "Profile Ko", "Community documents": "Mga Dokumento ng Community",
-  "Dues & payment status": "Mga Bayarin at Status ng Bayad", "Motor parking": "Parking ng Motor",
+  "Dues & payment status": "Mga Bayarin at Status ng Bayad", "Parking rental": "Pagrenta ng Parking",
   "Your unit, announcements, events and notifications in one place.": "Nandito na ang unit mo, mga announcement, event at notification.",
   "Check availability and send a reservation request.": "Tingnan kung available at mag-send ng reservation request.",
   "Every facility request you've made, and its current status.": "Lahat ng facility request mo at kung ano na ang status nila.",
@@ -44,7 +44,7 @@ var LANG_FIL = {
   "Dues, charges, payment status and payment history.": "Mga bayarin, charges, status ng bayad, at payment history.",
   "Publish community announcements and events.": "Mag-post ng announcements at events para sa community.",
   "A record of what the administrators did, newest first.": "Listahan ng mga ginawa ng mga admin, pinakabago muna.",
-  "Motor parking slots, who has one, and requests waiting for approval.": "Mga parking slot ng motor, sino ang may hawak, at mga request na naghihintay ng approval.",
+  "Parking slots, who has one, and requests waiting for approval.": "Mga parking slot, sino ang may hawak, at mga request na naghihintay ng approval.",
   "Collections, occupancy, dues ageing, facility use and requests at a glance.": "Collections, occupancy, dues ageing, gamit ng facility at mga request, sa isang tingin.",
   "Good morning": "Magandang umaga", "Good afternoon": "Magandang hapon", "Good evening": "Magandang gabi"
 };

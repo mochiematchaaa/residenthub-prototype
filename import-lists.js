@@ -1,7 +1,7 @@
 /* ADMIN: Import a list from an Excel (.xlsx) or CSV file, on every page that has a list.
    The administrator chooses a file, the columns are matched by their names (and can be changed), a preview shows what will be
    added and what will be skipped, and one click adds the rows. This replaces typing each row by hand.
-   Lists: units, resident accounts, charges, expenses, motor parking slots, announcements, events, facilities, directory contacts,
+   Lists: units, resident accounts, charges, expenses, parking slots, announcements, events, facilities, directory contacts,
    maintenance tasks, equipment and staff.
    Loaded by admin.html after maintenance.js. It uses the same helper functions as the pages (put, list, getRow, logAct...). */
 (function () {
@@ -299,7 +299,7 @@
       save: function (r) { var eid = nextId(); return put("expense", eid, "__admin", Object.assign({ id: Number(eid) }, r)); }
     },
     slots: {
-      label: "motor parking slots", file: "parking-slots",
+      label: "parking slots", file: "parking-slots",
       cols: [{ k: "name", label: "Slot name", req: 1, al: ["slot", "slot name", "slot no", "slot number", "name", "parking", "number"] }, { k: "size", label: "Size (Small, Regular or Large)", al: ["size", "slot size", "kind"] }],
       sample: [["M-25", "Small"], ["M-26", "Large"]],
       init: function () { return { have: {} }; },

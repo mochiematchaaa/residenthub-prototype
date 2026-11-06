@@ -205,7 +205,7 @@ class ResHome extends StatelessWidget {
                   onTap: () => go(context, const ResGrievances()),
                 ),
                 FeatureTile(
-                  title: 'Motor parking',
+                  title: 'Parking rental',
                   metric: app.slotOf(app.myUnit)?.id ?? (app.parkingRequested ? 'Pending' : 'None'),
                   subtitle: app.slotOf(app.myUnit) != null ? 'is your parking slot' : (app.parkingRequested ? 'request waiting for the office' : 'Request a slot for your motorcycle'),
                   icon: Icons.two_wheeler_rounded,
@@ -376,7 +376,7 @@ class ResHome extends StatelessWidget {
         SearchItem('Calendar', 'Events, bookings and due dates', Icons.calendar_month_rounded, () => go(context, const CalendarScreen(admin: false))),
         SearchItem('Book a facility', 'Pool, function hall and other amenities', Icons.pool_rounded, () => app.setResTab(1)),
         SearchItem('Dues & payment', 'Balance, payments and receipts', Icons.account_balance_wallet_rounded, () => app.setResTab(3)),
-        SearchItem('Motor parking', 'Your slot, request and free slots', Icons.two_wheeler_rounded, () => app.setResTab(2)),
+        SearchItem('Parking rental', 'Your slot, request and free slots', Icons.two_wheeler_rounded, () => app.setResTab(2)),
         SearchItem('My reservations', 'Booking requests and status', Icons.event_note_rounded, () => go(context, const ResReservations())),
         SearchItem('Complaints', 'Report or track a concern', Icons.edit_note_rounded, () => go(context, const ResGrievances())),
         SearchItem('Polls & voting', 'Vote on community decisions', Icons.how_to_vote_outlined, () => go(context, const ResPolls())),

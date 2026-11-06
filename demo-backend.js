@@ -128,7 +128,7 @@
         { name: "Administration office", note: "Mon to Sat, 8 AM to 5 PM", tel: "Local 110" },
         { name: "Building engineer", note: "Repairs and maintenance", tel: "Local 120" },
         { name: "Housekeeping", note: "Common areas and garbage", tel: "Local 130" },
-        { name: "Parking office", note: "Motor parking rentals", tel: "Local 140" },
+        { name: "Parking office", note: "Parking rentals", tel: "Local 140" },
         { name: "Emergency hotline", note: "Fire, medical, police", tel: "911" }
       ],
       rules: [
@@ -165,7 +165,7 @@
       });
       if (hi % 6 === 0) {
         var xid = tid();
-        R("due", xid, u.label, { id: xid, unit: u.label, name: u.house, amount: 300, note: "Motor parking rental", dueDate: sd(dayOff(1 + Math.floor(hi / 6) % 5)) });
+        R("due", xid, u.label, { id: xid, unit: u.label, name: u.house, amount: 300, note: "Parking rental", dueDate: sd(dayOff(1 + Math.floor(hi / 6) % 5)) });
       }
     });
     /* The elevator repair is paid by the corporation (see Expenses), so residents are not billed for it. */
@@ -224,7 +224,7 @@
     ann("Fire drill next week", "A building-wide fire drill will be held next Thursday at 2 PM. Please follow the guards' instructions.", "Warning", -6);
     ann("Halloween trick-or-treat in the lobby", "Kids are welcome to trick-or-treat on October 31 from 4 to 6 PM. Costumes encouraged!", "General", -8);
     ann("Pest control schedule", "Pest control will visit the floors on Wednesday from 9 AM. Please let the staff in or tell the office if you prefer another day.", "Maintenance", -10);
-    ann("New rule: parking stickers", "All motor parking users must display the new sticker. Get yours at the office for ₱300.", "General", -13);
+    ann("New rule: parking stickers", "All parking rental users must display the new sticker. Get yours at the office for ₱300.", "General", -13);
     ann("Typhoon advisory", "Please keep windows closed and move plants indoors. The guards will lock the pool and the gym when the signal is raised.", "Emergency", -16);
     ann("Lost and found at the lobby", "A set of keys and a blue umbrella were found near the elevator. Claim them at the guard desk.", "General", -20);
     ann("Thank you for the clean-up drive", "Thank you to everyone who joined last month's clean-up. The lobby planters are now back.", "General", -27);
@@ -326,7 +326,7 @@
       ["Garbage left in the hallway", "Bags were left outside the chute room again."], ["Pool tiles are slippery", "The shallow end is slippery in the morning."],
       ["No hot water in the gym shower", "Cold water only since Monday."], ["Intercom not working", "The lobby intercom does not ring in the unit."],
       ["Water pressure is low", "Very weak water pressure in the evening."], ["Smoking in the stairwell", "A smell of cigarette smoke on the 5th floor stairs."],
-      ["Stray cat in the parking area", "A cat is trapped near the motor parking."], ["Lobby aircon too cold", "The lobby aircon is set too low in the morning."]
+      ["Stray cat in the parking area", "A cat is trapped near the parking rental."], ["Lobby aircon too cold", "The lobby aircon is set too low in the morning."]
     ];
     /* maintenance staff and equipment (admin only), used for repair assignment and the preventive schedule */
     var STAFF = [
@@ -341,7 +341,7 @@
       ["E-03", "Water pump set", "Plumbing", "Basement pump room", "Working", -48], ["E-04", "Standby generator", "Electrical", "Basement", "Working", -16],
       ["E-05", "Fire alarm panel", "Fire safety", "Ground floor lobby", "Working", -21], ["E-06", "Fire extinguishers", "Fire safety", "Every floor", "Working", -69],
       ["E-07", "Pool filtration pump", "Pool", "Pool deck", "Working", -5], ["E-08", "Treadmill 2", "Gym", "Gym", "Needs repair", -40],
-      ["E-09", "Lobby aircon", "Air conditioning", "Lobby", "Working", -29], ["E-10", "Parking gate sensor", "Security", "Motor parking gate", "Under maintenance", -12],
+      ["E-09", "Lobby aircon", "Air conditioning", "Lobby", "Working", -29], ["E-10", "Parking gate sensor", "Security", "Parking gate", "Under maintenance", -12],
       ["E-11", "Gym shower water heater", "Plumbing", "Gym", "Needs repair", -90], ["E-12", "CCTV system", "Security", "Security office", "Working", -3]
     ];
     EQUIP.push(["E-13", "Billiard table", "Other", "Game Room", "Under maintenance", -200]);
@@ -401,7 +401,7 @@
       R("grievance", Math.round(id), u.label, val);
     });
 
-    /* ---------- motor parking: 20 slots ---------- */
+    /* ---------- parking rental: 20 slots ---------- */
     var rentedSlots = {};
     function sizeOfSlot(n) { return n <= 6 ? "Small" : n <= 16 ? "Regular" : "Large"; }
     function rent(id, unit, plan, off, days, amt) { rentedSlots[id] = 1; R("slot", id, "", { id: id, unit: unit, plan: plan, from: dk(dayOff(off)), until: dk(dayOff(off + days - 1)), amount: amt, size: sizeOfSlot(Number(id.slice(2))) }); }
@@ -412,7 +412,7 @@
     [["Unit 7A", "M-05", 1], ["Unit 5C", "M-06", 2]].forEach(function (q, k) {
       var u = byUnit[q[0]], rpid = tid();
       R("request", q[0], q[0], { unit: q[0], who: u.name, when: k ? "3 hours ago" : "1 hour ago", at: Date.now() - (k ? 10800000 : 3600000), slot: q[1], plan: "month", days: 1, amount: 1000, confirmed: false });
-      if (!k) R("proof", rpid, q[0], { id: rpid, unit: q[0], payer: u.name, forText: "Motor parking rental", method: "GCash", reference: "GC" + (YEAR * 1000000 + 101403), amount: 1000, date: sd(now), status: "Pending", slot: q[1] });
+      if (!k) R("proof", rpid, q[0], { id: rpid, unit: q[0], payer: u.name, forText: "Parking rental", method: "GCash", reference: "GC" + (YEAR * 1000000 + 101403), amount: 1000, date: sd(now), status: "Pending", slot: q[1] });
     });
 
     /* ---------- documents (readable inside the page) ---------- */
@@ -428,7 +428,7 @@
       { k: "table", r: [["Item", "Amount"], ["Dues collected", "₱ 240,000"], ["Operating expenses", "₱ 168,000"], ["Reserve fund", "₱ 72,000"]] }], -20);
     doc("Move-in and move-out form", "Form", "all", [{ k: "h1", t: "Move-in / move-out form (sample)" }, { k: "p", t: "Fill this in and submit it to the office three days before moving." }], -90);
     doc("Minutes of the last general assembly", "Minutes", "all", [{ k: "h1", t: "Minutes (sample)" }, { k: "bullet", t: "The budget was approved." }, { k: "bullet", t: "The lobby repainting will be put to a vote." }], -45);
-    doc("Parking policy", "Policy", "all", [{ k: "h1", t: "Motor parking policy (sample)" }, { k: "bullet", t: "Monthly rental is ₱1,500; daily rental is ₱100 per day." }, { k: "bullet", t: "Display the sticker at all times." }], -30);
+    doc("Parking policy", "Policy", "all", [{ k: "h1", t: "Parking rental policy (sample)" }, { k: "bullet", t: "Monthly rental is ₱1,500; daily rental is ₱100 per day." }, { k: "bullet", t: "Display the sticker at all times." }], -30);
     doc("Amenity guidelines", "Policy", "all", [{ k: "h1", t: "Amenity guidelines (sample)" }, { k: "p", t: "Bookings are in two-hour times and need the office's approval." }, { k: "bullet", t: "Pool: 6 AM to 8 PM." }, { k: "bullet", t: "Function hall: 8 AM to 10 PM." }], -75);
     doc("Notice: elevator schedule", "Notice", "all", [{ k: "h1", t: "Elevator maintenance schedule (sample)" }, { k: "p", t: "Elevator B will be serviced every first Tuesday of the month." }], -3);
     doc("Board notes (admin only)", "Other", "admin", [{ k: "h1", t: "Board notes (sample)" }, { k: "p", t: "Only the administrator can see this document." }], -5);
@@ -508,11 +508,11 @@
     });
     return old;
   }
-  /* One-time tidy of data saved earlier: the parking sticker fee and the parking rental are one thing ("Motor parking rental"). */
+  /* One-time tidy of data saved earlier: the parking sticker fee and the parking rental are one thing ("Parking rental"). */
   function fixup(x) {
     if (x.fix16) return fix17(x);
     x.fix16 = true;
-    var recs = x.records || [], OLD = "Parking sticker fee", NEW = "Motor parking rental";
+    var recs = x.records || [], OLD = "Parking sticker fee", NEW = "Parking rental";
     recs.forEach(function (r) {
       var v = r.value; if (!v) return;
       if (r.kind === "due" && v.note === OLD) v.note = NEW;

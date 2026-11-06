@@ -40,7 +40,7 @@ class _VerifyPanelState extends State<VerifyPanel> {
 
   void _post(PaymentProof p) {
     final rec = app.confirmProof(p);
-    final slot = p.forText == parkingPayFor ? app.slotOf(p.unit) : null;
+    final slot = isParkingPay(p.forText) ? app.slotOf(p.unit) : null;
     msg(context, slot != null ? 'Payment posted. ${slot.id} is now assigned to ${p.unit}. Receipt ${rec.receiptNo} issued.' : 'Payment posted. Receipt ${rec.receiptNo} issued.');
   }
 

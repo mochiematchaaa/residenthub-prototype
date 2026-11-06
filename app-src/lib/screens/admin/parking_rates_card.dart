@@ -1,4 +1,4 @@
-// ADMIN: Motor parking rental rates. The rental depends on the size of the slot, so every size has its own monthly and daily rate.
+// ADMIN: Parking rental rates. The rental depends on the size of the slot, so every size has its own monthly and daily rate.
 
 import 'package:flutter/material.dart';
 
@@ -47,11 +47,11 @@ class _ParkingRatesCardState extends State<ParkingRatesCard> {
           Row(children: [
             const IconBadge(Icons.two_wheeler_rounded, accent: true),
             const SizedBox(width: 12),
-            Expanded(child: Text('Motor parking rental', style: hd(17))),
+            Expanded(child: Text('Parking rental', style: hd(17))),
           ]),
           const SizedBox(height: 8),
           Text(
-            'The rental depends on the size of the slot. Give every size its own monthly and daily rate. Residents see the price on each slot of the parking map. Set the size of each slot under Motor parking. Leave a daily rate empty to hide the daily option for that size.',
+            'The rental depends on the size of the slot. Give every size its own monthly and daily rate. Residents see the price on each slot of the parking map. Set the size of each slot under Parking rental. Leave a daily rate empty to hide the daily option for that size.',
             style: TextStyle(color: muted(context), fontSize: 12.5, height: 1.4),
           ),
           for (var i = 0; i < sizes.length; i++) ...[

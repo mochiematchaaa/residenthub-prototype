@@ -349,7 +349,7 @@ List<CRow> _demoRows() {
       {'name': 'Administration office', 'note': 'Mon to Sat, 8 AM to 5 PM', 'tel': 'Local 110'},
       {'name': 'Building engineer', 'note': 'Repairs and maintenance', 'tel': 'Local 120'},
       {'name': 'Housekeeping', 'note': 'Common areas and garbage', 'tel': 'Local 130'},
-      {'name': 'Parking office', 'note': 'Motor parking rentals', 'tel': 'Local 140'},
+      {'name': 'Parking office', 'note': 'Parking rentals', 'tel': 'Local 140'},
       {'name': 'Emergency hotline', 'note': 'Fire, medical, police', 'tel': '911'},
     ],
     'rules': [
@@ -456,7 +456,7 @@ List<CRow> _demoRows() {
         'name': u.house,
         'amount': 300,
         'billedOn': _sd(_off(-(hi % 4))),
-        'note': 'Motor parking rental',
+        'note': 'Parking rental',
         'dueDate': _sd(_off(5 + hi % 6)),
       });
     }
@@ -514,7 +514,7 @@ List<CRow> _demoRows() {
   ann('Fire drill next week', "A building-wide fire drill will be held next Thursday at 2 PM. Please follow the guards' instructions.", 'Warning', -6);
   ann('Halloween trick-or-treat in the lobby', 'Kids are welcome to trick-or-treat on October 31 from 4 to 6 PM. Costumes encouraged!', 'General', -8);
   ann('Pest control schedule', 'Pest control will visit the floors on Wednesday from 9 AM. Please let the staff in or tell the office if you prefer another day.', 'Maintenance', -10);
-  ann('New rule: parking stickers', 'All motor parking users must display the new sticker. Get yours at the office for ₱300.', 'General', -13);
+  ann('New rule: parking stickers', 'All parking rental users must display the new sticker. Get yours at the office for ₱300.', 'General', -13);
   ann('Typhoon advisory', 'Please keep windows closed and move plants indoors. The guards will lock the pool and the gym when the signal is raised.', 'Emergency', -16);
   ann('Lost and found at the lobby', 'A set of keys and a blue umbrella were found near the elevator. Claim them at the guard desk.', 'General', -20);
   ann('Thank you for the clean-up drive', "Thank you to everyone who joined last month's clean-up. The lobby planters are now back.", 'General', -27);
@@ -749,7 +749,7 @@ List<CRow> _demoRows() {
     ['Intercom not working', 'The lobby intercom does not ring in the unit.'],
     ['Water pressure is low', 'Very weak water pressure in the evening.'],
     ['Smoking in the stairwell', 'A smell of cigarette smoke on the 5th floor stairs.'],
-    ['Stray cat in the parking area', 'A cat is trapped near the motor parking.'],
+    ['Stray cat in the parking area', 'A cat is trapped near the parking rental.'],
     ['Lobby aircon too cold', 'The lobby aircon is set too low in the morning.'],
   ];
   for (var i = 0; i < griev.length; i++) {
@@ -759,7 +759,7 @@ List<CRow> _demoRows() {
     r('grievance', id, u.label, {'id': id, 'title': griev[i][0], 'body': griev[i][1], 'by': u.label, 'stage': st});
   }
 
-  // ---- motor parking: 20 slots
+  // ---- parking rental: 20 slots
   final rented = <String>{};
   String sizeOfSlot(int n) => n <= 6 ? 'Small' : (n <= 16 ? 'Regular' : 'Large');
   void rent(String id, String unit, String plan, int off, int days, int amount) {
@@ -804,7 +804,7 @@ List<CRow> _demoRows() {
         'id': rp,
         'unit': unit,
         'payer': name,
-        'forText': 'Motor parking rental',
+        'forText': 'Parking rental',
         'method': 'GCash',
         'reference': 'GC${year * 1000000 + 101403}',
         'amount': 1000,
@@ -860,7 +860,7 @@ List<CRow> _demoRows() {
     {'k': 'bullet', 't': 'The lobby repainting will be put to a vote.'},
   ], -45);
   doc('Parking policy', 'Policy', 'all', [
-    {'k': 'h1', 't': 'Motor parking policy (sample)'},
+    {'k': 'h1', 't': 'Parking rental policy (sample)'},
     {'k': 'bullet', 't': 'Monthly rental is ₱1,500; daily rental is ₱100 per day.'},
     {'k': 'bullet', 't': 'Display the sticker at all times.'},
   ], -30);
