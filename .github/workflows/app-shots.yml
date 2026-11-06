@@ -1,0 +1,38 @@
+name: App screenshots
+on:
+  push:
+    branches: [app-shots-run]
+permissions:
+  contents: write
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Build the app prototype
+        working-directory: app-src
+        run: |
+          flutter pub get
+          flutter build web --release --dart-define=PROTOTYPE=true
+      - name: Take screenshots
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          (cd app-src/build/web && python -m http.server 8099 >/dev/null 2>&1 &)
+          sleep 3
+          mkdir -p out
+          python tools-shots/shots.py 2>&1 | tee out/log.txt
+      - name: Publish the screenshots to a branch
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          mkdir -p /tmp/o && cp out/* /tmp/o/
+          git checkout --orphan app-shots-out
+          git rm -rf . -q
+          cp /tmp/o/* .
+          git add -A
+          git commit -q -m "App screenshots"
+          git push -f origin app-shots-out
