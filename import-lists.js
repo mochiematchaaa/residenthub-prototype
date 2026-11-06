@@ -290,7 +290,7 @@
         var price = num(v.price); if (!(price > 0)) return skip("Price is not a number above zero");
         var qty = v.qty === "" ? 1 : num(v.qty); if (!(qty > 0)) return skip("Quantity is not a number above zero");
         var d = v.date ? toDate(v.date) : new Date(); if (!d) return skip("Date is not understood");
-        var rec = { item: v.item, category: pick(EXP_CATS, v.category, "Other"), area: pick(EXP_AREAS, v.area, EXP_AREAS[0]), payee: v.payee, receiptNo: v.receiptNo, note: v.note, qty: qty, unitPrice: price, date: ymd(d) };
+        var rec = { item: v.item, category: pick(expCats(), v.category, "Other"), area: pick(EXP_AREAS, v.area, EXP_AREAS[0]), payee: v.payee, receiptNo: v.receiptNo, note: v.note, qty: qty, unitPrice: price, date: ymd(d) };
         var key = lc(rec.item) + "|" + rec.date + "|" + price + "|" + qty;
         if (c.have.indexOf(key) >= 0) return skip("Already recorded");
         c.have.push(key);

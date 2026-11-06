@@ -15,7 +15,7 @@ void showAddPurchase(BuildContext context, {DateTime? day}) {
     title: 'Add purchase',
     subtitle: 'Record what the corporation bought. It goes into the monthly report.',
     choices: [
-      ChoiceSpec('cat', 'Category', expenseCategories, expenseCategories[2]),
+      ChoiceSpec('cat', 'Category', List<String>.of(expenseCategories), lockedExpenseCategories.first),
       ChoiceSpec('area', 'For which facility or area', expenseAreas, expenseAreas.first),
     ],
     fields: [
@@ -94,6 +94,15 @@ class _AdminExpensesState extends State<AdminExpenses> {
   }
 
   void _add(BuildContext context) => showAddPurchase(context);
+
+  void _categories(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _CategoriesSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,6 +345,18 @@ class _AdminExpensesState extends State<AdminExpenses> {
                 ),
               ),
               DashSection(
+                title: 'Categories',
+                hint: 'The choices in the Category box when you add a purchase. Add, rename or delete them here.',
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _categories(context),
+                    icon: const Icon(Icons.category_outlined),
+                    label: const Text('Manage categories'),
+                  ),
+                ),
+              ),
+              DashSection(
                 title: 'Annual budget',
                 hint: annualBudget.isEmpty
                     ? 'Not set yet. Enter the approved budget so the report can compare spending against it.'
@@ -363,4 +384,104 @@ class _AdminExpensesState extends State<AdminExpenses> {
           Text(k, style: const TextStyle(color: inkSoft, fontSize: 12)),
         ],
       );
+}
+
+/// Pop-up list of the expense categories: rename, delete and add.
+class _CategoriesSheet extends StatelessWidget {
+  const _CategoriesSheet();
+
+  void _add(BuildContext context) {
+    showFormSheet(
+      context,
+      title: 'Add category',
+      subtitle: 'It appears in the Category box right away.',
+      fields: const [FieldSpec('name', 'Category name', hint: 'e.g. Landscaping and grounds')],
+      submit: 'Add category',
+      onSubmit: (v) => app.addExpenseCategory(v['name'] as String),
+    );
+  }
+
+  void _rename(BuildContext context, String c) {
+    showFormSheet(
+      context,
+      title: 'Rename category',
+      subtitle: 'Purchases already recorded under "$c" move to the new name.',
+      fields: [FieldSpec('name', 'Category name', initial: c)],
+      submit: 'Save name',
+      onSubmit: (v) => app.renameExpenseCategory(c, v['name'] as String),
+    );
+  }
+
+  Future<void> _delete(BuildContext context, String c) async {
+    final n = app.expensesIn(c);
+    final hasBudget = annualBudget.containsKey(c);
+    final body = (n == 0 ? 'No purchase uses it.' : '$n ${n == 1 ? 'purchase is' : 'purchases are'} recorded under it. They are kept and moved to Other.') +
+        (hasBudget ? ' Its annual budget line is removed.' : '');
+    final ok = await confirmDialog(context, 'Delete $c?', body, confirm: 'Delete', destructive: true);
+    if (ok) app.removeExpenseCategory(c);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: app,
+      builder: (context, _) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Expense categories', style: hd(20)),
+              const SizedBox(height: 4),
+              Text('These are the choices in the Category box when you add a purchase.', style: TextStyle(color: muted(context), fontSize: 13)),
+              const SizedBox(height: 8),
+              for (final c in List<String>.of(expenseCategories))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(c, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    c == expenseCategoryOther
+                        ? 'Always kept. Purchases without a category go here.'
+                        : lockedExpenseCategories.contains(c)
+                            ? 'Used by Maintenance, so it cannot be changed.'
+                            : '${app.expensesIn(c)} ${app.expensesIn(c) == 1 ? 'purchase' : 'purchases'}',
+                    style: TextStyle(color: muted(context), fontSize: 12.5),
+                  ),
+                  trailing: lockedExpenseCategories.contains(c)
+                      ? null
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Rename',
+                              icon: const Icon(Icons.edit_outlined),
+                              onPressed: () => _rename(context, c),
+                            ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              icon: const Icon(Icons.delete_outline_rounded, color: danger),
+                              onPressed: () => _delete(context, c),
+                            ),
+                          ],
+                        ),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => _add(context),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Add category'),
+                  ),
+                  const SizedBox(width: 10),
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }

@@ -877,7 +877,7 @@ function viewExpenses() {
       '</td><td><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="expenseForm(\'' + escAttr(r.id) + '\')">Edit</button> <button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteExpense(\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
   });
   return '<div class="expense-toolbar"><label>Report month <input id="expMonth" type="month" value="' + escAttr(state.expMonth) + '" onchange="set({expMonth:this.value,expPage:0})"></label>' +
-    '<button class="btn primary" onclick="expenseForm(null)">+ Add purchase</button><button class="btn" onclick="exportExpenses()" ' + (inMonth.length ? "" : "disabled") + ">Export month CSV</button></div>" +
+    '<button class="btn primary" onclick="expenseForm(null)">+ Add purchase</button><button class="btn" onclick="expCatsManager()">Manage categories</button><button class="btn" onclick="exportExpenses()" ' + (inMonth.length ? "" : "disabled") + ">Export month CSV</button></div>" +
     '<div class="expense-stats grid cols-3" style="margin-bottom:16px"><div class="card"><div class="stat-label">Monthly expenses</div><div class="stat-value">' + peso(total) + '</div><p class="hint" style="margin:6px 0 0">' + inMonth.length + " purchase" + (inMonth.length === 1 ? "" : "s") + " in " + esc(state.expMonth) + "</p></div>" +
     '<div class="card"><label class="stat-label" for="expDay">Daily expenses</label><input id="expDay" type="date" value="' + escAttr(state.expDay) + '" onchange="set({expDay:this.value})"><div class="stat-value">' + peso(dayTotal) + "</div></div></div>" +
     '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["DATE", "ITEM", "CATEGORY", "FOR", "TOTAL", ""], "No purchases recorded for this month.") + (inMonth.length > EXP_PAGE ? pagerHtml(inMonth.length, expPage, EXP_PAGE, "goExpPage") : "") + "</div>";
@@ -885,11 +885,13 @@ function viewExpenses() {
 // Popup form to add or edit an expense.
 function expenseForm(id, day) {
   var e = id ? (getRow("expense", id) || {}).value || {} : {};
+  var cats = expCats();
+  if (e.category && cats.indexOf(e.category) < 0) cats.splice(cats.length - 1, 0, e.category); // a category that was removed later still shows, so editing never changes it by accident
   openForm({
     title: id ? "Edit purchase" : "Add purchase",
     fields: [
       { name: "item", label: "What was bought", value: e.item },
-      { name: "category", label: "Category", type: "select", options: EXP_CATS, value: e.category || EXP_CATS[0] },
+      { name: "category", label: "Category", type: "select", options: cats, value: e.category || cats[0] },
       { name: "area", label: "For", type: "select", options: EXP_AREAS, value: e.area || EXP_AREAS[0] },
       { name: "payee", label: "Store / supplier", value: e.payee },
       { name: "qty", label: "Quantity", type: "number", step: "any", value: e.qty || 1 },
@@ -909,6 +911,68 @@ function expenseForm(id, day) {
       logAct((id ? "Purchase updated: " : "Purchase recorded: ") + d.item, "Expenses");
     }
   });
+}
+/* ---------- Expense categories: add, rename, delete ----------
+   "Other" is always kept (last). "Janitorial and maintenance" is locked because the Maintenance page records its repair costs under that name. */
+var EXP_CAT_LOCKED = ["Janitorial and maintenance", EXP_CAT_OTHER];
+function expCatCount(name) { return vals("expense").filter(function (e) { return e.category === name; }).length; }
+// Saves the category list ("Other" is not stored; expCats() always adds it last).
+function saveExpCats(l) { return put("setting", "expcats", "", { list: l.filter(function (c) { return c !== EXP_CAT_OTHER; }) }); }
+// Moves every purchase from one category to another.
+async function moveExpenses(from, to) {
+  var rows = list("expense").filter(function (r) { return r.v.category === from; });
+  for (var i = 0; i < rows.length; i++) await put("expense", rows[i].id, rows[i].unit, Object.assign({}, rows[i].v, { category: to }));
+  return rows.length;
+}
+// Popup that lists the categories with Rename and Delete buttons.
+function expCatsManager() {
+  var cats = expCats();
+  var rows = cats.map(function (c, i) {
+    var n = expCatCount(c), locked = EXP_CAT_LOCKED.indexOf(c) >= 0;
+    var why = c === EXP_CAT_OTHER ? "Always kept. Purchases without a category go here." : "Used by the Maintenance page, so it cannot be changed.";
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border2)"><div style="flex:1;min-width:0"><b>' + esc(c) + '</b><div style="font-size:12px;color:var(--muted)">' +
+      (locked ? esc(why) : n + " purchase" + (n === 1 ? "" : "s")) + "</div></div>" +
+      (locked ? "" : '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="expCatForm(' + i + ')">Rename</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeExpCat(' + i + ')">Delete</button>') + "</div>";
+  }).join("");
+  openModal('<h2>Expense categories</h2><p>These are the choices in the Category box when you add a purchase.</p><div style="max-height:52vh;overflow:auto">' + rows + '</div>' +
+    '<div class="modal-actions"><button class="btn primary" onclick="expCatForm(-1)">+ Add category</button><button class="btn" onclick="closeModal()">Done</button></div>');
+}
+// Popup form to add a category (index -1) or rename one.
+function expCatForm(i) {
+  var cats = expCats(), old = i >= 0 ? cats[i] : "";
+  if (i >= 0 && (EXP_CAT_LOCKED.indexOf(old) >= 0 || !old)) return;
+  openForm({
+    title: i >= 0 ? "Rename category" : "Add category",
+    intro: i >= 0 ? "Purchases already recorded under <b>" + esc(old) + "</b> move to the new name." : "It appears in the Category box right away.",
+    fields: [{ name: "name", label: "Category name", value: old, placeholder: "e.g. Landscaping and grounds" }],
+    submit: i >= 0 ? "Save name" : "Add category",
+    onSubmit: async function (d) {
+      var nn = String(d.name || "").replace(/\s+/g, " ").trim();
+      if (!nn) return { error: "Enter the category name." };
+      if (nn.length > 50) return { error: "Keep the name under 50 letters." };
+      if (cats.some(function (c) { return c.toLowerCase() === nn.toLowerCase() && c !== old; })) return { error: nn + " already exists." };
+      if (i >= 0 && nn === old) return;
+      var l = cats.filter(function (c) { return c !== EXP_CAT_OTHER; });
+      if (i >= 0) l[l.indexOf(old)] = nn; else l.push(nn);
+      await saveExpCats(l);
+      var moved = i >= 0 ? await moveExpenses(old, nn) : 0;
+      logAct(i >= 0 ? "Expense category renamed: " + old + " to " + nn : "Expense category added: " + nn, "Expenses");
+      if (moved) toast(moved + " purchase" + (moved === 1 ? "" : "s") + " moved to " + nn + ".");
+      setTimeout(expCatsManager, 0);
+    }
+  });
+}
+// Deletes a category. Its purchases are kept and moved to "Other".
+function removeExpCat(i) {
+  var cats = expCats(), c = cats[i];
+  if (!c || EXP_CAT_LOCKED.indexOf(c) >= 0) return;
+  var n = expCatCount(c);
+  confirmBox("Delete " + c + "?", n ? n + " purchase" + (n === 1 ? " is" : "s are") + " recorded under it. They are kept and moved to Other." : "No purchase uses it.", "Delete", async function () {
+    await saveExpCats(cats.filter(function (x) { return x !== c && x !== EXP_CAT_OTHER; }));
+    if (n) await moveExpenses(c, EXP_CAT_OTHER);
+    logAct("Expense category deleted: " + c, "Expenses");
+    setTimeout(expCatsManager, 0);
+  }, true);
 }
 // Deletes an expense.
 function deleteExpense(id) {

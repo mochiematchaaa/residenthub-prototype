@@ -675,6 +675,7 @@ class AppState extends ChangeNotifier {
     directoryContacts.clear();
     houseRules.clear();
     annualBudget.clear();
+    resetExpenseCategories();
     for (final m in payMethods) {
       m.enabled = m.name == officePay;
       m.details = _defaultDetails[m.name] ?? '';
@@ -1209,6 +1210,66 @@ class AppState extends ChangeNotifier {
   /// Deletes an expense.
   void removeExpense(Expense e) {
     expenses.remove(e);
+    _n();
+  }
+
+  // ---- expense categories (administrator) ----
+
+  /// How many purchases are recorded under a category.
+  int expensesIn(String category) => expenses.where((e) => e.category == category).length;
+
+  String _cleanCategory(String raw) => raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+  String? _categoryError(String name, {String? except}) {
+    if (name.isEmpty) return 'Enter the category name.';
+    if (name.length > 50) return 'Keep the name under 50 letters.';
+    for (final c in expenseCategories) {
+      if (c.toLowerCase() == name.toLowerCase() && c != except) return '$name already exists.';
+    }
+    return null;
+  }
+
+  /// Admin: adds a category (it goes just before "Other"). Returns an error message or null.
+  String? addExpenseCategory(String raw) {
+    final name = _cleanCategory(raw);
+    final err = _categoryError(name);
+    if (err != null) return err;
+    final at = expenseCategories.contains(expenseCategoryOther) ? expenseCategories.indexOf(expenseCategoryOther) : expenseCategories.length;
+    expenseCategories.insert(at, name);
+    logActivity('Expense category added: $name', 'Finance');
+    _n();
+    return null;
+  }
+
+  /// Admin: renames a category. Its purchases and its budget move to the new name. Returns an error message or null.
+  String? renameExpenseCategory(String from, String raw) {
+    if (lockedExpenseCategories.contains(from)) return '$from cannot be changed.';
+    final i = expenseCategories.indexOf(from);
+    if (i < 0) return 'That category no longer exists.';
+    final name = _cleanCategory(raw);
+    final err = _categoryError(name, except: from);
+    if (err != null) return err;
+    if (name == from) return null;
+    expenseCategories[i] = name;
+    for (var k = 0; k < expenses.length; k++) {
+      if (expenses[k].category == from) expenses[k] = expenses[k].inCategory(name);
+    }
+    final b = annualBudget.remove(from);
+    if (b != null) annualBudget[name] = b;
+    logActivity('Expense category renamed: $from to $name', 'Finance');
+    _n();
+    return null;
+  }
+
+  /// Admin: deletes a category. Its purchases are kept and moved to "Other"; its budget line is removed.
+  void removeExpenseCategory(String name) {
+    if (lockedExpenseCategories.contains(name)) return;
+    if (!expenseCategories.remove(name)) return;
+    for (var k = 0; k < expenses.length; k++) {
+      if (expenses[k].category == name) expenses[k] = expenses[k].inCategory(expenseCategoryOther);
+    }
+    annualBudget.remove(name);
+    logActivity('Expense category deleted: $name', 'Finance');
     _n();
   }
 

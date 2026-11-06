@@ -559,6 +559,9 @@ List<CRow> exportRows(AppState a) {
     'keys': [for (final e in a.blocked.entries) if (e.value) e.key]
   });
   add('setting', 'budget', '', {'map': Map<String, dynamic>.from(annualBudget)});
+  add('setting', 'expcats', '', {
+    'list': [for (final c in expenseCategories) if (c != expenseCategoryOther) c]
+  });
   add('setting', 'directory', '', {
     'contacts': [
       for (final c in directoryContacts) {'name': c.name, 'note': c.note, 'tel': c.tel}
@@ -762,6 +765,14 @@ void importRows(AppState a, Iterable<CRow> all) {
       a.blocked[k.toString()] = true;
     }
   }
+  // expense categories: the saved list, or the starting list when none was saved; "Other" is always last
+  final ec = st['expcats']?['list'];
+  expenseCategories.clear();
+  for (final c in (ec is List ? ec : defaultExpenseCategories)) {
+    final name = c.toString().trim();
+    if (name.isNotEmpty && name != expenseCategoryOther && !expenseCategories.contains(name)) expenseCategories.add(name);
+  }
+  expenseCategories.add(expenseCategoryOther);
   annualBudget.clear();
   final bm = st['budget']?['map'];
   if (bm is Map) {

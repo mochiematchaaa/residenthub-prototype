@@ -3,8 +3,8 @@
 import 'app_state.dart' show peso, shortDate, longDate;
 import 'doc_model.dart';
 
-/// What a purchase was for. The first ones follow the lines of the approved annual budget.
-const expenseCategories = [
+/// The categories a new installation starts with. The first ones follow the lines of the approved annual budget.
+const defaultExpenseCategories = [
   'Security services',
   'Common-area utilities',
   'Janitorial and maintenance',
@@ -14,6 +14,23 @@ const expenseCategories = [
   'Administration and reserve fund',
   'Other',
 ];
+
+/// Always kept, always last: purchases of a deleted category move here.
+const expenseCategoryOther = 'Other';
+
+/// These two cannot be renamed or deleted: Maintenance records its repair costs under the first one.
+const lockedExpenseCategories = ['Janitorial and maintenance', expenseCategoryOther];
+
+/// What a purchase was for. The administrator can add, rename and delete categories
+/// (Expenses > Report and budget > Categories). It is shared with the website through the database.
+final expenseCategories = <String>[...defaultExpenseCategories];
+
+/// Puts the category list back to the starting list.
+void resetExpenseCategories() {
+  expenseCategories
+    ..clear()
+    ..addAll(defaultExpenseCategories);
+}
 
 /// Approved annual budget per category. Empty until the administrator enters it
 /// (Expenses > Annual budget); it is shared with the website through the database.
@@ -71,6 +88,20 @@ class Expense {
 
   /// Total paid for this purchase.
   num get amount => qty * unitPrice;
+
+  /// The same purchase under another category.
+  Expense inCategory(String c) => Expense(
+        id: id,
+        item: item,
+        category: c,
+        area: area,
+        payee: payee,
+        receiptNo: receiptNo,
+        note: note,
+        qty: qty,
+        unitPrice: unitPrice,
+        date: date,
+      );
 
   String get qtyText => qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
 

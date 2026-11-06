@@ -117,6 +117,15 @@ function usageInfoRows(u) {
 }
 var EXP_CATS = ["Security services", "Common-area utilities", "Janitorial and maintenance", "Repairs and improvements",
   "Supplies and equipment", "Insurance", "Administration and reserve fund", "Other"];
+/* Expense categories. EXP_CATS above is only the starting list. The administrator can add, rename and delete categories under
+   Expenses > Manage categories; the list is then saved as the setting "expcats". "Other" is always kept and always last. */
+var EXP_CAT_OTHER = "Other";
+function expCats() {
+  var saved = setting("expcats").list, src = Array.isArray(saved) ? saved : EXP_CATS, out = [];
+  src.forEach(function (c) { c = String(c == null ? "" : c).trim(); if (c && c !== EXP_CAT_OTHER && out.indexOf(c) < 0) out.push(c); });
+  out.push(EXP_CAT_OTHER);
+  return out;
+}
 var EXP_AREAS = ["Whole building", "Lobby and common areas", "Swimming pool", "Function hall", "Elevators", "Parking",
   "Grounds and garden", "Offices and security"];
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
