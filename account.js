@@ -144,7 +144,7 @@ function acctOverview() {
   if (acctIsAdmin()) {
     cards += acctCard("", L("Billing and directory", "Billing at directory"), L("Dues rate, contacts and house rules", "Dues rate, contacts, at house rules"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'general\'})">' + L("Open", "Buksan") + "</button>") +
       acctCard("", L("Access", "Access"), L("Who can sign in, suspend or remove accounts", "Sino ang puwedeng mag-sign in, at pag-suspend o pag-alis ng accounts"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'access\'})">' + L("Open", "Buksan") + "</button>") +
-      acctCard("", L("Payments", "Payments"), L("Automatic posting and payment options", "Automatic posting at mga payment option"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">' + L("Open", "Buksan") + "</button>");
+      acctCard("", L("Payments", "Payments"), L("Payment options", "Mga payment option"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">' + L("Open", "Buksan") + "</button>");
   } else {
     cards += acctCard("", L("Unit status", "Status ng unit"), L("Renting out or running a business?", "Nagpapaupa o may negosyo?"), '<button class="btn" onclick="set({view:\'rental\'})">' + L("Open", "Buksan") + "</button>");
   }

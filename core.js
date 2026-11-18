@@ -636,8 +636,6 @@ function openInfo(title, bodyHtml) {
 // Asks 'are you sure?' and runs fn only if the user confirms.
 /* The paper calls a checked payment "Verified"; the stored value stays "Confirmed" so older records keep working. */
 function statusText(s) { return s === "Confirmed" ? "Verified" : s; }
-/* Automatic posting: a payment the resident sent is posted to their dues by itself this many hours later (the office can still verify or reject it before then). */
-function autoPostCfg() { var c = setting("autopost"); return { on: c.on !== false, hours: Number(c.hours) > 0 ? Number(c.hours) : 24 }; }
 // When the resident sent the payment details (milliseconds). Older records only have a date.
 function proofSentAt(p) {
   if (Number(p.at) > 1e12) return Number(p.at);

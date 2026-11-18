@@ -87,8 +87,8 @@ function notifs() {
     out.unshift(["Overdue" + (c ? " by " + (-c.n) + " day" + (c.n === -1 ? "" : "s") : "") + ": " + r.v.note + " (" + peso(Number(r.v.amount)) + "). Tap to pay and send your proof.", "bad", "dues", r.id]);
   });
   myProofs().slice(0, 3).forEach(function (r) {
-    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was " + (r.v.auto ? "posted automatically" : "verified") + ". Receipt " + (r.v.receiptNo || "") + " is under Dues.", "good", "dues"]);
-    else if (r.v.status === "Pending") { var ap = autoPostCfg(); out.push(["We received your payment details (" + peso(Number(r.v.amount) || 0) + ", ref. " + r.v.reference + ")." + (ap.on ? " It will be posted to your dues automatically by " + clockText(proofSentAt(r.v) + ap.hours * 3600000) + ". If something does not match, the office will tell you here." : " The office will verify it soon."), "info", "dues"]); }
+    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was " + "verified" + ". Receipt " + (r.v.receiptNo || "") + " is under Dues.", "good", "dues"]);
+    else if (r.v.status === "Pending") { out.push(["We received your payment details (" + peso(Number(r.v.amount) || 0) + ", ref. " + r.v.reference + ")." + " The office will verify it soon. If something does not match, the office will tell you here.", "info", "dues"]); }
     else if (r.v.status === "Rejected") out.push(["Your payment (ref. " + r.v.reference + ") was rejected" + (r.v.reason ? ": " + String(r.v.reason).replace(/[.\s]+$/, "") : " (please check the reference number)") + ". You can send the correct details.", "bad", "dues"]);
   });
   if (u.usageStatus === "approved") out.push(["Your " + usageLabel(u.usage).toLowerCase() + " was approved.", "good", "rental"]);
@@ -439,7 +439,7 @@ function dueCardHtml(it) {
   var tone = it.st === "paid" ? "good" : it.st === "overdue" ? "bad" : it.st === "pending" ? "warn" : "info";
   var ic = it.park ? DZ_ICON.park : it.st === "paid" ? DZ_ICON.paid : it.st === "overdue" ? DZ_ICON.bad : it.st === "pending" ? DZ_ICON.wait : DZ_ICON.open;
   var label = it.st === "paid" ? "Paid" : it.st === "overdue" ? "Overdue" : it.st === "pending" ? "Payment sent" : "To pay";
-  var wait = it.st === "pending" && it.sent ? (autoPostCfg().on ? "Posts to your dues by " + clockText(it.sent + autoPostCfg().hours * 3600000) + " at the latest" : "Waiting for the office to verify it") : "";
+  var wait = it.st === "pending" && it.sent ? "Waiting for the office to verify it" : "";
   var act = it.st === "paid" ? (it.receipt ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(it.receipt) + '\')">Receipt</button>' : "")
     : it.st === "pending" ? ""
     : '<button class="btn primary dz-mini" onclick="payThis(\'' + escAttr(it.id) + '\')">Pay ' + peso(it.amount).replace(/\.00$/, "") + "</button>";
@@ -487,8 +487,7 @@ function viewDues() {
 }
 // The "what happens next" strip in the hero: pay, send the proof, the office checks it, the receipt appears.
 function payFlowHtml(owing) {
-  var ap = autoPostCfg();
-  var steps = [["1", "Pay", "At the office, or by GCash, Maya or bank."], ["2", "Send your proof", "Reference number and a photo of your payment."], ["3", "The office checks it", ap.on ? "Posted by itself within " + ap.hours + " hours if it matches." : "The office verifies it."], ["4", "Receipt", "Your dues go down and your receipt appears."]];
+  var steps = [["1", "Pay", "At the office, or by GCash, Maya or bank."], ["2", "Send your proof", "Reference number and a photo of your payment."], ["3", "The office checks it", "The office verifies it."], ["4", "Receipt", "Your dues go down and your receipt appears."]];
   return '<div class="dz-flow' + (owing ? "" : " calm") + '" aria-label="How paying works">' + steps.map(function (x) { return '<div class="dz-fs"><span>' + x[0] + "</span><b>" + x[1] + "</b><small>" + x[2] + "</small></div>"; }).join("") + "</div>";
 }
 // A notice at the top of the page when a charge is overdue or due within 2 days, with a Pay button.
@@ -648,18 +647,17 @@ function submitPaymentProof() {
     await put("proof", id, myUnit(), proofRec);
     logAct("Payment reference sent, " + myUnit(), "Finance");
     state.payFor = ""; state.payAmt = ""; state.payRef = ""; state.payImg = ""; state.payDate = ""; state.parkRenew = false;
-    var ap = autoPostCfg();
-    toast(ap.on ? "Payment details sent. It will be posted to your dues automatically by " + clockText(Date.now() + ap.hours * 3600000) + ", and your receipt will appear here." : "Payment details sent. The office will verify them and your receipt will appear here.");
+    toast("Payment details sent. The office will verify them and your receipt will appear here.");
   });
 }
 // My payment history: each payment shows where it is (sent, checked by the office, receipt).
 function myPaymentsHtml() {
-  var l = myProofs(), ap = autoPostCfg();
+  var l = myProofs();
   var cards = l.map(function (r) {
     var p = r.v, st = p.status, sent = proofSentAt(p);
     var s2 = st === "Pending" ? "now" : st === "Rejected" ? "bad" : "done", s3 = st === "Confirmed" ? "done" : "";
-    var msg2 = st === "Pending" ? (ap.on ? "Posts automatically by " + clockText(sent + ap.hours * 3600000) + " if it matches" : "Waiting for the office to verify it") : st === "Rejected" ? "Rejected" + (p.reason ? ": " + String(p.reason).replace(/[.\s]+$/, "") : "") : (p.auto ? "Posted automatically" : "Verified by the office") + (p.confirmedOn ? " · " + p.confirmedOn : "");
-    return '<div class="pt-card ' + (st === "Rejected" ? "bad" : st === "Confirmed" ? "good" : "warn") + '"><div class="pt-top"><div><b>' + esc(p.forText || "Payment") + '</b><small>' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + (p.paidOn ? " · paid " + esc(p.paidOn) : "") + '</small></div><span class="chip ' + chipFor(st) + '">' + esc(st === "Confirmed" ? (p.auto ? "Posted" : "Verified") : st === "Pending" ? "In review" : statusText(st)) + "</span></div>" +
+    var msg2 = st === "Pending" ? "Waiting for the office to verify it" : st === "Rejected" ? "Rejected" + (p.reason ? ": " + String(p.reason).replace(/[.\s]+$/, "") : "") : "Verified by the office" + (p.confirmedOn ? " · " + p.confirmedOn : "");
+    return '<div class="pt-card ' + (st === "Rejected" ? "bad" : st === "Confirmed" ? "good" : "warn") + '"><div class="pt-top"><div><b>' + esc(p.forText || "Payment") + '</b><small>' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + (p.paidOn ? " · paid " + esc(p.paidOn) : "") + '</small></div><span class="chip ' + chipFor(st) + '">' + esc(st === "Confirmed" ? "Verified" : st === "Pending" ? "In review" : statusText(st)) + "</span></div>" +
       '<ol class="pt-trail"><li class="done"><i>✓</i><span><b>Sent</b><small>' + esc(p.date || "") + "</small></span></li><li class=\"" + s2 + "\"><i>" + (s2 === "done" ? "✓" : s2 === "bad" ? "✕" : "2") + "</i><span><b>Office check</b><small>" + esc(msg2) + "</small></span></li><li class=\"" + s3 + "\"><i>" + (s3 ? "✓" : "3") + "</i><span><b>Receipt</b><small>" + (p.receiptNo ? esc(p.receiptNo) : "After it is checked") + "</small></span></li></ol>" +
       '<div class="pt-act">' + (p.image ? '<button class="btn dz-mini" type="button" onclick="viewProofImage(\'' + escAttr(r.id) + '\')">View my photo</button>' : "") + (st === "Confirmed" ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Receipt</button>' : "") + (st === "Rejected" ? '<button class="btn primary dz-mini" onclick="payAgain(\'' + escAttr(r.id) + '\')">Send again</button>' : "") + "</div></div>";
   }).join("");

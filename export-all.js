@@ -632,7 +632,7 @@
       S.pays.map(function (r) { var p = r.v; return [p.date, p.receiptNo, p.forText, p.method, p.reference, Number(p.amount) || 0]; }), "Payments received, with official receipt numbers");
     var proofs = newest(list("proof")).filter(function (r) { return r.unit === unit; });
     add("Money", "Payment submissions", [["Sent", "date"], ["For", "text", { w: 34 }], ["Method", "text", { w: 22 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }], ["Posted by", "text", { w: 20 }], ["Note", "text", { w: 36 }]],
-      proofs.map(function (r) { var p = r.v; return [new Date(proofSentAt(p)), p.forText, p.method, p.reference, Number(p.amount) || 0, statusText(p.status), p.status === "Confirmed" ? (p.auto ? "Automatic posting" : "Office") : "", p.reason || ""]; }), "What the resident sent, and how it was settled");
+      proofs.map(function (r) { var p = r.v; return [new Date(proofSentAt(p)), p.forText, p.method, p.reference, Number(p.amount) || 0, statusText(p.status), p.status === "Confirmed" ? "Office" : "", p.reason || ""]; }), "What the resident sent, and how it was settled");
     var bookings = list("booking").filter(function (r) { return r.unit === unit; }).sort(function (a, b) { return String(b.v.day).localeCompare(String(a.v.day)); });
     add("Facilities", "Bookings", [["Date", "date"], ["Facility", "text", { w: 26 }], ["When", "text", { w: 34 }], ["Status", "status", { cf: "pay" }]],
       bookings.map(function (r) { return [r.v.day, r.v.place, r.v.when, r.v.status]; }), "Facility reservations");

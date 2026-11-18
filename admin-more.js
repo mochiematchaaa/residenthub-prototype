@@ -588,26 +588,22 @@ function recordPayment() {
 }
 /* ---------- "Payments to verify": one clear card per payment the resident sent ---------- */
 function verifyPanel(proofs) {
-  var cfg = autoPostCfg(), now = Date.now(), items = proofs.map(function (r) {
-    var chk = proofCheck(r), sent = proofSentAt(r.v), at = sent + cfg.hours * 3600000;
-    return { r: r, chk: chk, sent: sent, at: at, auto: cfg.on && chk.ok, late: now - sent > 48 * 3600000 };
-  }).sort(function (a, b) { return (b.late - a.late) || (b.auto - a.auto) || (a.at - b.at); });
+  var now = Date.now(), items = proofs.map(function (r) {
+    var chk = proofCheck(r), sent = proofSentAt(r.v);
+    return { r: r, chk: chk, sent: sent, late: now - sent > 48 * 3600000 };
+  }).sort(function (a, b) { return (b.late - a.late) || (a.sent - b.sent); });
   var nLate = items.filter(function (i) { return i.late; }).length;
-  var nAuto = items.filter(function (i) { return i.auto; }).length, nReview = items.filter(function (i) { return !i.chk.ok; }).length;
+  var nOk = items.filter(function (i) { return i.chk.ok; }).length, nReview = items.filter(function (i) { return !i.chk.ok; }).length;
   var total = items.reduce(function (s, i) { return s + (Number(i.r.v.amount) || 0); }, 0);
-  var head = '<div class="vp-head"><div><h2>Payments to verify</h2><p class="hint" style="margin:4px 0 0">Payments residents say they made. Clean ones post by themselves; anything that does not match waits for you.</p></div>' +
-    '<div class="vp-auto-badge ' + (cfg.on ? "on" : "off") + '"><span class="vp-dot"></span><div><b>' + (cfg.on ? "Automatic posting is on" : "Automatic posting is off") + "</b><small>" +
-    (cfg.on ? "Clean payments post " + cfg.hours + " hours after they are sent" : "Every payment waits for you") + '</small></div><button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">Change</button></div></div>';
-  var stats = '<div class="vp-stats"><div><b>' + items.length + '</b><span>Waiting</span></div><div class="good"><b>' + nAuto + '</b><span>Will post by themselves</span></div><div class="' + (nReview ? "warn" : "") + '"><b>' + nReview + '</b><span>Need your review</span></div><div><b>' + peso(total) + "</b><span>Total amount</span></div></div>";
+  var head = '<div class="vp-head"><div><h2>Payments to verify</h2><p class="hint" style="margin:4px 0 0">Payments residents say they made. Check each one, then verify it to post the payment and issue the receipt.</p></div></div>';
+  var stats = '<div class="vp-stats"><div><b>' + items.length + '</b><span>Waiting</span></div><div class="good"><b>' + nOk + '</b><span>Look correct</span></div><div class="' + (nReview ? "warn" : "") + '"><b>' + nReview + '</b><span>Need your review</span></div><div><b>' + peso(total) + "</b><span>Total amount</span></div></div>";
   var lateBanner = nLate ? '<div class="vp-late"><b>' + nLate + " payment" + (nLate === 1 ? " has" : "s have") + ' been waiting more than 2 days.</b> Check ' + (nLate === 1 ? "it" : "them") + " first, then verify or reject.</div>" : "";
   var body = items.length ? items.map(function (it) {
     var p = it.r.v, u = unitRec(p.unit) || {}, chk = it.chk, due = chk.due ? chk.due.v : null, bal = balanceFor(p.unit);
-    var left = it.at - now, span = cfg.hours * 3600000, pct = Math.max(4, Math.min(100, Math.round((1 - left / span) * 100)));
     var match = chk.expected == null ? '<span class="chip">No fixed amount</span>' : Math.abs((Number(p.amount) || 0) - chk.expected) <= 0.009 ? '<span class="chip good">✓ Matches ' + peso(chk.expected) + "</span>" : '<span class="chip bad">✗ Should be ' + peso(chk.expected) + "</span>";
     var status;
-    if (!chk.ok) status = '<div class="vp-status review"><div class="vp-flags">' + chk.why.map(function (w) { return '<div class="vp-flag"><span>!</span>' + esc(w) + "</div>"; }).join("") + '</div><div class="vp-note">This one will not post by itself. Check it, then verify or reject.</div></div>';
-    else if (cfg.on) status = '<div class="vp-status auto"><div class="vp-line"><span>' + (left <= 0 ? "Posting now" : "Posts automatically in <b>" + waitText(left) + "</b>") + ' <small>(' + clockText(it.at) + ')</small></span><span class="vp-ok">✓ Amount, reference and charge all match</span></div><div class="vp-bar"><i style="width:' + pct + '%"></i></div></div>';
-    else status = '<div class="vp-status"><div class="vp-note">Automatic posting is off. Verify it to post the payment.</div></div>';
+    if (!chk.ok) status = '<div class="vp-status review"><div class="vp-flags">' + chk.why.map(function (w) { return '<div class="vp-flag"><span>!</span>' + esc(w) + "</div>"; }).join("") + '</div><div class="vp-note">Check it, then verify or reject.</div></div>';
+    else status = '<div class="vp-status"><div class="vp-note">✓ Amount, reference and charge all match. Verify it to post the payment and issue the receipt.</div></div>';
     var recip = accountOfUnit(p.unit);
     var checksHtml = '<div class="vp-checks">' + chk.checks.map(function (c) { return '<span class="chip ' + (c.ok === true ? "good" : c.ok === false ? "bad" : "") + '">' + (c.ok === true ? "✓ " : c.ok === false ? "✕ " : "• ") + esc(c.label) + "</span>"; }).join("") + "</div>";
     return '<article class="vp-item' + (chk.ok ? "" : " review") + (it.late ? " late" : "") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + (it.late ? ' <span class="chip bad">Waiting over 2 days</span>' : "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
@@ -615,12 +611,12 @@ function verifyPanel(proofs) {
       '<div class="vp-grid"><div><label>Paying for</label><b>' + esc(p.forText || "—") + '</b></div><div><label>Charge amount</label>' + match + '</div><div><label>Paid through</label><b>' + esc(p.method || "—") + '</b></div><div><label>Reference no.</label><b class="mono">' + esc(p.reference || "—") + '</b></div>' +
       '<div><label>Due date</label><b>' + esc(due && due.dueDate ? due.dueDate : "—") + '</b></div><div><label>Date paid</label><b>' + esc(p.paidOn || "Not given") + '</b></div><div><label>Unit balance now</label><b>' + (bal ? peso(bal) : "Settled") + "</b></div>" +
       '<div class="vp-photo"><label>Photo of payment</label>' + (p.image ? '<button type="button" class="vp-thumb" onclick="viewProofImage(\'' + escAttr(it.r.id) + '\')" title="Open the photo"><img alt="Payment photo" src="' + escAttr(p.image) + '"><span>View photo</span></button>' : '<b style="color:var(--muted);font-weight:600">None attached</b>') + "</div></div>" + checksHtml + status +
-      '<div class="vp-actions"><button class="btn" onclick="openHistory(\'' + escAttr(p.unit) + '\')">Unit history</button><span style="flex:1"></span><button class="btn" onclick="rejectProof(\'' + escAttr(it.r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(it.r.id) + '\')">' + (it.auto ? "Post now" : "Verify &amp; post") + "</button></div></article>";
-  }).join("") : '<div class="vp-empty"><b>Nothing waiting.</b><span>When a resident sends payment details they appear here, and post by themselves after ' + cfg.hours + ' hours if everything matches.</span></div>';
+      '<div class="vp-actions"><button class="btn" onclick="openHistory(\'' + escAttr(p.unit) + '\')">Unit history</button><span style="flex:1"></span><button class="btn" onclick="rejectProof(\'' + escAttr(it.r.id) + '\')">Reject</button><button class="btn primary" onclick="confirmProof(\'' + escAttr(it.r.id) + '\')">' + "Verify &amp; post" + "</button></div></article>";
+  }).join("") : '<div class="vp-empty"><b>Nothing waiting.</b><span>When a resident sends payment details, they appear here for you to verify.</span></div>';
   return '<div class="card vp">' + head + stats + '<div class="vp-list">' + lateBanner + body + "</div></div>";
 }
 /* ---------- checking and posting resident payments ---------- */
-// What is wrong (if anything) with a payment the resident sent. ok = nothing wrong, so it can be posted automatically.
+// What is wrong (if anything) with a payment the resident sent. ok = nothing looks wrong.
 function proofCheck(r) {
   var p = r.v, why = [], amount = Number(p.amount) || 0;
   var open = list("due").filter(function (d) { return d.v.unit === p.unit && !d.v.paid; }).sort(function (a, b) { return Number(a.id) - Number(b.id); });
@@ -658,13 +654,12 @@ function proofCheck(r) {
   } else checks.push({ ok: null, label: "No payment date given" });
   return { why: why, due: named || null, expected: expected, ok: why.length === 0, checks: checks };
 }
-// Posts a payment: marks the charge paid, issues the receipt, closes the submission. auto = posted by the system after the waiting time.
-async function postProof(id, auto) {
+// Posts a payment: marks the charge paid, issues the receipt, closes the submission.
+async function postProof(id) {
   var row = getRow("proof", id);
   if (!row || row.value.status !== "Pending") return "";
   var p = Object.assign({}, row.value);
   p.status = "Confirmed"; p.receiptNo = nextReceiptNo(); p.confirmedOn = shortDate(new Date());
-  if (auto) { p.auto = true; p.confirmedBy = "Automatic posting"; }
   // the charge the resident named, else the oldest open charge (parking and "other" payments settle no charge)
   var open = vals("due").filter(function (d) { return d.unit === p.unit && !d.paid; }).sort(function (a, b) { return a.id - b.id; });
   var named = open.filter(function (d) { return d.note === p.forText; })[0];
@@ -677,7 +672,7 @@ async function postProof(id, auto) {
   } else if (!p.forText) p.forText = "Association dues";
   await put("proof", id, row.unit, p);
   await issuePayment(p.unit, p.payer, p.forText, p.method, p.reference, p.amount, p.receiptNo);
-  logAct((auto ? "Payment posted automatically, " : "Payment recorded, ") + p.unit + (auto ? " (" + p.receiptNo + ")" : ""), "Finance");
+  logAct("Payment verified, " + p.unit + " (" + p.receiptNo + ")", "Finance");
   // a paid parking reservation: the chosen slot goes to the resident straight away. A paid renewal extends the rental.
   var assigned = "", renewedTo = "", smsNote = "";
   if (isParkFor(p.forText) && p.slot) {
@@ -712,39 +707,7 @@ async function postProof(id, auto) {
 function confirmProof(id) {
   var row = getRow("proof", id);
   if (!row || row.value.status !== "Pending") return;
-  act(async function () { toast(await postProof(id, false)); });
-}
-// Posts, by itself, every clean payment that has waited long enough. Payments with a problem are left for the office.
-var _autoBusy = false, _autoTried = {};
-async function autoPostCheck() {
-  if (_autoBusy || !state.authed || !isAdmin()) return;
-  var cfg = autoPostCfg(); if (!cfg.on) return;
-  var now = Date.now();
-  var ready = list("proof").filter(function (r) { return r.v.status === "Pending" && !_autoTried[r.id] && proofSentAt(r.v) + cfg.hours * 3600000 <= now && proofCheck(r).ok; });
-  if (!ready.length) return;
-  _autoBusy = true;
-  var done = 0, units = {};
-  try {
-    for (var i = 0; i < ready.length; i++) {
-      _autoTried[ready[i].id] = 1;
-      await postProof(ready[i].id, true); done++; units[ready[i].unit] = 1;
-    }
-  } catch (e) { /* the rest stay in the list for the office */ }
-  _autoBusy = false;
-  if (done) { toast(done + " payment" + (done === 1 ? " was" : "s were") + " posted automatically (" + Object.keys(units).join(", ") + "). Residents were notified."); render(); }
-}
-setInterval(autoPostCheck, 30000);
-var _rhEnter = rhEnter;
-rhEnter = function () { _rhEnter(); setTimeout(autoPostCheck, 1500); };
-// Turns automatic posting on or off, or changes the waiting time.
-function saveAutoPost() {
-  var on = document.getElementById("apOn").checked, h = parseInt(document.getElementById("apHours").value, 10);
-  if (!(h >= 1 && h <= 168)) return toast("Enter the waiting time in hours, from 1 to 168.");
-  act(async function () {
-    await put("setting", "autopost", "", { on: on, hours: h });
-    logAct("Automatic posting " + (on ? "on, after " + h + " hours" : "turned off"), "Settings");
-    toast(on ? "Saved. Clean payments post automatically " + h + " hours after they are sent." : "Saved. Every payment now waits for you to verify it.");
-  });
+  act(async function () { toast(await postProof(id)); });
 }
 // Rejects a payment proof. The administrator gives a reason; it is kept with the submission and shown to the resident.
 function rejectProof(id) {
@@ -1329,7 +1292,7 @@ function parkOfficePay(unit) {
       var sl = getRow("slot", cur.value.slot); if (!sl || sl.value.unit) return { error: cur.value.slot + " is already taken." };
       var id = nextId(), today = shortDate(new Date());
       await put("proof", id, unit, { id: id, unit: unit, payer: cur.value.who || whoOf(unit), forText: PARK_FOR, method: walkinMethod(d.via), via: d.via, reference: String(d.ref || "").trim() || "OFFICE-" + id, amount: amt, date: today, at: Date.now(), status: "Pending", paidOn: today, slot: cur.value.slot });
-      toast(await postProof(id, false));
+      toast(await postProof(id));
     }
   });
 }
@@ -1347,7 +1310,7 @@ function parkRenewPay(slotId) {
       var cur = getRow("slot", slotId); if (!cur || cur.value.unit !== unit) return { error: "This rental changed. Close this and try again." };
       var id = nextId(), today = shortDate(new Date());
       await put("proof", id, unit, { id: id, unit: unit, payer: whoOf(unit), forText: PARK_FOR, method: walkinMethod(d.via), via: d.via, reference: String(d.ref || "").trim() || "OFFICE-" + id, amount: amt, date: today, at: Date.now(), status: "Pending", paidOn: today, slot: slotId, renew: true });
-      toast(await postProof(id, false));
+      toast(await postProof(id));
     }
   });
 }
@@ -1651,24 +1614,16 @@ function exportAccounts() {
    ========================================================================== */
 function directory() { var d = setting("directory"); return { contacts: d.contacts || [], rules: d.rules || [] }; }
 // PAGE: Settings (contacts, rules, payment methods, password).
-// PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (automatic posting).
+// PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (payment options).
 function viewSettings() {
   var tab = state.setTab || "general";
   var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at security")], ["access", "Access"], ["payments", "Payments"], ["reminders", "Reminders"]];
   var bar = '<div class="filters" role="tablist" style="margin-bottom:16px">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({setTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
   return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : tab === "reminders" ? remSettingsHtml() : tab === "account" ? acctView() : viewSettingsGeneral());
 }
-// Settings > Payments: automatic posting of the payments residents send.
+// Settings > Payments: where residents can pay.
 function paymentSettings() {
-  var cfg = autoPostCfg(), pend = list("proof").filter(function (r) { return r.v.status === "Pending"; }), clean = pend.filter(function (r) { return proofCheck(r).ok; }).length;
-  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px"><div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>Automatic posting</h2>' +
-    '<p class="hint" style="margin:0">When a resident sends their payment details, the system checks them: the amount must match the charge, the reference number must be new, and the charge must still be unpaid. A payment that passes is <b>posted automatically</b> after the waiting time below. The charge is marked paid, a receipt is issued and the resident is notified. Anything that does not match stays in <b>Payments to verify</b> for you.</p>' +
-    '<label style="display:flex;gap:10px;align-items:center;font-size:14.5px;font-weight:600"><input id="apOn" type="checkbox" ' + (cfg.on ? "checked" : "") + ' style="width:18px;height:18px"> Post clean payments automatically</label>' +
-    '<label class="fl" style="max-width:260px">Waiting time (hours after the resident sent it)<input id="apHours" type="number" min="1" max="168" step="1" value="' + cfg.hours + '"></label>' +
-    '<div><button class="btn primary" onclick="saveAutoPost()">Save</button></div>' +
-    '<div class="kv" style="font-size:13.5px"><span>Waiting now</span><b>' + pend.length + '</b><span>Clean (will post by themselves)</span><b>' + clean + "</b><span>Need your review</span><b>" + (pend.length - clean) + "</b></div>" +
-    '</div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:16px"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Payment options</h2><p class="hint" style="margin:0">Where residents can pay (cash at the office, bank, GCash, Maya). They see these when they send their payment details.</p><div><button class="btn" onclick="payMethodsForm()">Edit payment options</button></div></div></div></div>';
+  return '<div class="two-col-e"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Payment options</h2><p class="hint" style="margin:0">Where residents can pay (cash at the office, bank, GCash, Maya). They see these when they send their payment details. Every payment a resident sends is checked and verified by you before the receipt is issued.</p><div><button class="btn" onclick="payMethodsForm()">Edit payment options</button></div></div></div>';
 }
 // Settings > General: how many open complaints one unit may have at once. Changing it asks first, because a high number invites spam.
 function grLimitCardHtml() {

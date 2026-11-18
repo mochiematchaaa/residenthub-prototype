@@ -446,8 +446,6 @@
     /* The prototype opens WITH the made-up sample data. "Clear all data" in the tools panel starts empty (only the settings and the two
        sign-in accounts stay) so the import can be tried on empty lists; "Load sample data" brings the made-up data back. */
     var sample = false; try { sample = localStorage.getItem("__rhdemo_mode") !== "empty"; } catch (e) { }
-    /* Payments are never confirmed automatically in this prototype until the administrator turns that on in Settings. */
-    R("setting", "autopost", "", { on: false, hours: 24 });
     if (sample) {
       /* The sample is kept small on purpose, so every list fits on one screen: 8 units (Unit 3B is the resident, Unit 2C has a
          payment waiting) and only a few records of each other kind. */
