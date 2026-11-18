@@ -4,7 +4,7 @@
 
    WALK-IN   A resident who will pay at the office taps "I'll walk in today" on the Parking page. That saves a "walkin"
              record, which the office sees on the request (so it expects the resident). The office records the payment
-             at the counter (cash, check, card or e-wallet); that issues the receipt and starts the rental.
+             at the counter (cash, check, card or e-wallet); that issues the provisional receipt and starts the rental.
    RENEWAL   A monthly rental ends one month after it starts. The reminder days (set by the office) before the next payment is due, the
              resident gets a notice on the dashboard: renew (pay online, or walk in) or tell the office they will not renew.
    TEXTS     When a payment is approved the office "sends" the resident a text with the rental period and the next due
@@ -51,7 +51,7 @@ function walkinText(w, who) {
   var today = dayKey(new Date());
   return w.day === today ? who + " will come to the office today." : who + " said they would come on " + usageDate(w.day) + " and has not been recorded yet.";
 }
-// The payment methods the office takes at the counter, and the method name that is written on the receipt.
+// The payment methods the office takes at the counter, and the method name that is written on the provisional receipt.
 var WALKIN_VIA = [["Cash", PAY_OFFICE], ["Check", PAY_OFFICE], ["Card (debit or credit)", "Card at the office"], ["E-wallet (GCash or Maya)", "E-wallet at the office"]];
 function walkinMethod(via) { var f = WALKIN_VIA.filter(function (x) { return x[0] === via; })[0]; return f ? f[1] : PAY_OFFICE; }
 
@@ -62,7 +62,7 @@ async function sendSms(unit, text) { return ""; }   // texts are not used; the r
 function approvedSmsText(slotId, slotVal, receipt, amount, renewed) {
   var d = parkDueInfo(slotVal);
   return "ResidentHub: Your parking payment of " + peso(amount) + " is approved. Slot " + slotId + " is " + (renewed ? "renewed" : "yours") + " until " + usageDate(slotVal.until) + "." +
-    (d ? " Next payment due: " + usageDate(d.nextDue) + "." : " This daily rental ends on " + usageDate(slotVal.until) + ".") + " Receipt " + receipt + ". Thank you!";
+    (d ? " Next payment due: " + usageDate(d.nextDue) + "." : " This daily rental ends on " + usageDate(slotVal.until) + ".") + " Provisional receipt " + receipt + ". Thank you!";
 }
 
 /* ---------- resident: walk-in, renew, "I will not renew" ---------- */

@@ -217,7 +217,7 @@
       save: function (r) { var id = nextId(), u = unitRec(r.unit) || {}; return put("due", id, r.unit, { id: id, billedOn: shortDate(new Date()), unit: r.unit, name: u.name && u.name !== "—" ? u.name : "", amount: r.amount, note: r.note, dueDate: r.dueDate }); }
     },
     payments: {
-      label: "payments received", file: "payments-received", note: "Each unit in the file has its unpaid charge marked as paid and a receipt is made. Use it for a list from the bank, GCash or the cashier.",
+      label: "payments received", file: "payments-received", note: "Each unit in the file has its unpaid charge marked as paid and a provisional receipt is made. Use it for a list from the bank, GCash or the cashier.",
       cols: [
         { k: "unit", label: "Unit", req: 1, al: ["unit", "unit no", "unit number", "room"] },
         { k: "amount", label: "Amount paid (₱, optional)", al: ["amount", "amount paid", "paid", "payment"] },

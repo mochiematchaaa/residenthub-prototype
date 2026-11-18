@@ -345,14 +345,14 @@ function isOverdue(d) {
   var x = parseShort(d.dueDate);
   return !!x && Date.now() > x.getTime() + 86400000;
 }
-// Next official receipt number, like OR-2026-0007.
+// Next provisional receipt number, like PR-2026-0007.
 function nextReceiptNo() {
-  var year = new Date().getFullYear(), max = 0, re = /^OR-(\d{4})-(\d+)$/;
+  var year = new Date().getFullYear(), max = 0, re = /^(?:PR|OR)-(\d{4})-(\d+)$/;
   vals("payment").concat(vals("proof")).forEach(function (r) {
     var m = re.exec(r.receiptNo || "");
     if (m && +m[1] === year && +m[2] > max) max = +m[2];
   });
-  return "OR-" + year + "-" + String(max + 1).padStart(4, "0");
+  return "PR-" + year + "-" + String(max + 1).padStart(4, "0");
 }
 // The oldest unpaid due of a unit.
 function firstOpenDue(unit) {
@@ -552,29 +552,29 @@ function openDoc(id) {
   openModal('<h2>' + esc(d.name) + '</h2><div style="max-height:55vh;overflow:auto">' + html + '</div>');
 }
 
-/* ---------- receipts (opens in Word) ---------- */
+/* ---------- provisional receipts (opens in Word) ---------- */
 function receiptHtml(p) {
-  var rows = [["Receipt no.", p.receiptNo], ["Date paid", p.confirmedOn || p.date], ["Unit", p.unit], ["Received from", p.payer],
+  var rows = [["Provisional receipt no.", p.receiptNo], ["Date paid", p.confirmedOn || p.date], ["Unit", p.unit], ["Received from", p.payer],
     ["Payment for", p.forText], ["Amount", peso(Number(p.amount))], ["Payment method", p.method], ["Reference no.", p.reference || "—"], ["Status", "Paid"]];
-  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Payment receipt</title></head><body style="font-family:Arial,sans-serif">' +
-    "<h1>Payment receipt</h1><p>City Residences Condominium Corporation</p>" +
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Provisional receipt</title></head><body style="font-family:Arial,sans-serif">' +
+    "<h1>Provisional receipt</h1><p>City Residences Condominium Corporation</p>" +
     '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse"><tr><th align="left">Detail</th><th align="left">Information</th></tr>' +
     rows.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td></tr>"; }).join("") +
-    "</table><p>This receipt is your proof of payment. Keep a copy for your records.</p></body></html>";
+    "</table><p>This provisional receipt acknowledges the payment received. It is not an official receipt. The official receipt is issued by the administration office. Keep a copy for your records.</p></body></html>";
 }
-// Downloads an official receipt as a Word file.
+// Downloads a provisional receipt as a Word file.
 function downloadReceipt(p) {
   var blob = new Blob(["﻿", receiptHtml(p)], { type: "application/msword" });
   var a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = "receipt-" + p.receiptNo + ".doc";
+  a.href = URL.createObjectURL(blob); a.download = "provisional-receipt-" + p.receiptNo + ".doc";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
 }
-// Builds the receipt of a payment and shows it.
+// Builds the provisional receipt of a payment and shows it.
 function receiptFor(kind, id) {
   var r = getRow(kind, id);
-  if (!r) return toast("Receipt not found.");
-  if (kind === "proof" && r.value.status !== "Confirmed") return toast("The receipt is available once the office verifies the payment.");
+  if (!r) return toast("Provisional receipt not found.");
+  if (kind === "proof" && r.value.status !== "Confirmed") return toast("The provisional receipt is available once the office verifies the payment.");
   downloadReceipt(r.value);
 }
 

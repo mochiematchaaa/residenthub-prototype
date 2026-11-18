@@ -373,9 +373,9 @@
       dues.map(function (r) { var d = r.v; return [d.unit, d.name, d.note, money(d.amount), d.dueDate, duesState(d)]; }),
       "Monthly dues and other charges, paid or unpaid");
 
-    add("Money", "Payments", [["Receipt no."], ["Date", "date"], ["Unit"], ["Paid by", "text", { w: 24 }], ["For", "text", { w: 30 }], ["Method", "text", { w: 26 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }]],
+    add("Money", "Payments", [["Provisional receipt no."], ["Date", "date"], ["Unit"], ["Paid by", "text", { w: 24 }], ["For", "text", { w: 30 }], ["Method", "text", { w: 26 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }]],
       newest(list("payment")).map(function (r) { var p = r.v; return [p.receiptNo, p.date, p.unit, p.payer, p.forText, p.method, p.reference, money(p.amount)]; }),
-      "Confirmed payments with official receipt numbers");
+      "Confirmed payments with provisional receipt numbers");
 
     add("Money", "Payment proofs", [["Date", "date"], ["Unit"], ["Paid by", "text", { w: 24 }], ["For", "text", { w: 30 }], ["Method", "text", { w: 26 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }]],
       newest(list("proof")).map(function (r) { var p = r.v; return [p.date, p.unit, p.payer, p.forText, p.method, p.reference, money(p.amount), p.status]; }),
@@ -625,11 +625,11 @@
     function add(group, name, cols, rows, info) { var t = { group: group, name: name, cols: cols, rows: rows, info: info }; tables.push(t); count[name] = { n: rows.length, info: info, group: group }; }
     var charges = S.charges.slice().sort(function (a, b) { return Number(b.id) - Number(a.id); });
     function paidInfo(dd) { var m = S.pays.filter(function (p) { return p.v.forText === dd.v.note && Math.abs((Number(p.v.amount) || 0) - (Number(dd.v.amount) || 0)) < 0.01; })[0]; return m ? m.v : null; }
-    add("Money", "Charges", [["Billed on", "date"], ["Charge", "text", { w: 40 }], ["Due date", "date"], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }], ["Paid through", "text", { w: 20 }], ["Receipt no."]],
+    add("Money", "Charges", [["Billed on", "date"], ["Charge", "text", { w: 40 }], ["Due date", "date"], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }], ["Paid through", "text", { w: 20 }], ["Provisional receipt no."]],
       charges.map(function (r) { var c = r.v, p = c.paid ? paidInfo(r) : null; return [billedOn(r.id, c), c.note, c.dueDate, Number(c.amount) || 0, c.paid ? "Paid" : isOverdue(c) ? "Overdue" : "Unpaid", p ? p.method : "", p ? p.receiptNo : ""]; }),
       "Every charge billed to this unit");
-    add("Money", "Payments", [["Date", "date"], ["Receipt no."], ["For", "text", { w: 36 }], ["Method", "text", { w: 24 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }]],
-      S.pays.map(function (r) { var p = r.v; return [p.date, p.receiptNo, p.forText, p.method, p.reference, Number(p.amount) || 0]; }), "Payments received, with official receipt numbers");
+    add("Money", "Payments", [["Date", "date"], ["Provisional receipt no."], ["For", "text", { w: 36 }], ["Method", "text", { w: 24 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }]],
+      S.pays.map(function (r) { var p = r.v; return [p.date, p.receiptNo, p.forText, p.method, p.reference, Number(p.amount) || 0]; }), "Payments received, with provisional receipt numbers");
     var proofs = newest(list("proof")).filter(function (r) { return r.unit === unit; });
     add("Money", "Payment submissions", [["Sent", "date"], ["For", "text", { w: 34 }], ["Method", "text", { w: 22 }], ["Reference", "text", { w: 18 }], ["Amount", "money", { sum: 1 }], ["Status", "status", { cf: "pay" }], ["Posted by", "text", { w: 20 }], ["Note", "text", { w: 36 }]],
       proofs.map(function (r) { var p = r.v; return [new Date(proofSentAt(p)), p.forText, p.method, p.reference, Number(p.amount) || 0, statusText(p.status), p.status === "Confirmed" ? "Office" : "", p.reason || ""]; }), "What the resident sent, and how it was settled");

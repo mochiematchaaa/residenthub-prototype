@@ -87,7 +87,7 @@ function notifs() {
     out.unshift(["Overdue" + (c ? " by " + (-c.n) + " day" + (c.n === -1 ? "" : "s") : "") + ": " + r.v.note + " (" + peso(Number(r.v.amount)) + "). Tap to pay and send your proof.", "bad", "dues", r.id]);
   });
   myProofs().slice(0, 3).forEach(function (r) {
-    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was " + "verified" + ". Receipt " + (r.v.receiptNo || "") + " is under Dues.", "good", "dues"]);
+    if (r.v.status === "Confirmed" && !r.v.direct) out.push(["Your payment (ref. " + r.v.reference + ") was " + "verified" + ". Provisional receipt " + (r.v.receiptNo || "") + " is under Dues.", "good", "dues"]);
     else if (r.v.status === "Pending") { out.push(["We received your payment details (" + peso(Number(r.v.amount) || 0) + ", ref. " + r.v.reference + ")." + " The office will verify it soon. If something does not match, the office will tell you here.", "info", "dues"]); }
     else if (r.v.status === "Rejected") out.push(["Your payment (ref. " + r.v.reference + ") was rejected" + (r.v.reason ? ": " + String(r.v.reason).replace(/[.\s]+$/, "") : " (please check the reference number)") + ". You can send the correct details.", "bad", "dues"]);
   });
@@ -440,7 +440,7 @@ function dueCardHtml(it) {
   var ic = it.park ? DZ_ICON.park : it.st === "paid" ? DZ_ICON.paid : it.st === "overdue" ? DZ_ICON.bad : it.st === "pending" ? DZ_ICON.wait : DZ_ICON.open;
   var label = it.st === "paid" ? "Paid" : it.st === "overdue" ? "Overdue" : it.st === "pending" ? "Payment sent" : "To pay";
   var wait = it.st === "pending" && it.sent ? "Waiting for the office to verify it" : "";
-  var act = it.st === "paid" ? (it.receipt ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(it.receipt) + '\')">Receipt</button>' : "")
+  var act = it.st === "paid" ? (it.receipt ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(it.receipt) + '\')">Provisional receipt</button>' : "")
     : it.st === "pending" ? ""
     : '<button class="btn primary dz-mini" onclick="payThis(\'' + escAttr(it.id) + '\')">Pay ' + peso(it.amount).replace(/\.00$/, "") + "</button>";
   return '<div class="dz-item ' + tone + (state.dzFlash === it.id ? " flash" : "") + '" data-due="' + escAttr(it.id) + '"><span class="dz-ic ' + tone + '">' + ic + '</span><div class="dz-main"><b>' + esc(it.title) + '</b><div class="dz-sub"><span class="chip ' + (tone === "info" ? "info" : tone) + '">' + label + "</span>" +
@@ -480,14 +480,14 @@ function viewDues() {
     return '<button class="dz-block ' + tone + '" onclick="focusDue(\'' + escAttr(i.id) + '\')" title="' + escAttr(i.title + " · " + peso(i.amount)) + '"><i>' + (i.st === "paid" ? DZ_ICON.paid : i.st === "overdue" ? DZ_ICON.bad : i.st === "pending" ? DZ_ICON.wait : DZ_ICON.open) + "</i><small>" + esc(i.mon || "·") + "</small></button>";
   }).join("") + "</div></div>" : "";
   var tabs = pageTabs([["todo", "To pay (" + todo.length + ")"], ["paid", "Paid (" + paid + ")"], ["all", "All (" + total + ")"]], tab, "duesTab");
-  var list_ = shown.length ? shown.map(dueCardHtml).join("") : '<div class="dz-empty"><b>' + (tab === "paid" ? "Nothing paid yet" : tab === "todo" ? "Nothing to pay" : "No charges yet") + "</b><span>" + (tab === "todo" ? "You are all caught up. Enjoy your day!" : tab === "paid" ? "Paid charges and their receipts show up here." : "Charges from the office show up here.") + "</span></div>";
+  var list_ = shown.length ? shown.map(dueCardHtml).join("") : '<div class="dz-empty"><b>' + (tab === "paid" ? "Nothing paid yet" : tab === "todo" ? "Nothing to pay" : "No charges yet") + "</b><span>" + (tab === "todo" ? "You are all caught up. Enjoy your day!" : tab === "paid" ? "Paid charges and their provisional receipts show up here." : "Charges from the office show up here.") + "</span></div>";
   setTimeout(duesFx, 30);
   return '<div class="dz-wrap">' + duesAlertHtml(items) + hero + trailHtml + '<div class="two-col dz-cols" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)"><div class="dz-left">' + tabs + '<div class="dz-list">' + list_ + "</div>" + myPaymentsHtml() + parkingLinkHtml() + "</div>" +
     '<div class="dz-right">' + unitDuesHtml() + payFormHtml() + "</div></div></div>";
 }
 // The "what happens next" strip in the hero: pay, send the proof, the office checks it, the receipt appears.
 function payFlowHtml(owing) {
-  var steps = [["1", "Pay", "At the office, or by GCash, Maya or bank."], ["2", "Send your proof", "Reference number and a photo of your payment."], ["3", "The office checks it", "The office verifies it."], ["4", "Receipt", "Your dues go down and your receipt appears."]];
+  var steps = [["1", "Pay", "At the office, or by GCash, Maya or bank."], ["2", "Send your proof", "Reference number and a photo of your payment."], ["3", "The office checks it", "The office verifies it."], ["4", "Provisional receipt", "Your dues go down and your provisional receipt appears."]];
   return '<div class="dz-flow' + (owing ? "" : " calm") + '" aria-label="How paying works">' + steps.map(function (x) { return '<div class="dz-fs"><span>' + x[0] + "</span><b>" + x[1] + "</b><small>" + x[2] + "</small></div>"; }).join("") + "</div>";
 }
 // A notice at the top of the page when a charge is overdue or due within 2 days, with a Pay button.
@@ -503,7 +503,7 @@ function duesAlertHtml(items) {
     var c = dueCountdown(i.d);
     html += '<div class="dz-alert ' + (c.n === 0 ? "bad" : "warn") + '"><span class="dz-alert-ic">⏰</span><div><b>' + esc(i.title) + " is due " + (c.n === 0 ? "TODAY" : c.n === 1 ? "tomorrow" : "in 2 days") + '</b><small>' + peso(i.amount) + " · " + esc(i.due) + (c.n === 0 ? ". Please pay within the day and send your proof before it ends, so your dashboard updates. Already paid at the office? The office records it right away." : ". Send your proof before the due date so your dashboard updates.") + "</small></div><button class=\"btn primary\" onclick=\"payThis('" + escAttr(i.id) + "')\">" + (c.n === 0 ? "Pay and send proof" : "Pay now") + "</button></div>";
   });
-  if (sent.length) html += '<div class="dz-alert info"><span class="dz-alert-ic">✓</span><div><b>' + sent.length + " payment" + (sent.length === 1 ? "" : "s") + ' sent, waiting for the office</b><small>You will get a notice and a receipt as soon as it is checked.</small></div></div>';
+  if (sent.length) html += '<div class="dz-alert info"><span class="dz-alert-ic">✓</span><div><b>' + sent.length + " payment" + (sent.length === 1 ? "" : "s") + ' sent, waiting for the office</b><small>You will get a notice and a provisional receipt as soon as it is checked.</small></div></div>';
   return html ? '<div class="dz-alerts">' + html + "</div>" : "";
 }
 /* count the balance up, and throw confetti the first time the page shows a clear balance */
@@ -599,7 +599,7 @@ function payFormHtml(fixed) {
     '<div class="dz-step"><span class="n ok">2</span><div><div class="dz-lab">How did you pay?</div><div class="dz-methods">' + methods.map(function (m) {
       return '<button type="button" class="dz-method ' + (state.payMethod === m.name ? "on" : "") + '" onclick="pickMethod(\'' + escAttr(m.name) + '\')">' + esc(m.name === PAY_OFFICE ? "Walk-in (pay at the office)" : m.name) + "</button>";
     }).join("") + '</div><div class="dz-how"><b>' + esc(cur.name === PAY_OFFICE ? "Walk-in" : cur.name) + '</b><span>' + esc(cur.details || "") + "</span></div></div></div>" +
-    (walkIn && fixed ? walkBlockHtml(fixed) : walkIn ? '<div class="dz-step"><span class="n ok">3</span><div class="dz-walk"><b>Nothing to send for a walk-in payment</b><span>Pay at the counter. The office records it, issues your receipt and your dues go down on this page. If you paid online (GCash, Maya or bank), choose that method above and add a photo of your payment.</span></div></div>' :
+    (walkIn && fixed ? walkBlockHtml(fixed) : walkIn ? '<div class="dz-step"><span class="n ok">3</span><div class="dz-walk"><b>Nothing to send for a walk-in payment</b><span>Pay at the counter. The office records it, issues your provisional receipt and your dues go down on this page. If you paid online (GCash, Maya or bank), choose that method above and add a photo of your payment.</span></div></div>' :
     '<div class="dz-step"><span class="n ' + (state.payFor && state.payRef.trim().length >= 4 ? "ok" : "") + '">3</span><div style="display:flex;flex-direction:column;gap:10px;width:100%"><label class="dz-lab">Amount paid (₱)<input id="payAmt" type="number" min="0.01" step="0.01" placeholder="e.g. 450" value="' + escAttr(state.payAmt) + '" oninput="state.payAmt=this.value"></label>' +
     '<label class="dz-lab">Date you paid<input id="payDate" type="date" max="' + todayISO + '" value="' + escAttr(state.payDate) + '" oninput="state.payDate=this.value"></label>' +
     '<label class="dz-lab">Reference number<input id="payRef" type="text" placeholder="Number on your receipt or transaction" value="' + escAttr(state.payRef) + '" oninput="state.payRef=this.value"></label>' +
@@ -647,7 +647,7 @@ function submitPaymentProof() {
     await put("proof", id, myUnit(), proofRec);
     logAct("Payment reference sent, " + myUnit(), "Finance");
     state.payFor = ""; state.payAmt = ""; state.payRef = ""; state.payImg = ""; state.payDate = ""; state.parkRenew = false;
-    toast("Payment details sent. The office will verify them and your receipt will appear here.");
+    toast("Payment details sent. The office will verify them and your provisional receipt will appear here.");
   });
 }
 // My payment history: each payment shows where it is (sent, checked by the office, receipt).
@@ -659,7 +659,7 @@ function myPaymentsHtml() {
     var msg2 = st === "Pending" ? "Waiting for the office to verify it" : st === "Rejected" ? "Rejected" + (p.reason ? ": " + String(p.reason).replace(/[.\s]+$/, "") : "") : "Verified by the office" + (p.confirmedOn ? " · " + p.confirmedOn : "");
     return '<div class="pt-card ' + (st === "Rejected" ? "bad" : st === "Confirmed" ? "good" : "warn") + '"><div class="pt-top"><div><b>' + esc(p.forText || "Payment") + '</b><small>' + esc(p.method) + " · Ref " + esc(p.reference) + " · " + peso(Number(p.amount)) + (p.paidOn ? " · paid " + esc(p.paidOn) : "") + '</small></div><span class="chip ' + chipFor(st) + '">' + esc(st === "Confirmed" ? "Verified" : st === "Pending" ? "In review" : statusText(st)) + "</span></div>" +
       '<ol class="pt-trail"><li class="done"><i>✓</i><span><b>Sent</b><small>' + esc(p.date || "") + "</small></span></li><li class=\"" + s2 + "\"><i>" + (s2 === "done" ? "✓" : s2 === "bad" ? "✕" : "2") + "</i><span><b>Office check</b><small>" + esc(msg2) + "</small></span></li><li class=\"" + s3 + "\"><i>" + (s3 ? "✓" : "3") + "</i><span><b>Receipt</b><small>" + (p.receiptNo ? esc(p.receiptNo) : "After it is checked") + "</small></span></li></ol>" +
-      '<div class="pt-act">' + (p.image ? '<button class="btn dz-mini" type="button" onclick="viewProofImage(\'' + escAttr(r.id) + '\')">View my photo</button>' : "") + (st === "Confirmed" ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Receipt</button>' : "") + (st === "Rejected" ? '<button class="btn primary dz-mini" onclick="payAgain(\'' + escAttr(r.id) + '\')">Send again</button>' : "") + "</div></div>";
+      '<div class="pt-act">' + (p.image ? '<button class="btn dz-mini" type="button" onclick="viewProofImage(\'' + escAttr(r.id) + '\')">View my photo</button>' : "") + (st === "Confirmed" ? '<button class="btn dz-mini" onclick="receiptFor(\'proof\',\'' + escAttr(r.id) + '\')">Provisional receipt</button>' : "") + (st === "Rejected" ? '<button class="btn primary dz-mini" onclick="payAgain(\'' + escAttr(r.id) + '\')">Send again</button>' : "") + "</div></div>";
   }).join("");
   return '<div class="card"><h2 style="font-size:19px;margin:0 0 4px">My payments</h2><p style="margin:0 0 12px;font-size:13px;color:var(--muted)">Everything you sent, and where it is. The office checks each one before it counts.</p>' + (cards || '<p style="margin:0;font-size:13px;color:var(--muted)">Nothing sent yet. After you pay, send your details in the box on this page.</p>') + "</div>";
 }
@@ -719,7 +719,7 @@ function viewParkingPage() {
   }).join("");
   return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' + hero + (mine ? parkRenewCardHtml(mine) : "") + payCard +
     (slots.length ? '<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="font-size:19px">Parking map</h2><span class="hint" style="margin:0">' + free + " of " + slots.length + ' free' + (canPick ? " · tap a free slot" : "") + '</span></div><div class="pk-grid">' + grid + '</div><div class="pk-legend"><span><i class="free"></i>Free</span><span><i class="held"></i>Held</span><span><i class="taken"></i>Taken</span>' + (mine || pick ? '<span><i class="mine"></i>Yours</span>' : "") + "</div></div>" : "") +
-    '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Rental price by slot size</h2><p class="hint" style="margin:0 0 8px">A bigger slot costs more. Each slot on the map shows its size.</p>' + sizes.map(function (z) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border2);font-size:13.5px"><span><b>' + esc(z.name) + "</b>" + (z.sqm ? ' <span style="color:var(--muted)">· ' + z.sqm + " sqm</span>" : "") + "</span><span><b>" + (z.month ? peso(z.month) + "</b> / month" : "—</b>") + (z.day ? " · <b>" + peso(z.day) + "</b> / day" : "") + "</span></div>"; }).join("") + '</div><div class="card"><h2 style="font-size:19px;margin-bottom:4px">How it works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tap a free slot on the map. The slot is held for you.</li><li>You choose a monthly or daily rental, and it shows up as a charge. Pay at the office, by bank transfer, GCash or Maya, then send the payment details.</li><li>When the office verifies your payment, the slot is yours. You get your receipt under Dues.</li></ol></div></div></div>';
+    '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="card"><h2 style="font-size:19px;margin-bottom:4px">Rental price by slot size</h2><p class="hint" style="margin:0 0 8px">A bigger slot costs more. Each slot on the map shows its size.</p>' + sizes.map(function (z) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border2);font-size:13.5px"><span><b>' + esc(z.name) + "</b>" + (z.sqm ? ' <span style="color:var(--muted)">· ' + z.sqm + " sqm</span>" : "") + "</span><span><b>" + (z.month ? peso(z.month) + "</b> / month" : "—</b>") + (z.day ? " · <b>" + peso(z.day) + "</b> / day" : "") + "</span></div>"; }).join("") + '</div><div class="card"><h2 style="font-size:19px;margin-bottom:4px">How it works</h2><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.8"><li>Tap a free slot on the map. The slot is held for you.</li><li>You choose a monthly or daily rental, and it shows up as a charge. Pay at the office, by bank transfer, GCash or Maya, then send the payment details.</li><li>When the office verifies your payment, the slot is yours. You get your provisional receipt under Dues.</li></ol></div></div></div>';
 }
 // Requests a parking slot.
 function reserveSlot(id) {

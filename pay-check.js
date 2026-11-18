@@ -3,7 +3,7 @@
    A charge whose due date has come (or passed) with no payment recorded and nothing sent by the resident may well
    have been paid already, only the resident did not tell the system. These are listed on the dashboard and under
    Finance. For each one the administrator answers:
-     Yes → the charge is marked paid and a receipt is issued. If the resident paid less, the amount actually paid is
+     Yes → the charge is marked paid and a provisional receipt is issued. If the resident paid less, the amount actually paid is
            entered; the rest stays as a new "(balance)" charge.
      No  → optionally add a late charge, tell the resident in ResidentHub, or call / text them.
    Loaded by admin.html after admin-more.js.
@@ -70,7 +70,7 @@ function payCheckYes(id) {
   var cur = row.value, methods = payMethods().map(function (m) { return m.name; });
   openForm({
     title: "Yes, " + cur.unit + " paid",
-    intro: esc(cur.note) + " · charge of <b>" + peso(Number(cur.amount)) + "</b>. Enter what they really paid. If it is less than the charge, the rest stays as a balance on their dues. A receipt is issued and the resident sees it right away.",
+    intro: esc(cur.note) + " · charge of <b>" + peso(Number(cur.amount)) + "</b>. Enter what they really paid. If it is less than the charge, the rest stays as a balance on their dues. A provisional receipt is issued and the resident sees it right away.",
     submit: "Mark as paid",
     fields: [
       { name: "amount", label: "Amount they paid (₱)", type: "number", step: "0.01", value: String(cur.amount) },
@@ -101,7 +101,7 @@ function payCheckYes(id) {
       } else await put("due", id, c.unit, Object.assign({}, c, { paid: true }));
       await voidAutoLateFee(c, when || new Date());
       logAct("Marked paid, " + c.unit + ": " + c.note + " " + peso(amt) + (short ? " (balance " + peso(full - amt) + " left)" : ""), "Finance");
-      toast(short ? "Recorded " + peso(amt) + " for " + c.unit + ". The balance of " + peso(full - amt) + " stays on their dues. Receipt " + r.no + "." : "Marked paid. Receipt " + r.no + " issued to " + c.unit + ".");
+      toast(short ? "Recorded " + peso(amt) + " for " + c.unit + ". The balance of " + peso(full - amt) + " stays on their dues. Provisional receipt " + r.no + "." : "Marked paid. Provisional receipt " + r.no + " issued to " + c.unit + ".");
     }
   });
 }

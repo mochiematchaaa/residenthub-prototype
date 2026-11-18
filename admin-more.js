@@ -114,10 +114,10 @@ function viewFin() {
     '<div class="kv" style="font-size:13px">' + (state.payUnit ? "<span>Charges ticked</span><b>" + state.payDues.length + "</b><span>Total received</span><b>" + peso(deskTotal) + "</b>" : '<span style="grid-column:1/-1">Choose a unit to begin.</span>') + "</div>" +
     '<button class="btn primary" onclick="recordPayment()">Record payment &amp; update dues</button></div>';
   var dailyExpHtml = dailyExpensesCard();
-  var receiptsHtml = '<div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Receipts</h2>' +
+  var receiptsHtml = '<div class="card" style="display:flex;flex-direction:column;gap:8px"><h2>Provisional receipts</h2>' +
     (pays.slice(0, 6).map(function (r) {
       var p = r.v, pr = list("proof").filter(function (x) { return x.v.receiptNo === p.receiptNo && x.v.image; })[0];
-      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border2)"><span style="font-size:13px"><b>' + esc(p.receiptNo) + "</b> · " + esc(p.unit) + " · " + peso(Number(p.amount)) + '<br><span style="color:var(--muted);font-size:12px">' + esc(p.method || "") + " · " + esc(p.date || "") + '</span></span><span style="display:flex;gap:6px">' + (pr ? '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="viewProofImage(\'' + escAttr(pr.id) + '\')">Photo</button>' : "") + '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'payment\',\'' + escAttr(r.id) + '\')">Receipt</button></span></div>';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border2)"><span style="font-size:13px"><b>' + esc(p.receiptNo) + "</b> · " + esc(p.unit) + " · " + peso(Number(p.amount)) + '<br><span style="color:var(--muted);font-size:12px">' + esc(p.method || "") + " · " + esc(p.date || "") + '</span></span><span style="display:flex;gap:6px">' + (pr ? '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="viewProofImage(\'' + escAttr(pr.id) + '\')">Photo</button>' : "") + '<button class="btn" style="min-height:30px;padding:0 10px;font-size:12px" onclick="receiptFor(\'payment\',\'' + escAttr(r.id) + '\')">Provisional receipt</button></span></div>';
     }).join("") || '<p class="hint" style="margin:0">No payments recorded yet.</p>') +
     '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button></div>';
   var tab = state.finTab || "overview";
@@ -335,7 +335,7 @@ function unitDuesCard() {
     var x = unitDues(r.id); tb += x.billed; tp += x.paid; tbal += x.balance;
     return "<tr><td style=\"font-weight:700\">" + esc(r.id) + '</td><td style="color:var(--muted)">' + (x.area ? esc(String(x.area)) + " sqm" : '<span class="chip warn">No area</span>') + "</td><td>" + (x.area && rate ? peso(x.monthly) : "—") + '</td><td style="color:var(--muted)">' + (r.v.dueDay ? "Day " + esc(String(r.v.dueDay)) : "—") + "</td><td>" + peso(x.billed) + "</td><td>" + peso(x.paid) + '</td><td style="font-weight:700">' + (x.balance ? peso(x.balance) : "—") + '</td><td><button class="btn" style="min-height:30px;padding:0 12px" onclick="editUnitArea(\'' + escAttr(r.id) + '\')">' + (x.area ? "Edit size" : "Set size") + "</button></td></tr>";
   });
-  return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:16px 18px 6px"><h2 style="margin:0">Unit dues and payments</h2><p class="hint" style="margin:4px 0 0">Worked out automatically. Floor area × rate per sqm = monthly dues. Billed, paid and balance come from the charges and receipts, so they update as soon as you bill or record a payment.</p>' +
+  return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:16px 18px 6px"><h2 style="margin:0">Unit dues and payments</h2><p class="hint" style="margin:4px 0 0">Worked out automatically. Floor area × rate per sqm = monthly dues. Billed, paid and balance come from the charges and provisional receipts, so they update as soon as you bill or record a payment.</p>' +
     '<p style="margin:8px 0 0;font-size:13px;color:var(--muted)">All units: billed <b>' + peso(tb) + "</b> · paid <b>" + peso(tp) + "</b> · balance <b>" + peso(tbal) + "</b></p></div>" +
     '<div style="max-height:380px;overflow:auto">' + tableRows(rows, ["UNIT", "AREA", "MONTHLY DUES", "DUE DAY", "BILLED", "PAID", "BALANCE", ""], "No units yet.") + "</div></div>";
 }
@@ -445,7 +445,7 @@ function dayLogCard(dues) {
   var head = (sel === today ? "Today" : selDate.toLocaleDateString("en-US", { weekday: "long" })) + ", " + shortDateFromKey(sel);
   function row(a, b, c) { return '<div class="dl-row"><span><b>' + a + "</b><small>" + b + '</small></span><b class="dl-amt">' + c + "</b></div>"; }
   var paidHtml = isFuture ? "" : '<section class="dl-sec good"><h3>Paid this day <span class="dl-sum">' + peso(sum(paid, function (x) { return x.amount; })) + "</span></h3>" +
-    (paid.length ? paid.map(function (x) { return row(esc(x.unit) + " · " + esc(x.payer || ""), esc(x.forText || "") + " · " + esc(x.method || "") + (x.receiptNo ? " · Receipt " + esc(x.receiptNo) : ""), peso(Number(x.amount))); }).join("") : '<p class="hint" style="margin:0">Nobody paid on this day.</p>') + "</section>";
+    (paid.length ? paid.map(function (x) { return row(esc(x.unit) + " · " + esc(x.payer || ""), esc(x.forText || "") + " · " + esc(x.method || "") + (x.receiptNo ? " · Provisional receipt " + esc(x.receiptNo) : ""), peso(Number(x.amount))); }).join("") : '<p class="hint" style="margin:0">Nobody paid on this day.</p>') + "</section>";
   var dueHtml = '<section class="dl-sec warn"><h3>' + (sel < today ? "Was due this day and still unpaid" : "Due this day") + ' <span class="dl-sum">' + peso(sum(due, function (x) { return x.v.amount; })) + "</span></h3>" +
     (due.length ? due.map(function (x) { return row(esc(x.v.unit) + (x.v.name ? " · " + esc(x.v.name) : ""), esc(x.v.note || ""), peso(Number(x.v.amount))); }).join("") : '<p class="hint" style="margin:0">No charge falls due on this day.</p>') + "</section>";
   return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Day by day</h2><p class="hint" style="margin:4px 0 0">See who paid on each day, and who is expected to pay on the coming days.</p></div>' +
@@ -583,7 +583,7 @@ function recordPayment() {
     if (!done) throw new Error("Those charges are already paid.");
     logAct("Payment recorded, " + unit + " (" + done + " charge" + (done === 1 ? "" : "s") + ", " + peso(total) + ")", "Finance");
     state.payUnit = ""; state.payDues = []; state.payRef = ""; state.payDate = ""; state.payImage = "";
-    toast(done === 1 ? "Payment recorded. Receipt " + lastNo + " issued." : done + " charges marked paid (" + peso(total) + "). Receipts issued.");
+    toast(done === 1 ? "Payment recorded. Provisional receipt " + lastNo + " issued." : done + " charges marked paid (" + peso(total) + "). Provisional receipts issued.");
   });
 }
 /* ---------- "Payments to verify": one clear card per payment the resident sent ---------- */
@@ -595,7 +595,7 @@ function verifyPanel(proofs) {
   var nLate = items.filter(function (i) { return i.late; }).length;
   var nOk = items.filter(function (i) { return i.chk.ok; }).length, nReview = items.filter(function (i) { return !i.chk.ok; }).length;
   var total = items.reduce(function (s, i) { return s + (Number(i.r.v.amount) || 0); }, 0);
-  var head = '<div class="vp-head"><div><h2>Payments to verify</h2><p class="hint" style="margin:4px 0 0">Payments residents say they made. Check each one, then verify it to post the payment and issue the receipt.</p></div></div>';
+  var head = '<div class="vp-head"><div><h2>Payments to verify</h2><p class="hint" style="margin:4px 0 0">Payments residents say they made. Check each one, then verify it to post the payment and issue the provisional receipt.</p></div></div>';
   var stats = '<div class="vp-stats"><div><b>' + items.length + '</b><span>Waiting</span></div><div class="good"><b>' + nOk + '</b><span>Look correct</span></div><div class="' + (nReview ? "warn" : "") + '"><b>' + nReview + '</b><span>Need your review</span></div><div><b>' + peso(total) + "</b><span>Total amount</span></div></div>";
   var lateBanner = nLate ? '<div class="vp-late"><b>' + nLate + " payment" + (nLate === 1 ? " has" : "s have") + ' been waiting more than 2 days.</b> Check ' + (nLate === 1 ? "it" : "them") + " first, then verify or reject.</div>" : "";
   var body = items.length ? items.map(function (it) {
@@ -603,7 +603,7 @@ function verifyPanel(proofs) {
     var match = chk.expected == null ? '<span class="chip">No fixed amount</span>' : Math.abs((Number(p.amount) || 0) - chk.expected) <= 0.009 ? '<span class="chip good">✓ Matches ' + peso(chk.expected) + "</span>" : '<span class="chip bad">✗ Should be ' + peso(chk.expected) + "</span>";
     var status;
     if (!chk.ok) status = '<div class="vp-status review"><div class="vp-flags">' + chk.why.map(function (w) { return '<div class="vp-flag"><span>!</span>' + esc(w) + "</div>"; }).join("") + '</div><div class="vp-note">Check it, then verify or reject.</div></div>';
-    else status = '<div class="vp-status"><div class="vp-note">✓ Amount, reference and charge all match. Verify it to post the payment and issue the receipt.</div></div>';
+    else status = '<div class="vp-status"><div class="vp-note">✓ Amount, reference and charge all match. Verify it to post the payment and issue the provisional receipt.</div></div>';
     var recip = accountOfUnit(p.unit);
     var checksHtml = '<div class="vp-checks">' + chk.checks.map(function (c) { return '<span class="chip ' + (c.ok === true ? "good" : c.ok === false ? "bad" : "") + '">' + (c.ok === true ? "✓ " : c.ok === false ? "✕ " : "• ") + esc(c.label) + "</span>"; }).join("") + "</div>";
     return '<article class="vp-item' + (chk.ok ? "" : " review") + (it.late ? " late" : "") + '"><div class="vp-top"><span class="vp-av">' + esc(String(p.unit).replace(/^Unit\s*/i, "")) + '</span><div class="vp-who"><b>' + esc(p.unit) + " · " + esc(p.payer || u.name || "") + "</b><small>Sent " + esc(p.date || "") + (it.late ? ' <span class="chip bad">Waiting over 2 days</span>' : "") + " · " + waitText(now - it.sent).replace("now", "just now") + (now - it.sent > 60000 ? " ago" : "") +
@@ -638,7 +638,7 @@ function proofCheck(r) {
   else {
     var dup = list("proof").filter(function (o) { return String(o.id) !== String(r.id) && o.v.status !== "Rejected" && String(o.v.reference).toLowerCase() === ref.toLowerCase() && o.v.method === p.method; })[0];
     if (dup) why.push("The same reference number was also sent by " + dup.v.unit + ".");
-    else if (list("payment").some(function (o) { return String(o.v.reference).toLowerCase() === ref.toLowerCase() && o.v.method === p.method; })) why.push("This reference number already has a receipt.");
+    else if (list("payment").some(function (o) { return String(o.v.reference).toLowerCase() === ref.toLowerCase() && o.v.method === p.method; })) why.push("This reference number already has a provisional receipt.");
   }
   var refOk = !why.some(function (w) { return /reference/i.test(w); });
   var checks = [
@@ -701,7 +701,7 @@ async function postProof(id) {
       }
     }
   }
-  return (renewedTo ? "Payment verified. " + p.slot + " is renewed until " + usageDate(renewedTo) + "." : assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Receipt " + p.receiptNo + " is ready for " + p.unit + ".") + (smsNote ? " " + smsNote : "");
+  return (renewedTo ? "Payment verified. " + p.slot + " is renewed until " + usageDate(renewedTo) + "." : assigned ? "Payment verified. Slot " + assigned + " is now assigned to " + p.unit + "." : "Payment verified. Provisional receipt " + p.receiptNo + " is ready for " + p.unit + ".") + (smsNote ? " " + smsNote : "");
 }
 // Verifies a resident's payment proof now and issues the receipt.
 function confirmProof(id) {
@@ -715,7 +715,7 @@ function rejectProof(id) {
   if (!row || row.value.status !== "Pending") return;
   openForm({
     title: "Reject payment details",
-    intro: "Tell the resident what is wrong, for example a wrong reference number or amount. They can then send the correct details. The rejected submission stays in the record with your reason, does not count toward the balance and gets no receipt.",
+    intro: "Tell the resident what is wrong, for example a wrong reference number or amount. They can then send the correct details. The rejected submission stays in the record with your reason, does not count toward the balance and gets no provisional receipt.",
     submit: "Reject",
     fields: [{ name: "reason", label: "Reason", type: "textarea", value: "", placeholder: "e.g. Reference number not found. Please check it." }],
     onSubmit: async function (d) {
@@ -809,7 +809,7 @@ function payMethodsForm() {
 }
 // Downloads payments as CSV.
 function exportPayments() {
-  exportCSV("payments.csv", ["Receipt no.", "Date", "Unit", "Paid by", "Payment for", "Method", "Reference no.", "Amount"],
+  exportCSV("payments.csv", ["Provisional receipt no.", "Date", "Unit", "Paid by", "Payment for", "Method", "Reference no.", "Amount"],
     newest(list("payment")).map(function (r) { var p = r.v; return [p.receiptNo, p.date, p.unit, p.payer, p.forText, p.method, p.reference, p.amount]; }));
 }
 // Downloads dues as CSV.
@@ -1283,7 +1283,7 @@ function parkOfficePay(unit) {
   var rq = getRow("request", unit); if (!rq || !rq.value.slot) return;
   openForm({
     title: "Walk-in payment",
-    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a receipt and assigns the slot.",
+    intro: esc(unit) + " paid for " + esc(rq.value.slot) + " at the office. Recording it issues a provisional receipt and assigns the slot.",
     fields: officePayFields(rq.value.amount),
     submit: "Record payment and assign",
     onSubmit: async function (d) {
@@ -1302,7 +1302,7 @@ function parkRenewPay(slotId) {
   var unit = sl.value.unit, d0 = parkDueInfo(sl.value);
   openForm({
     title: "Renew " + slotId + " · " + unit,
-    intro: esc(unit) + " pays to renew " + esc(slotId) + (d0 ? ". The rental now runs until " + esc(usageDate(d0.until)) + "; one more month is added" : "") + ". Recording it issues a receipt and extends the rental.",
+    intro: esc(unit) + " pays to renew " + esc(slotId) + (d0 ? ". The rental now runs until " + esc(usageDate(d0.until)) + "; one more month is added" : "") + ". Recording it issues a provisional receipt and extends the rental.",
     fields: officePayFields(parkRenewAmount(slotId, sl.value)),
     submit: "Record payment and renew",
     onSubmit: async function (d) {
@@ -1623,7 +1623,7 @@ function viewSettings() {
 }
 // Settings > Payments: where residents can pay.
 function paymentSettings() {
-  return '<div class="two-col-e"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Payment options</h2><p class="hint" style="margin:0">Where residents can pay (cash at the office, bank, GCash, Maya). They see these when they send their payment details. Every payment a resident sends is checked and verified by you before the receipt is issued.</p><div><button class="btn" onclick="payMethodsForm()">Edit payment options</button></div></div></div>';
+  return '<div class="two-col-e"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Payment options</h2><p class="hint" style="margin:0">Where residents can pay (cash at the office, bank, GCash, Maya). They see these when they send their payment details. Every payment a resident sends is checked and verified by you before the provisional receipt is issued.</p><div><button class="btn" onclick="payMethodsForm()">Edit payment options</button></div></div></div>';
 }
 // Settings > General: how many open complaints one unit may have at once. Changing it asks first, because a high number invites spam.
 function grLimitCardHtml() {

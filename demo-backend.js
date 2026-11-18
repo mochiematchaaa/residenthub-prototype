@@ -154,7 +154,7 @@
         if (paid) {
           var pd = monthDate(off, Math.max(1, byUnit[u.label].dueDay - (hi % 4)));
           if (pd > now) pd = new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - (hi % 10)), 12);
-          var no = "OR-" + YEAR + "-" + String(++receipt).padStart(4, "0");
+          var no = "PR-" + YEAR + "-" + String(++receipt).padStart(4, "0");
           var method = METHODS[(hi + off + 2) % 3];
           var ref = method === METHODS[0] ? "—" : "REF" + (700000 + receipt * 37);
           R("payment", idn + 5000, u.label, { id: idn + 5000, receiptNo: no, unit: u.label, payer: u.house, forText: note, method: method, reference: ref, date: sd(pd), amount: amt });
