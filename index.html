@@ -10,8 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,600;0,8..60,700;1,8..60,600&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="index.css">
 <script src="index.js?v=2" defer></script>
-<script src="app-links.js" defer></script>
 <link rel="stylesheet" href="profile-refresh.css">
+<link rel="stylesheet" href="responsive.css?v=1">
 </head>
 <body>
 
@@ -49,7 +49,7 @@
       <li><a href="#home" data-home>Home</a></li>
       <li><a href="#amenities">Amenities</a></li>
       <li><a href="#about">About</a></li>
-      <li><a href="#app">Get the App</a></li>
+      <li><a href="#portal">Resident Portal</a></li>
       <li><a href="#contact">Contact</a></li>
       <li class="menu-signin"><a href="resident.html">Sign In</a></li>
     </ul>
@@ -275,36 +275,27 @@
 
 </main>
 
-<!-- ============ FOOTER ============ -->
-<!-- ============ GET THE APP ============ -->
-<section class="section getapp" id="app">
+<!-- ============ USE IT ON ANY DEVICE ============ -->
+<section class="section getapp" id="portal">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">The ResidentHub App</span>
-      <h2>Your condominium, <span class="accent">in your pocket</span></h2>
-      <p>Book the pool or function hall, check your dues, send concerns and read announcements. Use it in your browser, or install it on your Android phone.</p>
+      <span class="eyebrow">The ResidentHub Website</span>
+      <h2>Your condominium, <span class="accent">on any screen</span></h2>
+      <p>Book the pool or function hall, check your dues and receipts, send concerns and read announcements. Nothing to install: open this website on your phone, tablet or computer.</p>
     </div>
 
     <div class="app-cards">
       <article class="app-card reveal" style="--delay:.05s">
         <span class="app-card-icon"><svg class="icon"><use href="#i-user"/></svg></span>
-        <h3>Use it in your browser</h3>
-        <p>No download needed. Sign in right here on this website, with the account the administration office gave you.</p>
-        <a class="btn btn-navy" href="app.html">Open the app <svg class="icon"><use href="#i-arrow"/></svg></a>
+        <h3>For residents and unit owners</h3>
+        <p>Sign in with the account the administration office gave you to book facilities, see your dues and receipts, vote in polls and send complaints.</p>
+        <a class="btn btn-navy" href="resident.html">Resident sign in <svg class="icon"><use href="#i-arrow"/></svg></a>
       </article>
-
 
       <article class="app-card reveal" style="--delay:.15s">
         <span class="app-card-icon"><svg class="icon"><use href="#i-building"/></svg></span>
-        <h3>Install on Android</h3>
-        <p>Download the ResidentHub app (.apk) and open the file to install it. Your phone may ask you to allow installing from this source.</p>
-        <a class="btn btn-gold" data-app-link="androidApp" href="#" rel="noopener">Download the Android app <svg class="icon"><use href="#i-arrow"/></svg></a>
-      </article>
-
-      <article class="app-card app-card-qr reveal" style="--delay:.25s" id="qrCard" hidden>
-        <div class="qr-box" id="qrBox" aria-label="QR code that opens the app"></div>
-        <h3>Scan to open</h3>
-        <p>Point your phone camera at the code to open the app.</p>
+        <h3>Made for small screens first</h3>
+        <p>The pages fit a phone screen first and then grow for tablets and computers, so you can use the same address everywhere.</p>
       </article>
     </div>
   </div>
@@ -326,7 +317,7 @@
           <li><a href="#home" data-home>Home</a></li>
           <li><a href="#amenities">Amenities</a></li>
           <li><a href="#about">About</a></li>
-          <li><a href="#app">Get the App</a></li>
+          <li><a href="#portal">Resident Portal</a></li>
           <li><a href="resident.html">Sign In</a></li>
         </ul>
       </div>

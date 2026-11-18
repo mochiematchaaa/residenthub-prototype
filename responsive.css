@@ -1,0 +1,67 @@
+/* ==========================================================================
+   responsive.css — the mobile-first layer of ResidentHub (loaded LAST on every page)
+
+   How it works:
+   - The rules at the top, outside any media query, are the PHONE rules.
+   - Larger screens only add rules with min-width queries:
+       tablet  >= 700px
+       laptop  >= 901px   (the sidebar layout starts here)
+   - Test widths: 360, 390, 768, 1024, 1280.
+   ========================================================================== */
+
+/* ---------- Phone (base) ---------- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:clip}
+img,svg,video,canvas,iframe{max-width:100%}
+img,video{height:auto}
+
+/* A fixed bottom menu must never cover the last card, and must respect the phone's home bar. */
+.app{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+#mnav{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+#toasts{bottom:calc(92px + env(safe-area-inset-bottom,0px));right:12px;left:12px;max-width:none}
+
+/* Tap targets: at least 44 x 44 px on phones, tablets and any touch screen, and 16px text in
+   fields so iPhones do not zoom in. !important is needed because some buttons carry inline sizes. */
+@media (max-width:900px),(pointer:coarse){
+  .btn.btn,.btn-dark.btn-dark,.btn-dark.sm,.pg-btn,.cal-nav,.cal-today,.dz-method,.gm-f,.link-btn,
+  main select,main textarea,
+  main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]){min-height:44px !important}
+  main input,main select,main textarea{font-size:16px !important}
+  input[type=checkbox],input[type=radio]{width:22px;height:22px}
+  label:has(> input[type=checkbox]),label:has(> input[type=radio]){min-height:44px}
+}
+
+/* Long words, e-mail addresses and file names wrap instead of widening the page. */
+.card,.chip,li,p,h1,h2,h3{overflow-wrap:break-word}
+table{max-width:100%}
+
+/* Rows of buttons wrap on a phone. */
+.unit-actions,.rental-tools,.sec-head,.subnav-tools{flex-wrap:wrap}
+
+/* Modals and drawers fit the screen height and scroll inside. */
+[role=dialog],.modal,.rem-card{max-height:calc(100dvh - 24px);overflow-y:auto}
+
+/* Public website: a slide-in animation may not widen the page. */
+.js .reveal.from-left,.js .reveal.from-right{transform:translateY(34px)}
+.js .reveal.in{transform:none}
+.header .btn{min-height:44px}
+.menu a{min-height:44px;display:flex;align-items:center}
+.menu-button{width:44px;height:44px}
+
+/* ---------- Tablet (>= 700px) ---------- */
+@media (min-width:700px){
+  #toasts{left:auto;right:22px;max-width:min(380px,calc(100vw - 44px))}
+  .js .reveal.from-left{transform:translateX(-44px)}
+  .js .reveal.from-right{transform:translateX(44px)}
+  .js .reveal.in{transform:none}
+}
+
+/* ---------- Laptop (>= 901px): sidebar layout, no bottom menu ---------- */
+@media (min-width:901px){
+  .app{padding-bottom:18px}
+  #toasts{bottom:22px}
+}
+
+/* ---------- Respect the phone's reduced-motion setting ---------- */
+@media (prefers-reduced-motion:reduce){
+  .marquee-track{animation:none}
+}

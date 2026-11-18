@@ -1,11 +1,9 @@
 # ResidentHub: Facility Management System for City Residences Condominium (prototype)
 
-Website and mobile app prototype of the system. Front end only: no database, sample data.
+Responsive, mobile-first website prototype of the system. Front end only: no database, sample data.
 
 - Website (public site, resident portal, administrator dashboard): this folder (`index.html`, `resident.html`, `admin.html` ...)
-- Mobile app (Flutter): `app-src/`. GitHub Actions builds it and publishes it at `/app/` next to the website.
 
-The rest of this file is about the website. For the app, see `app-src/README.md`.
 
 ## Website prototype
 
@@ -34,7 +32,7 @@ then open http://localhost:5500 (with Node: `npx serve .`).
 | `index.html` | Public website (amenities, contact, Sign In) |
 | `resident.html` | Resident portal sign-in and dashboard |
 | `admin.html` | Administrator sign-in and dashboard |
-| `app.html` | Page about the mobile app |
+| `app.html` | Old app page, now redirects to `resident.html` |
 
 The Sign In button on the website opens the resident portal. Open `admin.html` for the administrator.
 
@@ -63,6 +61,6 @@ bottom-left with "Reset sample data" and "Open as Resident / Admin". Without `?t
 | `admin.html/.js/.css`, `admin-more.js` | Administrator dashboard |
 | `resident.html/.js/.css` | Resident dashboard |
 | `maintenance.js`, `export-all.js` | Maintenance pages and "Export all data" Excel workbook (prototype only) |
-| `index.html/.css/.js`, `app.html/.css`, `app-links.js` | Public website and app page |
+| `index.html/.css/.js` | Public website |
 
 The official website with the Supabase database is a separate project (`ResidentHub-Official-Web.zip`).

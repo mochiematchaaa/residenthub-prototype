@@ -5,7 +5,7 @@
    Finance. For each one the administrator answers:
      Yes → the charge is marked paid and a receipt is issued. If the resident paid less, the amount actually paid is
            entered; the rest stays as a new "(balance)" charge.
-     No  → optionally add a late charge, tell the resident in the app, or call / text them.
+     No  → optionally add a late charge, tell the resident in ResidentHub, or call / text them.
    Loaded by admin.html after admin-more.js.
    ========================================================================== */
 
@@ -117,7 +117,7 @@ function payCheckNo(id) {
     fields: [
       { name: "late", label: "Add a late charge?", type: "select", options: ["Yes, add a late charge", "No late charge"], value: cur.lateFeeId ? "No late charge" : "Yes, add a late charge" },
       { name: "pct", label: "Late charge (% of this charge)", type: "number", step: "0.1", value: String(cfg.pct) },
-      { name: "notify", label: "Tell the resident in the app?", type: "select", options: ["Yes, send a reminder", "No"], value: "Yes, send a reminder" },
+      { name: "notify", label: "Tell the resident in ResidentHub?", type: "select", options: ["Yes, send a reminder", "No"], value: "Yes, send a reminder" },
       { name: "msg", label: "Message to the resident (you can edit it)", type: "textarea", value: "Our records show this charge is still unpaid. Please pay it, or if you already paid, send your payment details under Dues so your balance updates. Thank you!" }
     ],
     onSubmit: async function (d) {
