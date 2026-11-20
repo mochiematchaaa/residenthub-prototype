@@ -798,7 +798,7 @@
       var right = '<div class="mt-right"><h4>Coming up<button onclick="set({view:\'maint\'})">See schedule →</button></h4>' + (next || '<div class="mt-empty">No maintenance tasks yet. Add the first one.</div>') + "</div>";
       var card = '<div class="sc yellow mt">' + left + right + "</div>";
       // The dashboard grid has 5 columns and the four cards fill two rows, so this card takes a full row.
-      // inside the summary grid (before its closing tag), never inside the "Did they pay?" card that follows it
+      // inside the summary grid (before its closing tag), never inside the Payment check card that follows it
       return h.indexOf("<!--sc-end-->") >= 0 ? h.replace("<!--sc-end-->", card + "<!--sc-end-->") : h.replace('</div><div class="pills-row">', card + '</div><div class="pills-row">');
     };
   }

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   pay-check.js — "Did they pay?" for the administrator.
+   pay-check.js — "Payment check" for the administrator.
    A charge whose due date has come (or passed) with no payment recorded and nothing sent by the resident may well
    have been paid already, only the resident did not tell the system. These are listed on the dashboard and under
    Finance. For each one the administrator answers:
@@ -9,7 +9,7 @@
    Loaded by admin.html after admin-more.js.
    ========================================================================== */
 
-var PC_PAGE = 8;           // charges shown on one page of "Did they pay?"
+var PC_PAGE = 8;           // charges shown on one page of the Payment check
 function goPcPage(n) { state.pcPage = Math.max(0, n); render(); }
 var PC_RECHECK_DAYS = 7;   // after a "No", the same charge is not asked about again for this many days
 function pcDayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
@@ -56,11 +56,11 @@ function payCheckPanel(limit) {
   var rows = shown.map(function (x) {
     var d = x.r.v, id = escAttr(x.r.id), ph = unitPhone(d.unit), digits = ph.replace(/[^\d+]/g, ""), tone = x.days >= 3 ? "bad" : "warn";
     return '<div class="pc-item"><span class="pc-unit">' + esc(String(d.unit).replace(/^Unit\s*/i, "")) + '</span><div class="pc-main"><b>' + esc(d.unit) + (d.name ? " · " + esc(d.name) : "") + "</b><small>" + esc(d.note) + " · due " + esc(d.dueDate) + '</small><span class="pc-tags"><span class="chip ' + tone + '">' + pcWhen(x.days) + "</span>" + (d.remindedOn ? '<span class="chip">Reminded ' + esc(d.remindedOn) + "</span>" : "") + "</span></div>" +
-      '<div class="pc-amt">' + peso(Number(d.amount)) + "<small>Did they pay?</small></div>" +
+      '<div class="pc-amt">' + peso(Number(d.amount)) + "<small>Not confirmed</small></div>" +
       '<div class="pc-act"><button class="btn primary" onclick="payCheckYes(\'' + id + '\')">Yes, paid</button><button class="btn" onclick="payCheckNo(\'' + id + '\')">No</button>' +
       "</div></div>";
   }).join("");
-  return '<div class="card pc"><div class="pc-head"><div><h2>Did they pay?</h2><p class="hint" style="margin:4px 0 0"><b>' + l.length + " charge" + (l.length === 1 ? "" : "s") + "</b> from <b>" + nu + " unit" + (nu === 1 ? "" : "s") + "</b> (" + peso(total) + ") " + (l.length === 1 ? "is" : "are") + " due or past due with no payment on record. They may have paid without updating the app. Residents who send their payment details are handled by themselves, so only these are left.</p></div>" +
+  return '<div class="card pc"><div class="pc-head"><div><h2>Payment check</h2><p class="hint" style="margin:4px 0 0"><b>' + l.length + " charge" + (l.length === 1 ? "" : "s") + "</b> from <b>" + nu + " unit" + (nu === 1 ? "" : "s") + "</b> (" + peso(total) + ") " + (l.length === 1 ? "is" : "are") + " due or past due with no payment on record. They may have paid without updating the app. Residents who send their payment details are handled by themselves, so only these are left.</p></div>" +
     '<button class="btn" onclick="payCheckAskAll()">Ask everyone to send proof</button></div>' + pager + '<div class="pc-list">' + rows + "</div>" + (limit ? "" : state._pcEnd || "") +
     (limit && l.length > limit ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="set({pcAll:' + !state.pcAll + '})">' + (state.pcAll ? "Show fewer" : "Show all " + l.length) + '</button><button class="btn" onclick="set({view:\'fin\',finTab:\'paycheck\',pcPage:0})">Open in Finance</button></div>' : "") + "</div>";
 }

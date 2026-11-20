@@ -31,7 +31,9 @@ function viewFin() {
   var fq = (state.finQ || "").trim().toLowerCase();
   var paidDues = dues.filter(function (d) { return d.v.paid; });
   var paidInfo = paidThrough(dues, pays);
-  var shownDues = (state.finFilter === "unpaid" ? open : state.finFilter === "paid" ? paidDues : dues).filter(function (d) { return !fq || (d.v.unit + " " + d.v.note + " " + (d.v.name || "")).toLowerCase().indexOf(fq) >= 0; });
+  var kindOf = function (d) { var n = d.v.note || ""; return /^Late charge/.test(n) ? "late" : /^Association dues/.test(n) ? "dues" : /^Parking/.test(n) ? "parking" : "other"; };
+  var finKind = state.finKind || "all";
+  var shownDues = (state.finFilter === "unpaid" ? open : state.finFilter === "paid" ? paidDues : dues).filter(function (d) { return (finKind === "all" || kindOf(d) === finKind) && (!fq || (d.v.unit + " " + d.v.note + " " + (d.v.name || "")).toLowerCase().indexOf(fq) >= 0); });
   var finPages = Math.max(1, Math.ceil(shownDues.length / FIN_PAGE)), finPage = Math.min(Math.max(0, state.finPage || 0), finPages - 1);
   var rows = shownDues.slice(finPage * FIN_PAGE, (finPage + 1) * FIN_PAGE);
   var year = new Date().getFullYear();
@@ -77,7 +79,8 @@ function viewFin() {
   var logHtml = dayLogCard(dues);
   var chargesHtml = '<div class="card fin-charges" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
     '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "paid" ? "active" : "") + '" onclick="set({finFilter:\'paid\',finPage:0})">Paid (' + paidDues.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
-    '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search"></div>' + lateWarnHtml(open) +
+    '<input type="search" id="finSearchInput" value="' + escAttr(state.finQ || "") + '" oninput="set({finQ:this.value,finPage:0})" placeholder="Search unit or description..." autocomplete="off" class="fin-search">' +
+    '<select class="fin-kind" aria-label="Type of charge" onchange="set({finKind:this.value,finPage:0})">' + [["all", "All types"], ["dues", "Monthly dues"], ["parking", "Parking"], ["late", "Late charges"], ["other", "Other"]].map(function (k) { return '<option value="' + k[0] + '"' + (finKind === k[0] ? " selected" : "") + ">" + k[1] + "</option>"; }).join("") + '</select></div>' + lateWarnHtml(open) +
     tableRows(rows.map(function (r) {
       var d = r.v, od = !d.paid && isOverdue(d);
       var late = d.paid ? null : daysLate(d), chip = d.paid ? '<span class="chip good">Paid</span>' : od ? '<span class="chip bad">⚠ Overdue by ' + late + " day" + (late === 1 ? "" : "s") + "</span>" : late === 0 ? '<span class="chip warn">⚠ Due today</span>' : '<span class="chip warn">Unpaid</span>';
@@ -127,7 +130,7 @@ function viewFin() {
   if (!sec) { sec = SEC[0]; tab = "overview"; }
   var todo = proofs.length + pcCount;
   var secHome = function (x) { return x[0] === "collect" ? (proofs.length ? "verify" : pcCount ? "paycheck" : "pay") : x[2][0]; };
-  var tabLabels = { overview: "Overview", verify: "To verify" + (proofs.length ? " (" + proofs.length + ")" : ""), paycheck: "Did they pay?" + (pcCount ? " (" + pcCount + ")" : ""), pay: "Record payment", charges: "Charges (" + open.length + " unpaid)", units: "Unit dues", payments: "Payments & receipts", daily: "Daily log", settings: "Dues & late charge", parking: "Parking rates", paymethods: "Payment options", import: "Import" };
+  var tabLabels = { overview: "Overview", verify: "To verify" + (proofs.length ? " (" + proofs.length + ")" : ""), paycheck: "Payment check" + (pcCount ? " (" + pcCount + ")" : ""), pay: "Record payment", charges: "Charges (" + open.length + " unpaid)", units: "Unit dues", payments: "Payments & receipts", daily: "Daily log", settings: "Dues & late charge", parking: "Parking rates", paymethods: "Payment options", import: "Import" };
   var tools = sec[0] === "overview" ? '<button class="btn" onclick="set({finTab:\'pay\'})">Record payment</button><button class="btn primary" onclick="billDues()">Bill monthly dues</button>'
     : sec[0] === "billing" ? '<button class="btn primary" onclick="billDues()">Bill monthly dues</button><button class="btn" onclick="remindAll()">Send reminders</button><button class="btn" onclick="chargeForm()">Add charge</button>'
     : sec[0] === "records" ? '<button class="btn" onclick="exportPayments()">Export payments (.csv)</button><button class="btn" onclick="exportDues()">Export dues (.csv)</button>' : "";
@@ -146,7 +149,7 @@ function viewFin() {
   var plural = function (n, w) { return n + " " + w + (n === 1 ? "" : "s"); };
   var attn = [];
   if (proofs.length) attn.push(fxCard("warn", plural(proofs.length, "payment") + " to verify", "Residents sent their payment details. Check the reference and photo, then post.", '<button class="btn primary" onclick="set({finTab:\'verify\'})">Verify now</button>'));
-  if (pcCount) attn.push(fxCard("warn", plural(pcCount, "charge") + " to check", "Due or past due with no payment on record. Ask: did they pay?", '<button class="btn primary" onclick="set({finTab:\'paycheck\',pcPage:0})">Check them</button>'));
+  if (pcCount) attn.push(fxCard("warn", plural(pcCount, "charge") + " to check", "Due or past due with no payment on record. Confirm with the resident whether they paid.", '<button class="btn primary" onclick="set({finTab:\'paycheck\',pcPage:0})">Check them</button>'));
   if (overdueList.length) attn.push(fxCard("bad", plural(overdueList.length, "overdue charge") + " · " + peso(overdueSum), overdueList.filter(function (d) { return !remindedRecently(d.v, 24); }).length + " not reminded in the last 24 hours.", '<button class="btn" onclick="set({finTab:\'charges\',finFilter:\'unpaid\',finPage:0})">View them</button><button class="btn primary" onclick="remindAll()">Send reminders</button>'));
   if (!attn.length) attn.push(fxCard("good", "All caught up", "Nothing is waiting to be verified, and no charge is overdue.", ""));
   var attnHtml = '<div class="fx-group"><div class="fx-head"><h2>Needs your attention</h2></div>' + attn.join("") + "</div>";
@@ -172,9 +175,9 @@ function viewFin() {
 
   var body = tab === "overview" ? tiles + flowHtml + '<div style="margin-top:16px">' + attnHtml + '</div><div class="fin-two">' + ageHtml + summaryHtml + "</div>"
     : tab === "verify" ? verifyHtml
-    : tab === "paycheck" ? (pcCount ? payCheckPanel(0) : '<div class="card"><h2>Did they pay?</h2><p class="hint" style="margin:6px 0 0">Nothing to check right now. Every charge that is due has a payment, or the resident has already sent their details.</p></div>')
+    : tab === "paycheck" ? (pcCount ? payCheckPanel(0) : '<div class="card"><h2>Payment check</h2><p class="hint" style="margin:6px 0 0">Nothing to check right now. Every charge that is due has a payment, or the resident has already sent their details.</p></div>')
     : tab === "pay" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + deskHtml + '</div><aside class="fin-side">' + receiptsHtml + "</aside></div>"
-    : tab === "charges" ? chargeTypesCard(dues) + chargesHtml
+    : tab === "charges" ? chargesHtml + chargeTypesCard(dues)
     : tab === "units" ? unitsHtml
     : tab === "payments" ? finPaymentsHtml(pays)
     : tab === "daily" ? '<div class="fin-grid" style="margin-top:0"><div class="fin-main">' + logHtml + '</div><aside class="fin-side">' + dailyExpHtml + "</aside></div>"
@@ -188,15 +191,21 @@ function goPayPage(n) { state.payPage = Math.max(0, n); render(); }
 // Records > Payments & receipts: every verified payment with its provisional receipt, searchable and in pages.
 function finPaymentsHtml(pays) {
   var q = (state.payQ || "").trim().toLowerCase(), SIZE = 10, proofs = list("proof");
-  var all = pays.filter(function (r) { var p = r.v; return !q || [p.receiptNo, p.unit, p.payer, p.forText, p.method, p.reference].join(" ").toLowerCase().indexOf(q) >= 0; });
+  var pm = state.payMethodF || "all", pmo = state.payMonthF || "all";
+  var methodsUsed = [], monthsUsed = [];
+  pays.forEach(function (r) { var m = r.v.method || "Other"; if (methodsUsed.indexOf(m) < 0) methodsUsed.push(m); var k = monthOf(r.v.date); if (k != null && !isNaN(k) && monthsUsed.indexOf(k) < 0) monthsUsed.push(k); });
+  monthsUsed.sort(function (a, b) { return b - a; });
+  var all = pays.filter(function (r) { var p = r.v; return (pm === "all" || (p.method || "Other") === pm) && (pmo === "all" || String(monthOf(p.date)) === pmo) && (!q || [p.receiptNo, p.unit, p.payer, p.forText, p.method, p.reference].join(" ").toLowerCase().indexOf(q) >= 0); });
   var pages = Math.max(1, Math.ceil(all.length / SIZE)), pg = Math.min(Math.max(0, state.payPage || 0), pages - 1), rows = all.slice(pg * SIZE, (pg + 1) * SIZE);
   var total = all.reduce(function (s, r) { return s + Number(r.v.amount || 0); }, 0);
-  return '<div class="card" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px"><input type="search" id="payLogSearch" value="' + escAttr(state.payQ || "") + '" oninput="set({payQ:this.value,payPage:0})" placeholder="Search receipt no., unit, name or reference..." autocomplete="off" class="fin-search" style="flex:1 1 260px;max-width:440px"><span class="hint" style="margin:0 0 0 auto">' + all.length + " payment" + (all.length === 1 ? "" : "s") + " · " + peso(total) + "</span></div>" +
+  return '<div class="card" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px"><input type="search" id="payLogSearch" value="' + escAttr(state.payQ || "") + '" oninput="set({payQ:this.value,payPage:0})" placeholder="Search receipt no., unit, name or reference..." autocomplete="off" class="fin-search" style="flex:1 1 260px;max-width:440px">' +
+    '<select class="fin-kind" aria-label="Paid through" onchange="set({payMethodF:this.value,payPage:0})"><option value="all">All payment methods</option>' + methodsUsed.map(function (m) { return '<option value="' + escAttr(m) + '"' + (pm === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + "</select>" +
+    '<select class="fin-kind" aria-label="Month" onchange="set({payMonthF:this.value,payPage:0})"><option value="all">All months</option>' + monthsUsed.map(function (k) { return '<option value="' + k + '"' + (pmo === String(k) ? " selected" : "") + ">" + LONG_MONTHS[k % 12] + " " + Math.floor(k / 12) + "</option>"; }).join("") + '</select><span class="hint" style="margin:0 0 0 auto">' + all.length + " payment" + (all.length === 1 ? "" : "s") + " · " + peso(total) + "</span></div>" +
     tableRows(rows.map(function (r) {
       var p = r.v, pr = proofs.filter(function (x) { return x.v.receiptNo === p.receiptNo && x.v.image; })[0];
       return '<tr><td class="nw"><b>' + esc(p.receiptNo || "—") + '</b><div class="cell-sub">' + esc(p.date || "") + '</div></td><td class="nw" style="font-weight:700">' + esc(p.unit) + (p.payer ? '<div class="cell-sub" style="font-weight:400">' + esc(p.payer) + "</div>" : "") + "</td><td>" + esc(p.forText || "") + "</td><td>" + paidCell(p, true) + '</td><td class="nw"><b>' + peso(Number(p.amount || 0)) + '</b></td><td><div class="row-actions">' +
         (pr ? '<button class="btn" onclick="viewProofImage(\'' + escAttr(pr.id) + '\')">Photo</button>' : "") + '<button class="btn" onclick="receiptFor(\'payment\',\'' + escAttr(r.id) + '\')">Provisional receipt</button></div></td></tr>';
-    }), ["PROVISIONAL RECEIPT", "UNIT", "PAID FOR", "PAID THROUGH", "AMOUNT", "ACTIONS"], pays.length ? "No payment matches your search." : "No payments recorded yet. A payment appears here after you verify it.") +
+    }), ["PROVISIONAL RECEIPT", "UNIT", "PAID FOR", "PAID THROUGH", "AMOUNT", "ACTIONS"], pays.length ? "No payment matches your search or filters." : "No payments recorded yet. A payment appears here after you verify it.") +
     (all.length > SIZE ? pagerHtml(all.length, pg, SIZE, "goPayPage") : "") + "</div>";
 }
 // "Unit dues and payments": every unit's floor area, monthly dues (area x rate), billed, paid and balance, all computed from the records.
@@ -416,8 +425,8 @@ function chargeTypesCard(dues) {
     return '<tr><td><b>' + esc(x.note) + '</b></td><td class="nw">' + Object.keys(x.units).length + '</td><td class="nw"><span class="chip warn">' + x.unpaid + ' unpaid</span>' + (x.paid ? ' <span class="chip good">' + x.paid + ' paid</span>' : "") + '</td><td class="nw">' + range(x.amts, function (k) { return peso(Number(k)); }) + '</td><td class="nw">' + range(x.dues, esc) + '</td><td><div class="row-actions">' +
       (x.unpaid > 1 || !lateKind ? '<button class="btn primary" data-n="' + escAttr(x.note) + '" onclick="editChargeAll(this.dataset.n)">Edit all</button>' : "") + '<button class="btn danger" data-n="' + escAttr(x.note) + '" onclick="removeChargeAll(this.dataset.n)">Remove unpaid</button></div></td></tr>';
   }).join("");
-  return '<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div style="padding:16px 18px 6px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">All charges, edit as a whole</h2><button class="btn primary" onclick="chargeForm()">+ New kind of charge</button></div><p class="hint" style="margin:4px 0 0">One line for each kind of charge. <b>Edit all</b> changes the description, amount or due date for every unit\'s unpaid charge of that kind at once. Paid charges are never touched. To change just one unit, use Edit on its row below.</p></div>' +
-    '<table><thead><tr><th>CHARGE</th><th>UNITS</th><th>STATUS</th><th>AMOUNT</th><th>DUE</th><th>ACTIONS</th></tr></thead><tbody>' + body + "</tbody></table></div>";
+  return '<details class="card fin-bulk" style="padding:0;overflow:hidden;margin-top:16px"><summary style="padding:16px 18px;cursor:pointer;font-weight:700;font-size:15px">Change a kind of charge for every unit <span class="chip">' + rows.length + '</span></summary><div style="padding:0 0 0"><div style="padding:0 18px 6px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">All charges, edit as a whole</h2><button class="btn primary" onclick="chargeForm()">+ New kind of charge</button></div><p class="hint" style="margin:4px 0 0">One line for each kind of charge. <b>Edit all</b> changes the description, amount or due date for every unit\'s unpaid charge of that kind at once. Paid charges are never touched. To change just one unit, use Edit on its row in the list above.</p></div>' +
+    '<table><thead><tr><th>CHARGE</th><th>UNITS</th><th>STATUS</th><th>AMOUNT</th><th>DUE</th><th>ACTIONS</th></tr></thead><tbody>' + body + "</tbody></table></div></details>";
 }
 function editChargeAll(note) {
   var r = list("due").filter(function (x) { return !x.v.paid && x.v.note === note; })[0];
@@ -1913,7 +1922,7 @@ function bellItems() {
   if (c.bookings) l.push({ t: c.bookings + " booking request" + (c.bookings > 1 ? "s" : "") + " to review", s: "Facility", v: "fac" });
   if (c.proofs) l.push({ t: c.proofs + " payment" + (c.proofs > 1 ? "s" : "") + " to verify", s: "Finance", v: "fin" });
   var pcn = typeof payCheckList === "function" ? payCheckList().length : 0;
-  if (pcn) l.push({ t: pcn + " charge" + (pcn > 1 ? "s" : "") + " to check: did they pay?", s: "Finance", v: "fin" });
+  if (pcn) l.push({ t: pcn + " charge" + (pcn > 1 ? "s" : "") + " to check: payment not confirmed", s: "Finance", v: "fin" });
   if (c.unpaid) l.push({ t: c.unpaid + " unpaid charge" + (c.unpaid > 1 ? "s" : ""), s: "Finance", v: "fin" });
   if (c.grievances) l.push({ t: c.grievances + " open complaint" + (c.grievances > 1 ? "s" : ""), s: "Complaints", v: "req" });
   if (c.rentals) l.push({ t: c.rentals + " unit status to review", s: "Unit status", v: "rentals" });
