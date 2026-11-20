@@ -772,3 +772,22 @@ button[onclick^="removeDirItem"],button[onclick*="remove"]{min-width:88px;flex:n
 .pay-photo{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .pay-photo img{width:84px;height:84px;object-fit:cover;border-radius:14px;border:1px solid var(--border)}
 .pay-photo div{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Finance: two-level navigation, "how a payment moves" and the age of unpaid charges */
+.fin-sub{margin:-6px 0 16px}
+.fin-flow h2{font-size:18px;margin:0}
+.fin-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fin-step{position:relative;display:flex;flex-direction:column;gap:3px;text-align:left;padding:14px 16px;border-radius:18px;border:0;background:var(--beige);color:var(--ink);font:inherit}
+button.fin-step{cursor:pointer;transition:transform .15s,box-shadow .15s}
+button.fin-step:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(40,30,90,.12)}
+.fin-step i{font-style:normal;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff;font-size:13px;font-weight:700;margin-bottom:4px}
+.fin-step b{font-size:14.5px}.fin-step small{color:var(--muted);font-size:12.5px;line-height:1.35}
+.fin-step:not(:last-child)::after{content:"\203A";position:absolute;right:-11px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--muted);z-index:1}
+.fin-age-row{display:grid;grid-template-columns:128px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:8px 0;font-size:13.5px}
+.fin-age-row small{color:var(--muted);min-width:64px;text-align:right}
+.fin-age-bar{height:10px;border-radius:99px;background:rgba(120,110,190,.14);overflow:hidden}.fin-age-bar i{display:block;height:100%;border-radius:99px;min-width:3px}
+@media(max-width:900px){.fin-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-step:nth-child(2)::after{display:none}}
+@media(max-width:560px){.fin-steps{grid-template-columns:1fr}.fin-step::after{display:none}.fin-age-row{grid-template-columns:minmax(0,1fr) auto;row-gap:4px}.fin-age-row .fin-age-bar{grid-column:1/-1;order:3}.fin-age-row small{text-align:left}}
+.fin-two{display:grid;gap:16px;margin-top:4px;align-items:start;grid-template-columns:minmax(0,1fr)}.fin-two>*{min-width:0}
+@media(min-width:1100px){.fin-two{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}}
+@media(max-width:560px){.fin-nav .seg button{padding:0 11px;gap:6px}.fin-nav .seg.small button{padding:0 12px}}

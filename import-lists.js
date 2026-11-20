@@ -593,7 +593,6 @@
   var BAR = {
     units: [["units", "Import units"]],
     manage: [["accounts", "Import resident accounts"]],
-    fin: [["charges", "Import charges"], ["payments", "Import payments received"]],
     expenses: [["expenses", "Import expenses"]],
     rentals: [["usage", "Import unit status"]],
     parking: [["slots", "Import parking slots"]],
