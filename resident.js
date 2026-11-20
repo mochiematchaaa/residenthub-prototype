@@ -490,7 +490,7 @@ function viewDues() {
   var tabs = pageTabs([["todo", "To pay (" + todo.length + ")"], ["paid", "Paid (" + paid + ")"], ["all", "All (" + total + ")"]], tab, "duesTab");
   var list_ = shown.length ? shown.map(dueCardHtml).join("") : '<div class="dz-empty"><b>' + (tab === "paid" ? "Nothing paid yet" : tab === "todo" ? "Nothing to pay" : "No charges yet") + "</b><span>" + (tab === "todo" ? "You are all caught up. Enjoy your day!" : tab === "paid" ? "Paid charges and their provisional receipts show up here." : "Charges from the office show up here.") + "</span></div>";
   setTimeout(duesFx, 30);
-  return '<div class="dz-wrap">' + duesAlertHtml(items) + hero + trailHtml + '<div class="two-col dz-cols" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)"><div class="dz-left">' + tabs + '<div class="dz-list">' + list_ + "</div>" + myPaymentsHtml() + parkingLinkHtml() + "</div>" +
+  return '<div class="dz-wrap">' + duesAlertHtml(items) + hero + trailHtml + '<div class="two-col dz-cols" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)"><div class="dz-left">' + tabs + '<div class="dz-list">' + list_ + "</div>" + parkingLinkHtml() + myPaymentsHtml() + "</div>" +
     '<div class="dz-right">' + unitDuesHtml() + payFormHtml() + "</div></div></div>";
 }
 // The "what happens next" strip in the hero: pay, send the proof, the office checks it, the receipt appears.
@@ -682,12 +682,13 @@ function payAgain(id) {
 }
 // Parking slots in natural order.
 function slotsSorted() { return list("slot").sort(function (a, b) { return naturalCompare(a.id, b.id); }); }
-// The parking summary card shown on the dues page.
+// A parking payment that is still waiting, shown on the dues page right under the charges. Nothing else about parking belongs here (it has its own page).
 function parkingLinkHtml() {
   var mine = slotsSorted().filter(function (s) { return s.v.unit === myUnit(); })[0], rq = getRow("request", myUnit());
   var pick = rq && rq.value.slot, proof = pick ? parkProof(myUnit(), pick) : null;
+  if (!(pick && !proof && rq.value.amount)) return "";
   var text = mine ? "Your slot is <b>" + esc(mine.id) + "</b> · " + esc(parkRentalLine(mine.v) || "Monthly") + (parkExpired(mine.v) ? " (ended)" : "") + "." : pick ? "Slot <b>" + esc(pick) + "</b> is reserved for you. " + (proof ? "Payment " + (proof.v.status === "Confirmed" ? "confirmed" : "sent, waiting for the office") + "." : "<b>" + peso(Number(rq.value.amount || 0)) + "</b> is waiting to be paid.") : rq ? "Your request is waiting for the office." : "Rent a parking slot for your unit.";
-  return '<div class="card"><h2 style="font-size:17px;margin-bottom:4px">Parking rental</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">' + text + '</p>' +
+  return '<div class="card"><h2 style="font-size:17px;margin-bottom:4px">Parking payment waiting</h2><p style="margin:0 0 10px;font-size:13px;color:var(--muted)">' + text + '</p>' +
     (pick && !proof && rq.value.amount ? '<button class="btn primary" style="margin-right:8px" onclick="payForParking()">Pay now</button>' : "") + '<button class="btn" onclick="set({view:\'parking\'})">Open Parking</button></div>';
 }
 // PAGE: Parking.
