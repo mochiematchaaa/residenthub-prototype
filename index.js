@@ -156,7 +156,7 @@ function highlight(id) {
 }
 highlight("home");
 // The section being viewed is the last one whose top has passed 45% of the window; at the very bottom of the page it is Contact.
-var spyIds = ["home", "amenities", "about", "app", "contact"];
+var spyIds = ["home", "amenities", "app", "contact"];
 function updateHighlight() {
   var line = window.innerHeight * 0.45, current = "home";
   spyIds.forEach(function (id) {

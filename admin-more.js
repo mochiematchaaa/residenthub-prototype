@@ -1769,17 +1769,61 @@ function exportAccounts() {
    Settings and profile
    ========================================================================== */
 function directory() { var d = setting("directory"); return { contacts: d.contacts || [], rules: d.rules || [] }; }
-// PAGE: Settings (contacts, rules, payment methods, password).
-// PAGE: Settings, in three sections: General, Access (who can sign in) and Payments (payment options).
-function viewSettings() {
-  var tab = state.setTab || "general";
-  var tabs = [["general", tr("General")], ["account", L("Account & security", "Account at security")], ["access", "Access"], ["payments", "Payments"], ["reminders", "Reminders"]];
-  var bar = '<div class="filters" role="tablist" style="margin-bottom:16px">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (t[0] === tab) + '" class="' + (t[0] === tab ? "active" : "") + '" onclick="set({setTab:\'' + t[0] + '\'})">' + t[1] + "</button>"; }).join("") + "</div>";
-  return bar + (tab === "access" ? viewManage() : tab === "payments" ? paymentSettings() : tab === "reminders" ? remSettingsHtml() : tab === "account" ? acctView() : viewSettingsGeneral());
+// PAGE: Settings, in six sections (same sub-tabs as Finance, Reports and Maintenance):
+// Overview, Building (directory and house rules), Residents (complaint limit and resident menu),
+// Payments (payment options, rates and reminders), Access (who can sign in) and My account.
+var SET_TABS = ["overview", "building", "residents", "payments", "access", "account"];
+// Old links used "general" (now Building and Residents) and "reminders" (now inside Payments).
+function setTabId() {
+  var t = state.setTab;
+  if (t === "general" || !t) return "overview";
+  if (t === "reminders") return "payments";
+  return SET_TABS.indexOf(t) >= 0 ? t : "overview";
 }
-// Settings > Payments: where residents can pay.
+function viewSettings() {
+  var tab = setTabId();
+  var items = [["overview", "Overview"], ["building", "Building"], ["residents", "Residents"], ["payments", "Payments"], ["access", "Access", DB.accounts.length], ["account", L("My account", "Aking account")]];
+  var body = tab === "building" ? setBuilding() : tab === "residents" ? setResidents() : tab === "payments" ? paymentSettings() : tab === "access" ? viewManage() : tab === "account" ? acctView() : setOverview();
+  return subNav(items, tab, "setTab") + body;
+}
+function setCard(title, hint, inner) { return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>' + title + "</h2>" + (hint ? '<p class="hint" style="margin:0">' + hint + "</p>" : "") + inner + "</div>"; }
+// Settings > Overview: what is set now, what needs attention, and a way into each section.
+function setOverview() {
+  var d = directory(), hid = resNavHidden(), pm = payMethods().filter(function (m) { return m.enabled; }), rem = remCfg();
+  var remOff = Object.keys(rem).filter(function (k) { return rem[k].on === "no"; }).length, remAll = Object.keys(rem).length;
+  var susp = DB.accounts.filter(function (a) { return a.suspended; }).length;
+  var rate = setting("dues_rate_sqm").rate, lim = grLimit();
+  var go = function (t) { return "set({setTab:'" + t + "'})"; };
+  var tiles = '<div class="stat-row">' +
+    statBtn(rate ? peso(rate) : "Not set", "Dues per sqm", rate ? "" : "warn", false, "set({view:'fin',finTab:'settings'})") +
+    statBtn(lim, "Open complaints per unit", lim > 3 ? "warn" : "", false, go("residents")) +
+    statBtn((RES_NAV.length - hid.length) + " of " + RES_NAV.length, "Resident pages shown", "", false, go("residents")) +
+    statBtn(pm.length, "Payment options on", pm.length ? "good" : "warn", false, go("payments")) + "</div>";
+  var cards = [];
+  if (!rate) cards.push(repCard("warn", "fin", "Monthly dues rate is not set", "Set the rate per square meter so “Bill monthly dues” can work out each unit's amount.", '<button class="btn primary" onclick="set({view:\'fin\',finTab:\'settings\'})">Set the rate</button>'));
+  if (!pm.length) cards.push(repCard("bad", "fin", "No payment option is switched on", "Residents cannot choose how they paid. Switch on at least one (cash at the office, bank, GCash or Maya).", '<button class="btn primary" onclick="' + go("payments") + '">Open Payments</button>'));
+  if (remOff) cards.push(repCard("warn", "settings", remOff + (remOff === 1 ? " reminder is" : " reminders are") + " switched off", "Residents are not reminded before those charges are due.", '<button class="btn" onclick="' + go("payments") + '">Open Reminders</button>'));
+  if (hid.length) cards.push(repCard("warn", "settings", hid.length + (hid.length === 1 ? " page is" : " pages are") + " hidden from residents", "Residents do not see them in their menu until you switch them on again.", '<button class="btn" onclick="' + go("residents") + '">Resident menu</button>'));
+  if (lim > 3) cards.push(repCard("warn", "req", "Complaint limit is high (" + lim + " per unit)", "A high limit lets one unit fill the list with spam and hide the real problems.", '<button class="btn" onclick="' + go("residents") + '">Change limit</button>'));
+  if (susp) cards.push(repCard("warn", "units", susp + (susp === 1 ? " account is" : " accounts are") + " suspended", "These people cannot sign in.", '<button class="btn" onclick="' + go("access") + '">Open Access</button>'));
+  if (!cards.length) cards.push(repCard("good", "settings", "Everything is set up", "Rates, payment options, reminders and the resident menu are all in place.", ""));
+  var areas = '<div class="card"><h2>Settings</h2><p class="hint" style="margin:4px 0 8px">Pick an area to change.</p>' +
+    repRow("Building", d.contacts.length + " contacts · " + d.rules.length + " house rules", go("building")) +
+    repRow("Residents", "Complaint limit " + lim + " · " + (RES_NAV.length - hid.length) + " pages shown", go("residents")) +
+    repRow("Payments and reminders", pm.length + " payment option" + (pm.length === 1 ? "" : "s") + " · " + (remAll - remOff) + " of " + remAll + " reminders on", go("payments")) +
+    repRow("Access", DB.accounts.length + " accounts", go("access")) +
+    repRow("My account", "Profile, password, devices, language", go("account")) + "</div>";
+  var quick = setCard("Quick actions", "", '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn" onclick="changePasswordForm()">Change password</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div>');
+  return tiles + '<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0">' + cards.join("") + '</div><div class="fin-two">' + areas + quick + "</div>";
+}
+// Settings > Payments: payment options, the rates they pay, and the reminders residents get.
 function paymentSettings() {
-  return '<div class="two-col-e"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Payment options</h2><p class="hint" style="margin:0">Where residents can pay (cash at the office, bank, GCash, Maya). They see these when they send their payment details. Every payment a resident sends is checked and verified by you before the provisional receipt is issued.</p><div><button class="btn" onclick="payMethodsForm()">Edit payment options</button></div></div></div>';
+  var pm = payMethods(), rate = setting("dues_rate_sqm").rate, park = setting("motor_rate").rate;
+  var opts = pm.map(function (m) { return '<div class="am-row"><div><b>' + esc(m.name) + "</b><small>" + esc(m.details || "") + '</small></div><span class="chip ' + (m.enabled ? "good" : "") + '">' + (m.enabled ? "On" : "Off") + "</span></div>"; }).join("");
+  return '<div class="fin-two">' +
+    setCard("Payment options", "Where residents can pay. They pick one when they send their payment details. You check and verify every payment before the provisional receipt is issued.", '<div>' + opts + '</div><div><button class="btn primary" onclick="payMethodsForm()">Edit payment options</button></div>') +
+    setCard("Dues and parking rates", "Monthly dues: <b>" + (rate ? peso(rate) + " per sqm" : "not set") + "</b> · Parking rental: <b>" + (park ? peso(park) : "see Parking rates") + "</b>. Rates and the late charge are changed in Finance.", '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\',finTab:\'settings\'})">Dues and late charge</button><button class="btn" onclick="set({view:\'fin\',finTab:\'parking\'})">Parking rates</button></div>') +
+    '</div><h2 style="margin:22px 0 4px;font-size:20px">Reminders</h2><p class="hint" style="margin:0 0 12px">What residents are told before a charge is due.</p>' + remSettingsHtml();
 }
 // Settings > General: how many open complaints one unit may have at once. Changing it asks first, because a high number invites spam.
 function grLimitCardHtml() {
@@ -1817,16 +1861,16 @@ function saveResNav() {
     toast("Saved. Residents see the new menu straight away.");
   });
 }
-function viewSettingsGeneral() {
+function setBuilding() {
   var d = directory();
-  return '<div class="two-col-e"><div style="display:flex;flex-direction:column;gap:16px">' +
-    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Billing</h2><p class="hint" style="margin:0">Monthly dues: <b>' + (setting("dues_rate_sqm").rate ? peso(setting("dues_rate_sqm").rate) + " per sqm" : "not set") + "</b> · Parking rental: <b>" + (setting("motor_rate").rate ? peso(setting("motor_rate").rate) : "not set") + '</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\'})">Open Finance</button><button class="btn" onclick="payMethodsForm()">Payment options</button></div></div>' +
-    grLimitCardHtml() + resNavCardHtml() + '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Your preferences</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn primary" onclick="set({setTab:\'account\',acctTab:\'overview\'})">Account &amp; security</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div></div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:16px"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
+  return '<div class="fin-two">' +
+    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
     (d.contacts.map(function (c, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(c.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(c.note || "") + " · " + esc(c.tel || "") + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'contacts\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No contacts yet.</p>') + "</div>" +
-    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>House rules</h2><button class="btn primary" onclick="ruleForm()">+ Add</button></div>' +
-    (d.rules.map(function (r, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(r[0]) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(r[1]) + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'rules\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No rules yet.</p>') + "</div></div></div>";
+    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>House rules</h2><button class="btn primary" onclick="ruleForm()">+ Add</button></div><p class="hint">Residents see these under Directory.</p>' +
+    (d.rules.map(function (r, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(r[0]) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(r[1]) + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'rules\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No rules yet.</p>') + "</div></div>";
 }
+// Settings > Residents: what residents can do and see.
+function setResidents() { return '<div class="fin-two">' + grLimitCardHtml() + resNavCardHtml() + "</div>"; }
 // Saves the contacts and house rules.
 function saveDirectory(d) { return put("setting", "directory", "", { contacts: d.contacts, rules: d.rules }); }
 // Popup form to add an emergency contact.

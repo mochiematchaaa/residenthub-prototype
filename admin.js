@@ -63,7 +63,7 @@ function titles() {
     parking: ["Parking", "Parking slots, who has one, and requests waiting for approval."],
     log: ["Activity log", "A record of what the administrators did, newest first."],
     history: ["Resident profiles", "The record of every unit and resident: details, household, dues, payments, requests and history. Edit a record and the resident sees it on their dashboard."],
-    settings: ["Settings", "Billing defaults, account and security, access and payments."],
+    settings: ["Settings", "Set up the building: contacts and rules, what residents can use, payments and reminders, access and your account."],
     profile: ["My profile", "Your administrator account, recent activity and shortcuts."]
   }[state.view] || ["", ""];
 }

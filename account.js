@@ -142,7 +142,7 @@ function acctOverview() {
     acctCard("language", L("Language", "Language"), lang[1] + " · " + lang[2]) +
     acctCard("", L("Appearance", "Itsura"), state.darkMode ? L("Dark mode", "Dark mode") : L("Light mode", "Light mode"), '<button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? L("Switch to light", "Gawing light") : L("Switch to dark", "Gawing dark")) + "</button>");
   if (acctIsAdmin()) {
-    cards += acctCard("", L("Billing and directory", "Billing at directory"), L("Dues rate, contacts and house rules", "Dues rate, contacts, at house rules"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'general\'})">' + L("Open", "Buksan") + "</button>") +
+    cards += acctCard("", L("Billing and directory", "Billing at directory"), L("Dues rate, contacts and house rules", "Dues rate, contacts, at house rules"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'building\'})">' + L("Open", "Buksan") + "</button>") +
       acctCard("", L("Access", "Access"), L("Who can sign in, suspend or remove accounts", "Sino ang puwedeng mag-sign in, at pag-suspend o pag-alis ng accounts"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'access\'})">' + L("Open", "Buksan") + "</button>") +
       acctCard("", L("Payments", "Payments"), L("Payment options", "Mga payment option"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">' + L("Open", "Buksan") + "</button>");
   } else {

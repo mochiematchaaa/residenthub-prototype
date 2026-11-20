@@ -603,6 +603,7 @@
   var prev = window.view;
   window.view = function () {
     var html = prev(), b = BAR[state.view];
+    if (state.view === "settings" && typeof setTabId === "function" && setTabId() !== "building") b = null;
     if (!b) return html;
     return '<div class="card imp-bar"><span class="imp-bar-t"><b>Already have a list?</b> Import it from Excel or CSV instead of typing each row.</span>' +
       b.map(function (x) { return '<button class="btn" type="button" onclick="rhImport(\'' + x[0] + '\')">' + esc(x[1]) + "</button>"; }).join("") + "</div>" + html;
