@@ -131,8 +131,12 @@ function acctView() {
   var tab = state.acctTab || "overview";
   return acctTabs() + ({ overview: acctOverview, profile: acctProfile, password: acctPassword, devices: acctDevicesView, language: acctLanguage }[tab] || acctOverview)();
 }
+if (typeof NAV_ICONS !== "undefined") { NAV_ICONS.device = '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/>'; NAV_ICONS.globe = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'; }
+var ACCT_ICO = { profile: ["history", "p"], password: ["manage", "b"], devices: ["device", "t"], language: ["globe", "a"], appearance: ["moon", "p"], unit: ["units", "t"] };
 function acctCard(tab, title, status, extra) {
-  return '<div class="acct-card"><div><b>' + title + '</b><small>' + status + "</small></div>" + (extra || '<button class="btn" onclick="set({acctTab:\'' + tab + '\'})">' + L("Open", "Buksan") + "</button>") + "</div>";
+  var ic = ACCT_ICO[tab || (/Appearance|Itsura/.test(title) ? "appearance" : "unit")] || ["settings", "p"];
+  var ico = typeof stIco === "function" ? stIco(ic[0], ic[1]) : "";
+  return '<div class="acct-card">' + ico + '<div class="acct-card-t"><b>' + title + '</b><small>' + status + "</small></div>" + (extra || '<button class="btn" onclick="set({acctTab:\'' + tab + '\'})">' + L("Open", "Buksan") + "</button>") + "</div>";
 }
 function acctOverview() {
   var p = DB.profile || {}, devs = acctDevices(), pw = Number(acctGet("rh_pwchg_", "0")), lang = ACCT_LANGS.filter(function (l) { return l[0] === curLang(); })[0];
@@ -141,11 +145,7 @@ function acctOverview() {
     acctCard("devices", L("Devices", "Devices"), devs.length + (devs.length === 1 ? L(" device signed in", " device ang naka-sign in") : L(" devices signed in", " device ang naka-sign in"))) +
     acctCard("language", L("Language", "Language"), lang[1] + " · " + lang[2]) +
     acctCard("", L("Appearance", "Itsura"), state.darkMode ? L("Dark mode", "Dark mode") : L("Light mode", "Light mode"), '<button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? L("Switch to light", "Gawing light") : L("Switch to dark", "Gawing dark")) + "</button>");
-  if (acctIsAdmin()) {
-    cards += acctCard("", L("Billing and directory", "Billing at directory"), L("Dues rate, contacts and house rules", "Dues rate, contacts, at house rules"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'building\'})">' + L("Open", "Buksan") + "</button>") +
-      acctCard("", L("Access", "Access"), L("Who can sign in, suspend or remove accounts", "Sino ang puwedeng mag-sign in, at pag-suspend o pag-alis ng accounts"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'access\'})">' + L("Open", "Buksan") + "</button>") +
-      acctCard("", L("Payments", "Payments"), L("Payment options", "Mga payment option"), '<button class="btn" onclick="set({view:\'settings\',setTab:\'payments\'})">' + L("Open", "Buksan") + "</button>");
-  } else {
+  if (!acctIsAdmin()) {
     cards += acctCard("", L("Unit status", "Status ng unit"), L("Renting out or running a business?", "Nagpapaupa o may negosyo?"), '<button class="btn" onclick="set({view:\'rental\'})">' + L("Open", "Buksan") + "</button>");
   }
   return '<div class="acct-grid">' + cards + "</div>" +

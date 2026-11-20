@@ -1634,8 +1634,7 @@ function viewManage() {
   var m = state.manage, q = state.manageSearch.trim().toLowerCase();
   var accs = DB.accounts.filter(function (a) { return !q || (a.name + " " + a.email + " " + (a.unit || "") + " " + a.role).toLowerCase().indexOf(q) >= 0; });
   var units = unitNames();
-  return '<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:19px">Create a resident account</h2>' +
-    '<p style="margin:0;font-size:13px;color:var(--muted)">This is the sign-up. There is no public sign-up form; every resident account is added by hand. A temporary password is shown once. The resident must choose their own password, then confirm their account with a code sent to their email.</p>' +
+  return '<div class="card st-card"><div class="st-card-h">' + stIco("manage", "b") + '<div><h2>Create a resident account</h2><p class="hint">This is the sign-up. There is no public sign-up form; every resident account is added by hand. A temporary password is shown once. The resident must choose their own password, then confirm their account with a code sent to their email.</p></div></div>' +
     (units.length ? '<div class="manage-row" style="flex-wrap:wrap"><div class="field"><label>Full name</label><input id="mName" value="' + escAttr(m.name) + '" oninput="state.manage.name=this.value" placeholder="e.g. Ana Reyes"></div>' +
       '<div class="field"><label>Email address</label><input id="mEmail" value="' + escAttr(m.email) + '" oninput="state.manage.email=this.value" placeholder="e.g. ana@email.com"></div>' +
       '<div class="field"><label>Mobile number (optional)</label><input id="mPhone" value="' + escAttr(m.phone) + '" oninput="state.manage.phone=this.value" placeholder="e.g. 0917 555 0000"></div>' +
@@ -1643,13 +1642,13 @@ function viewManage() {
       '<button class="btn primary" onclick="createAccount()">+ Create account</button></div>' : '<p class="hint" style="margin:0"><b>Add a unit first.</b> Every resident account belongs to a unit. <a href="#" onclick="set({view:\'units\'});return false">Go to Units</a></p>') +
     (state.manageErr ? '<div style="font-size:13px;color:#A02B1D;font-weight:600">' + esc(state.manageErr) + "</div>" : "") + "</div>" +
     '<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px"><div style="flex:1;min-width:220px"><b>Looking for a resident\'s details?</b><div class="hint" style="margin:2px 0 0">This list only controls who can sign in. Household details, contacts, vehicles and the full record of each unit are kept separately under Resident profiles.</div></div><button class="btn primary" onclick="set({view:\'history\'})">Open Resident profiles</button></div>' +
-    '<div class="card" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px"><h2 style="font-size:19px;margin:0">People with access</h2>' +
+    '<div class="card st-access" style="padding:0;overflow:hidden;margin-top:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px"><h2 style="font-size:19px;margin:0">People with access</h2>' +
     '<input id="manageSearchInput" value="' + escAttr(state.manageSearch) + '" oninput="set({manageSearch:this.value})" placeholder="Search name, email, unit or role..." style="height:38px;border:1px solid #CFC3A9;border-radius:999px;padding:0 14px;font-size:13px;min-width:220px">' +
     '<span style="font-size:13px;color:var(--muted);margin-left:auto">' + accs.length + " of " + DB.accounts.length + ' accounts</span><button class="btn" onclick="exportAccounts()">Export to Excel (.csv)</button></div>' +
     tableRows(accs.map(function (a) {
       var self = a.id === DB.user.id, adm = a.role === "admin";
       var status = a.suspended ? '<span class="chip bad">Suspended</span>' : (!adm && !a.contact_verified_at) ? '<span class="chip warn">Not verified yet</span>' : (!adm && a.must_change_password) ? '<span class="chip warn">Not signed in yet</span>' : '<span class="chip good">Active</span>';
-      return "<tr" + (a.suspended ? ' style="opacity:.55"' : "") + '><td style="font-weight:700">' + esc(a.name) + '</td><td style="color:var(--muted)">' + esc(a.email) + '</td><td style="color:var(--muted)">' + esc(a.phone || "—") + '</td><td style="color:var(--muted)">' + esc(a.unit || "—") + '</td><td><span class="chip ' + (adm ? "info" : "good") + '">' + (adm ? "Administrator" : "Resident") + "</span></td><td>" + status + "</td><td>" + pwCell(a, adm) + '</td><td style="display:flex;gap:6px;flex-wrap:wrap">' +
+      return "<tr" + (a.suspended ? ' style="opacity:.55"' : "") + '><td style="font-weight:700"><span class="st-person"><span class="st-av sm">' + esc(String(a.name || "?").trim().charAt(0).toUpperCase()) + "</span>" + esc(a.name) + '</span></td><td style="color:var(--muted)">' + esc(a.email) + '</td><td style="color:var(--muted)">' + esc(a.phone || "—") + '</td><td style="color:var(--muted)">' + esc(a.unit || "—") + '</td><td><span class="chip ' + (adm ? "info" : "good") + '">' + (adm ? "Administrator" : "Resident") + "</span></td><td>" + status + "</td><td>" + pwCell(a, adm) + '</td><td style="display:flex;gap:6px;flex-wrap:wrap">' +
         (adm ? (self ? '<span style="color:var(--muted);font-size:12px">You</span>' : "") : (a.unit ? '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="openHistory(\'' + escAttr(a.unit) + '\')">Profile</button>' : "") + '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="resetAccount(\'' + escAttr(a.id) + '\')">Reset password</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="suspendAccount(\'' + escAttr(a.id) + '\')">' + (a.suspended ? "Reactivate" : "Suspend") + '</button><button class="btn" style="min-height:32px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="deleteAccount(\'' + escAttr(a.id) + '\')">Revoke</button>') + "</td></tr>";
     }), ["NAME", "EMAIL", "MOBILE", "UNIT", "ROLE", "STATUS", "PASSWORD", "ACTION"], "No accounts match.") +
     '<div style="padding:10px 18px;font-size:12px;color:var(--muted);border-top:1px solid var(--border2)">Suspend keeps the account on file but blocks sign-in; Revoke permanently removes it and asks for confirmation first.</div></div>';
@@ -1797,49 +1796,64 @@ function viewSettings() {
   return subNav(items, tab, "setTab") + body;
 }
 function setCard(title, hint, inner) { return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>' + title + "</h2>" + (hint ? '<p class="hint" style="margin:0">' + hint + "</p>" : "") + inner + "</div>"; }
-// Settings > Overview: what is set now, what needs attention, and a way into each section.
+// Small round icon used on the Settings cards. tone: p (purple), t (teal), a (amber), b (blue), r (red).
+function stIco(name, tone) { return '<span class="st-ico ' + (tone || "p") + '">' + icon(name) + "</span>"; }
+var ST_PHONE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>';
+var ST_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+var ST_ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+var ST_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+var ST_ALERT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>';
+// Settings > Overview: a setup header with progress, key numbers, what needs attention, and a card for each area.
 function setOverview() {
   var d = directory(), pm = payMethods().filter(function (m) { return m.enabled; }), rem = remCfg();
   var remOff = Object.keys(rem).filter(function (k) { return rem[k].on === "no"; }).length, remAll = Object.keys(rem).length;
   var susp = DB.accounts.filter(function (a) { return a.suspended; }).length;
   var rate = setting("dues_rate_sqm").rate, lim = grLimit();
   var go = function (t) { return "set({setTab:'" + t + "'})"; };
-  var tiles = '<div class="stat-row">' +
-    statBtn(rate ? peso(rate) : "Not set", "Dues per sqm", rate ? "" : "warn", false, "set({view:'fin',finTab:'settings'})") +
-    statBtn(lim, "Open complaints per unit", lim > 3 ? "warn" : "", false, go("building")) +
-    statBtn(d.contacts.length, "Directory contacts", "", false, go("building")) +
-    statBtn(pm.length, "Payment options on", pm.length ? "good" : "warn", false, go("payments")) + "</div>";
+  var finGo = "set({view:'fin',finTab:'settings'})";
+  var checks = [["Dues rate", !!rate, finGo], ["Payment option", pm.length > 0, go("payments")], ["Reminders on", remOff === 0, go("payments")], ["Complaint limit", lim <= 3, go("building")]];
+  var done = checks.filter(function (c) { return c[1]; }).length, pct = Math.round(done / checks.length * 100);
+  var hero = '<div class="st-hero"><div class="st-hero-top"><span class="st-hero-ico">' + icon("units") + '</span><div class="st-hero-t"><small>Building setup</small><h2>City Residences Condominium</h2><p>' + (done === checks.length ? "Everything is set up. Residents can pay, get reminders and send complaints." : done + " of " + checks.length + " setup steps done. Finish the rest so residents can use every feature.") + '</p></div><div class="st-pct"><b>' + pct + '%</b><small>ready</small></div></div>' +
+    '<div class="st-bar"><i style="width:' + pct + '%"></i></div><div class="st-checks">' + checks.map(function (c) { return '<button type="button" class="st-check ' + (c[1] ? "ok" : "todo") + '" onclick="' + c[2] + '"><span>' + (c[1] ? ST_CHECK : ST_ALERT) + "</span>" + c[0] + "</button>"; }).join("") + "</div></div>";
+  var stat = function (ico, tone, val, label, js) { return '<button type="button" class="st-stat" onclick="' + js + '">' + stIco(ico, tone) + "<b>" + val + "</b><small>" + label + "</small></button>"; };
+  var tiles = '<div class="st-stats">' + stat("fin", rate ? "p" : "a", rate ? peso(rate) : "Not set", "Dues per sqm", finGo) + stat("gr", lim > 3 ? "a" : "b", lim, "Open complaints per unit", go("building")) + stat("directory", "t", d.contacts.length, "Directory contacts", go("building")) + stat("dues", pm.length ? "t" : "a", pm.length, "Payment options on", go("payments")) + "</div>";
   var cards = [];
-  if (!rate) cards.push(repCard("warn", "fin", "Monthly dues rate is not set", "Set the rate per square meter so “Bill monthly dues” can work out each unit's amount.", '<button class="btn primary" onclick="set({view:\'fin\',finTab:\'settings\'})">Set the rate</button>'));
+  if (!rate) cards.push(repCard("warn", "fin", "Monthly dues rate is not set", "Set the rate per square meter so “Bill monthly dues” can work out each unit's amount.", '<button class="btn primary" onclick="' + finGo + '">Set the rate</button>'));
   if (!pm.length) cards.push(repCard("bad", "fin", "No payment option is switched on", "Residents cannot choose how they paid. Switch on at least one (cash at the office, bank, GCash or Maya).", '<button class="btn primary" onclick="' + go("payments") + '">Open Payments</button>'));
   if (remOff) cards.push(repCard("warn", "settings", remOff + (remOff === 1 ? " reminder is" : " reminders are") + " switched off", "Residents are not reminded before those charges are due.", '<button class="btn" onclick="' + go("payments") + '">Open Reminders</button>'));
   if (lim > 3) cards.push(repCard("warn", "req", "Complaint limit is high (" + lim + " per unit)", "A high limit lets one unit fill the list with spam and hide the real problems.", '<button class="btn" onclick="' + go("building") + '">Change limit</button>'));
   if (susp) cards.push(repCard("warn", "units", susp + (susp === 1 ? " account is" : " accounts are") + " suspended", "These people cannot sign in.", '<button class="btn" onclick="' + go("access") + '">Open Access</button>'));
-  if (!cards.length) cards.push(repCard("good", "settings", "Everything is set up", "Rates, payment options and reminders are all in place.", ""));
-  var areas = '<div class="card"><h2>Settings</h2><p class="hint" style="margin:4px 0 8px">Pick an area to change.</p>' +
-    repRow("Building", d.contacts.length + " contacts · " + d.rules.length + " house rules · complaint limit " + lim, go("building")) +
-    repRow("Payments and reminders", pm.length + " payment option" + (pm.length === 1 ? "" : "s") + " · " + (remAll - remOff) + " of " + remAll + " reminders on", go("payments")) +
-    repRow("Access", DB.accounts.length + " accounts", go("access")) +
-    repRow("My account", "Profile, password, devices, language", go("account")) + "</div>";
-  var quick = setCard("Quick actions", "", '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="toggleDarkMode()">' + (state.darkMode ? "Switch to light mode" : "Switch to dark mode") + '</button><button class="btn" onclick="changePasswordForm()">Change password</button><button class="btn" onclick="signOut(true)">Log out on all devices</button></div>');
-  return tiles + '<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0">' + cards.join("") + '</div><div class="fin-two">' + areas + quick + "</div>";
+  var attn = cards.length ? '<div style="display:flex;flex-direction:column;gap:10px;margin:0 0 18px">' + cards.join("") + "</div>" : "";
+  var area = function (ico, tone, title, text, js) { return '<button type="button" class="st-area" onclick="' + js + '">' + stIco(ico, tone) + '<span class="st-area-t"><b>' + title + "</b><small>" + text + "</small></span><i>" + ST_ARROW + "</i></button>"; };
+  var areas = '<h3 class="st-h">Settings areas</h3><div class="st-areas">' +
+    area("units", "p", "Building", d.contacts.length + " contacts · " + d.rules.length + " house rules · complaint limit " + lim, go("building")) +
+    area("fin", "t", "Payments and reminders", pm.length + " payment option" + (pm.length === 1 ? "" : "s") + " on · " + (remAll - remOff) + " of " + remAll + " reminders on", go("payments")) +
+    area("manage", "b", "Access", DB.accounts.length + " accounts" + (susp ? " · " + susp + " suspended" : ""), go("access")) +
+    area("history", "a", "My account", "Profile, password, devices, language", go("account")) + "</div>";
+  var quick = '<h3 class="st-h">Quick actions</h3><div class="st-quick">' +
+    '<button type="button" class="st-qa" onclick="toggleDarkMode()">' + stIco(state.darkMode ? "sun" : "moon", "p") + '<span><b>' + (state.darkMode ? "Light mode" : "Dark mode") + '</b><small>Change how the dashboard looks</small></span><i class="st-switch' + (state.darkMode ? " on" : "") + '"></i></button>' +
+    '<button type="button" class="st-qa" onclick="changePasswordForm()">' + stIco("manage", "b") + '<span><b>Change password</b><small>Use a new password to sign in</small></span><i class="st-go">' + ST_ARROW + "</i></button>" +
+    '<button type="button" class="st-qa danger" onclick="signOut(true)">' + stIco("logout", "r") + '<span><b>Log out on all devices</b><small>Use this if you lost a phone</small></span><i class="st-go">' + ST_ARROW + "</i></button></div>";
+  return hero + tiles + attn + areas + quick;
 }
 // Settings > Payments: payment options, the rates they pay, and the reminders residents get.
 function paymentSettings() {
   var pm = payMethods(), rate = setting("dues_rate_sqm").rate, park = setting("motor_rate").rate;
-  var opts = pm.map(function (m) { return '<div class="am-row"><div><b>' + esc(m.name) + "</b><small>" + esc(m.details || "") + '</small></div><span class="chip ' + (m.enabled ? "good" : "") + '">' + (m.enabled ? "On" : "Off") + "</span></div>"; }).join("");
-  return '<div class="fin-two">' +
-    setCard("Payment options", "Where residents can pay. They pick one when they send their payment details. You check and verify every payment before the provisional receipt is issued.", '<div>' + opts + '</div><div><button class="btn primary" onclick="payMethodsForm()">Edit payment options</button></div>') +
-    setCard("Dues and parking rates", "Monthly dues: <b>" + (rate ? peso(rate) + " per sqm" : "not set") + "</b> · Parking rental: <b>" + (park ? peso(park) : "see Parking rates") + "</b>. Rates and the late charge are changed in Finance.", '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\',finTab:\'settings\'})">Dues and late charge</button><button class="btn" onclick="set({view:\'fin\',finTab:\'parking\'})">Parking rates</button></div>') +
-    '</div><h2 style="margin:22px 0 4px;font-size:20px">Reminders</h2><p class="hint" style="margin:0 0 12px">What residents are told before a charge is due.</p>' + remSettingsHtml();
+  var tones = { "Cash or check at the office": "a", "Bank transfer": "b", "GCash": "b", "Maya": "t" };
+  var opts = pm.map(function (m) { return '<div class="st-pm' + (m.enabled ? "" : " off") + '">' + stIco(/cash|office/i.test(m.name) ? "fin" : "dues", tones[m.name] || "p") + '<div class="st-pm-t"><b>' + esc(m.name) + "</b><small>" + esc(m.details || "") + '</small></div><span class="st-pill ' + (m.enabled ? "on" : "") + '"><i></i>' + (m.enabled ? "On" : "Off") + "</span></div>"; }).join("");
+  var rates = '<div class="st-rates"><div class="st-rate"><small>Monthly dues</small><b>' + (rate ? peso(rate) : "Not set") + '</b><span>per sqm</span></div><div class="st-rate"><small>Parking rental</small><b>' + (park ? peso(park) : "—") + '</b><span>per month</span></div></div>';
+  return '<div class="fin-two st-two">' +
+    '<div class="card st-card"><div class="st-card-h">' + stIco("fin", "t") + '<div><h2>Payment options</h2><p class="hint">Where residents can pay. You check every payment before the provisional receipt is issued.</p></div></div><div class="st-list">' + opts + '</div><div><button class="btn primary" onclick="payMethodsForm()">Edit payment options</button></div></div>' +
+    '<div class="card st-card"><div class="st-card-h">' + stIco("dues", "p") + '<div><h2>Dues and parking rates</h2><p class="hint">Rates and the late charge are changed in Finance.</p></div></div>' + rates + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="set({view:\'fin\',finTab:\'settings\'})">Dues and late charge</button><button class="btn" onclick="set({view:\'fin\',finTab:\'parking\'})">Parking rates</button></div></div>' +
+    '</div><h3 class="st-h" style="margin-top:26px">Reminders</h3><p class="hint" style="margin:0 0 12px">What residents are told before a charge is due.</p>' + remSettingsHtml();
 }
-// Settings > General: how many open complaints one unit may have at once. Changing it asks first, because a high number invites spam.
+// Settings > Building: how many open complaints one unit may have at once. Changing it asks first, because a high number invites spam.
 function grLimitCardHtml() {
-  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Complaints</h2><p class="hint" style="margin:0">How many open complaints one unit may have at the same time. A resident can send another one only after you resolve one of theirs. The usual limit is <b>1</b>.</p>' +
-    '<label class="fl" style="max-width:240px">Open complaints allowed per unit<input id="grLimitIn" type="number" min="1" max="10" step="1" value="' + grLimit() + '"></label>' +
-    '<div class="gr-warn"><span>\u26A0</span><div><b>Be careful with this number</b>A higher limit lets one unit send many complaints at once. That can fill your list with spam and hide the real problems.</div></div>' +
-    '<div><button class="btn primary" onclick="saveGrLimit()">Save limit</button></div></div>';
+  return '<div class="card st-card st-limit"><div class="st-card-h">' + stIco("gr", "a") + '<div><h2>Complaint limit</h2><p class="hint">How many open complaints one unit may have at the same time. A resident can send another one only after you resolve one of theirs. The usual limit is <b>1</b>.</p></div></div>' +
+    '<div class="st-limit-ctl"><div class="st-step"><button type="button" aria-label="Fewer" onclick="stStep(-1)">&minus;</button><input id="grLimitIn" type="number" min="1" max="10" step="1" value="' + grLimit() + '" aria-label="Open complaints allowed per unit"><button type="button" aria-label="More" onclick="stStep(1)">+</button></div><small>open complaints per unit</small><button class="btn primary" onclick="saveGrLimit()">Save limit</button></div>' +
+    '<div class="gr-warn"><span>⚠</span><div><b>Be careful with this number</b>A higher limit lets one unit send many complaints at once. That can fill your list with spam and hide the real problems.</div></div></div>';
 }
+function stStep(n) { var i = document.getElementById("grLimitIn"); if (!i) return; i.value = Math.min(10, Math.max(1, (parseInt(i.value, 10) || 1) + n)); }
 function saveGrLimit() {
   var n = parseInt((document.getElementById("grLimitIn") || {}).value, 10);
   if (!(n >= 1 && n <= 10)) return toast("Enter a whole number from 1 to 10.");
@@ -1852,12 +1866,16 @@ function saveGrLimit() {
 }
 function setBuilding() {
   var d = directory();
-  return '<div class="fin-two">' +
-    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
-    (d.contacts.map(function (c, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(c.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(c.note || "") + " · " + esc(c.tel || "") + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'contacts\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No contacts yet.</p>') + "</div>" +
-    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>House rules</h2><button class="btn primary" onclick="ruleForm()">+ Add</button></div><p class="hint">Residents see these under Directory.</p>' +
-    (d.rules.map(function (r, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(r[0]) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(r[1]) + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'rules\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No rules yet.</p>') + "</div></div>" +
-    '<div style="margin-top:16px;max-width:720px">' + grLimitCardHtml() + "</div>";
+  var contacts = d.contacts.map(function (c, i) {
+    return '<div class="st-row"><span class="st-av">' + esc(String(c.name || "?").trim().charAt(0).toUpperCase()) + '</span><div class="st-row-t"><b>' + esc(c.name) + "</b><small>" + esc(c.note || "") + '</small><span class="st-tel">' + ST_PHONE + esc(c.tel || "") + '</span></div><button type="button" class="st-x" aria-label="Remove ' + escAttr(c.name) + '" title="Remove" onclick="removeDirItem(\'contacts\',' + i + ')">' + ST_X + "</button></div>";
+  }).join("") || '<p class="empty">No contacts yet. Add the numbers residents may need.</p>';
+  var rules = d.rules.map(function (r, i) {
+    return '<div class="st-row"><span class="st-num">' + (i + 1) + '</span><div class="st-row-t"><b>' + esc(r[0]) + "</b><small>" + esc(r[1]) + '</small></div><button type="button" class="st-x" aria-label="Remove ' + escAttr(r[0]) + '" title="Remove" onclick="removeDirItem(\'rules\',' + i + ')">' + ST_X + "</button></div>";
+  }).join("") || '<p class="empty">No rules yet. Add the house rules residents should follow.</p>';
+  return '<div class="fin-two st-two">' +
+    '<div class="card st-card"><div class="st-card-h">' + stIco("directory", "p") + '<div><h2>Directory <span class="chip">' + d.contacts.length + '</span></h2><p class="hint">Who residents can call. They see this under Directory.</p></div><div class="st-card-act"><button class="btn" type="button" onclick="rhImport(\'directory\')">Import</button><button class="btn primary" onclick="contactForm()">+ Add</button></div></div><div class="st-list">' + contacts + "</div></div>" +
+    '<div class="card st-card"><div class="st-card-h">' + stIco("docs", "t") + '<div><h2>House rules <span class="chip">' + d.rules.length + '</span></h2><p class="hint">What residents agree to follow. They see these under Directory.</p></div><div class="st-card-act"><button class="btn primary" onclick="ruleForm()">+ Add</button></div></div><div class="st-list">' + rules + "</div></div></div>" +
+    '<div style="margin-top:16px">' + grLimitCardHtml() + "</div>";
 }
 // Saves the contacts and house rules.
 function saveDirectory(d) { return put("setting", "directory", "", { contacts: d.contacts, rules: d.rules }); }
