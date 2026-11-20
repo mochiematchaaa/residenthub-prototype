@@ -2,7 +2,7 @@
 
 var state = {
   authed: false, view: "home", darkMode: false, bellOpen: false, bellSeen: false,
-  facIdx: 0, pick: null, bookDay: "", calMonth: "", eventFilter: "all", pollFilter: "open",
+  facIdx: 0, pick: null, bookDay: "", calMonth: "", eventFilter: "up", pollFilter: "open",
   payFor: "", payAmt: "", payMethod: "", payRef: "", payImg: "", payDate: "",
   usage: "", usageInfo: {}, usageInfoFor: "", usageMsg: ""
 };
@@ -50,7 +50,8 @@ function nextBooking() {
 function eventInfo(r) {
   var e = r.v, d = parseShort(e.date), going = list("rsvp").filter(function (x) { return Number(x.v.event) === Number(r.id); }).length;
   return { id: r.id, title: e.title, when: e.date || "", place: e.place || "", about: e.about || "", going: going,
-    month: d ? MONTHS[d.getMonth()].toUpperCase() : "EVENT", day: d ? String(d.getDate()) : "•", mine: !!getRow("rsvp", myUnit() + "|" + r.id) };
+    month: d ? MONTHS[d.getMonth()].toUpperCase() : "EVENT", day: d ? String(d.getDate()) : "•", mine: !!getRow("rsvp", myUnit() + "|" + r.id),
+    days: d ? Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / 86400000) : null };
 }
 // The items in the notification bell for this resident.
 // True if the resident already sent payment details for this charge and the office has not decided yet.
@@ -774,14 +775,39 @@ function cancelParkingRequest() {
 /* ==========================================================================
    Events and polls
    ========================================================================== */
+var EV_ICO = {
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.4-3.2 2.6-5 5.5-5s5.1 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.4.1 4 1.6 4.3 4.3"/></svg>'
+};
+// "In 3 days", "Tomorrow", "Today" or "Finished" for an event.
+function evSoon(e) { return e.days == null ? "" : e.days < 0 ? "Finished" : e.days === 0 ? "Today" : e.days === 1 ? "Tomorrow" : e.days < 7 ? "In " + e.days + " days" : e.days < 14 ? "Next week" : "In " + Math.round(e.days / 7) + " weeks"; }
+// PAGE: Community events. Soonest first, with Upcoming / I'm going / Past filters and a search box.
 function viewEvents() {
-  var all = newest(list("event")).map(eventInfo), list_ = all.filter(function (e) { return state.eventFilter === "all" || e.mine; });
-  var goingCount = all.filter(function (e) { return e.mine; }).length;
-  return pageTabs([["all", "All events (" + all.length + ")"], ["mine", "I'm going (" + goingCount + ")"]], state.eventFilter, "eventFilter") +
-    '<div class="event-grid">' + (list_.map(function (e, i) {
-      return '<div class="card event ' + (e.mine ? "yes" : "") + '"><div class="date-badge t' + (1 + i % 4) + '"><small>' + esc(e.month) + "</small><b>" + esc(e.day) + '</b></div><div class="event-main"><h2>' + esc(e.title) + '</h2><p class="meta">' + esc(e.when) + " · " + esc(e.place) + "</p>" + (e.about ? "<p>" + esc(e.about) + "</p>" : "") +
-        '<div class="event-foot"><span class="going">' + e.going + ' going</span><button class="btn ' + (e.mine ? "" : "primary") + '" onclick="toggleRsvp(\'' + escAttr(e.id) + '\')">' + (e.mine ? "You're going ✓" : "I'm going") + "</button></div></div></div>";
-    }).join("") || '<p class="empty">' + (all.length ? "You have not said you are going to any event yet." : "No events have been posted yet.") + "</p>") + "</div>";
+  var all = newest(list("event")).map(eventInfo), isPast = function (e) { return e.days != null && e.days < 0; };
+  all.sort(function (a, b) {
+    var ap = isPast(a), bp = isPast(b); if (ap !== bp) return ap ? 1 : -1;
+    if (a.days == null) return 1; if (b.days == null) return -1;
+    return ap ? b.days - a.days : a.days - b.days;
+  });
+  var f = ["up", "mine", "past", "all"].indexOf(state.eventFilter) >= 0 ? state.eventFilter : "up", q = (state.eventQ || "").trim().toLowerCase();
+  var counts = { up: all.filter(function (e) { return !isPast(e); }).length, mine: all.filter(function (e) { return e.mine && !isPast(e); }).length, past: all.filter(isPast).length, all: all.length };
+  var shown = all.filter(function (e) {
+    return (f === "all" || (f === "past" ? isPast(e) : !isPast(e) && (f === "up" || e.mine))) && (!q || (e.title + " " + e.place + " " + e.about).toLowerCase().indexOf(q) >= 0);
+  });
+  var tabs = [["up", "Upcoming"], ["mine", "I'm going"], ["past", "Past"], ["all", "All"]];
+  var bar = '<div class="filters ev2-bar">' + tabs.map(function (t) { return '<button class="' + (f === t[0] ? "active" : "") + '" onclick="set({eventFilter:\'' + t[0] + '\'})">' + t[1] + " (" + counts[t[0]] + ")</button>"; }).join("") +
+    '<input type="search" id="evSearchInput" class="fin-search" value="' + escAttr(state.eventQ || "") + '" oninput="set({eventQ:this.value})" placeholder="Search events..." autocomplete="off"></div>';
+  var cards = shown.map(function (e, i) {
+    var past = isPast(e), soon = evSoon(e), tone = past ? "past" : e.days != null && e.days <= 7 ? "soon" : "";
+    return '<article class="ev2' + (e.mine ? " yes" : "") + (past ? " past" : "") + '"><div class="ev2-top"><div class="date-badge t' + (1 + i % 4) + '"><small>' + esc(e.month) + "</small><b>" + esc(e.day) + "</b></div>" + (soon ? '<span class="ev2-chip ' + tone + '">' + soon + "</span>" : "") + "</div>" +
+      "<h2>" + esc(e.title) + '</h2><ul class="ev2-meta"><li>' + EV_ICO.cal + "<span>" + esc(e.when) + "</span></li>" + (e.place ? "<li>" + EV_ICO.pin + "<span>" + esc(e.place) + "</span></li>" : "") + "</ul>" +
+      (e.about ? '<p class="ev2-about">' + esc(e.about) + "</p>" : "") +
+      '<div class="ev2-foot"><span class="ev2-going">' + EV_ICO.people + "<b>" + e.going + "</b> going</span>" +
+      (past ? '<span class="ev2-done">' + (e.mine ? "You went ✓" : "Finished") + "</span>" : '<button class="btn ' + (e.mine ? "" : "primary") + '" onclick="toggleRsvp(\'' + escAttr(e.id) + '\')">' + (e.mine ? "You're going ✓" : "I'm going") + "</button>") + "</div></article>";
+  }).join("");
+  var empty = '<p class="empty">' + (!all.length ? "No events have been posted yet." : q ? "No event matches your search." : f === "mine" ? "You have not said you are going to any upcoming event yet." : f === "past" ? "No past events yet." : "No upcoming events right now. Check back soon.") + "</p>";
+  return bar + '<div class="ev2-grid">' + (cards || empty) + "</div>";
 }
 // Marks my unit as going or not going to an event.
 function toggleRsvp(id) {
