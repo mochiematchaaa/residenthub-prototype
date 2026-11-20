@@ -381,3 +381,4 @@ button.pk.pick:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0
 @media(min-width:901px){.st-access td:last-child,.st-access th:last-child{min-width:225px}.st-access td:nth-child(2){min-width:170px;word-break:normal;overflow-wrap:normal;font-size:13px}.st-access td:nth-child(7){font-size:11.5px;max-width:110px}}
 .st-access{overflow-x:auto !important}
 @media(min-width:901px){.st-access th,.st-access td{padding-left:9px !important;padding-right:9px !important}.st-access td:nth-child(2){min-width:0}.st-access td:last-child,.st-access th:last-child{min-width:0}.st-access .row-actions{min-width:0;max-width:190px}.st-access td:nth-child(7){max-width:96px}}
+.coll-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 2px}.coll-tools .btn{min-height:40px;padding:0 16px;font-size:13px}
