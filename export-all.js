@@ -433,9 +433,9 @@
         }), "Maintenance staff and their workload");
     }
 
-    add("System", "Activity log", [["Date and time", "text", { w: 24 }], ["Area", "text", { w: 18 }], ["What happened", "text", { w: 70 }]],
-      newest(list("activity")).map(function (r) { var a = r.v; return [new Date(Number(a.at || r.id)).toLocaleString("en-US"), a.area, a.title]; }),
-      "What the administrators did, newest first");
+    add("System", "Audit log", [["Date and time", "text", { w: 24 }], ["Who", "text", { w: 22 }], ["Role", "text", { w: 12 }], ["Unit", "text", { w: 10 }], ["Area", "text", { w: 16 }], ["What happened", "text", { w: 60 }], ["What changed", "text", { w: 80 }]],
+      newest(list("activity")).map(function (r) { var a = r.v; return [new Date(Number(a.at || r.id)).toLocaleString("en-US"), a.by || "Not recorded", a.role || "", a.unit || "", a.area, a.title, (a.recs || []).map(function (x) { return (x.a || "") + " " + (AUDIT_KIND[x.k] || x.k) + " " + x.l + ((x.ch || []).length ? ": " + x.ch.map(function (c) { return c[0] + " " + c[1] + " -> " + c[2]; }).join("; ") : ""); }).join(" | ")]; }),
+      "Who did what and what changed, newest first");
 
     /* group the sheets by area so related ones sit together */
     var order = GROUPS.map(function (g) { return g[0]; });

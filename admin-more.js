@@ -1601,9 +1601,9 @@ function setUsageForm(unit) {
 }
 
 /* ==========================================================================
-   Activity log
+   Audit log
    ========================================================================== */
-var LOG_PAGE = 8;
+var LOG_PAGE = 10;
 /* page buttons: « ‹ 1 2 [3] 4 5 › » and a "Showing 31–45 of 120" line */
 function pagerHtml(total, page, size, fn) {
   var pages = Math.max(1, Math.ceil(total / size)), from = total ? page * size + 1 : 0, to = Math.min(total, (page + 1) * size);
@@ -1615,19 +1615,64 @@ function pagerHtml(total, page, size, fn) {
     '<button class="pg-btn" ' + (page >= pages - 1 ? "disabled" : "") + ' onclick="' + fn + "(" + (page + 1) + ')" aria-label="Next page">Next ›</button>' +
     '<button class="pg-btn" ' + (page >= pages - 1 ? "disabled" : "") + ' onclick="' + fn + "(" + (pages - 1) + ')" aria-label="Last page">»</button></div></div>';
 }
-// Goes to another page of the activity log.
+// Goes to another page of the audit log.
 function goLogPage(n) { state.logPage = Math.max(0, n); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
-// PAGE: Activity log.
-function viewLog() {
-  var rows = newest(list("activity")), pages = Math.max(1, Math.ceil(rows.length / LOG_PAGE));
-  var page = Math.min(Math.max(0, state.logPage || 0), pages - 1);
-  return '<div class="filters"><span style="font-size:13px;color:var(--muted)">' + rows.length + ' entries</span><button class="btn" style="margin-left:auto" onclick="exportLog()">Export to Excel (.csv)</button></div>' +
-    '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows.slice(page * LOG_PAGE, (page + 1) * LOG_PAGE).map(function (r) {
-      return '<tr><td style="color:var(--muted);white-space:nowrap">' + new Date(Number(r.v.at)).toLocaleString() + '</td><td style="font-weight:700">' + esc(r.v.area || "") + "</td><td>" + esc(r.v.title) + "</td></tr>";
-    }), ["WHEN", "AREA", "ACTION"], "Nothing has been recorded yet.") + (rows.length > LOG_PAGE ? pagerHtml(rows.length, page, LOG_PAGE, "goLogPage") : "") + "</div>";
+// A field name such as "dueDate" shown as "due date".
+function logField(k) { return String(k).replace(/([A-Z])/g, " $1").replace(/_/g, " ").toLowerCase(); }
+// The entries of the audit log that pass the filters on the page.
+function logRows() {
+  var all = newest(list("activity")), q = (state.logQ || "").trim().toLowerCase(), now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  var from = state.logRange === "today" ? d0.getTime() : state.logRange === "7" ? now - 7 * 86400000 : state.logRange === "30" ? now - 30 * 86400000 : 0;
+  return { all: all, rows: all.filter(function (r) {
+    var v = r.v;
+    if (from && Number(v.at) < from) return false;
+    if (state.logArea && state.logArea !== "all" && (v.area || "") !== state.logArea) return false;
+    if (state.logWho && state.logWho !== "all" && (v.by || "Not recorded") !== state.logWho) return false;
+    if (!q) return true;
+    return (v.title + " " + (v.area || "") + " " + (v.by || "") + " " + (v.unit || "") + " " + (v.recs || []).map(function (x) { return x.l + " " + (x.ch || []).map(function (c) { return c.join(" "); }).join(" "); }).join(" ")).toLowerCase().indexOf(q) >= 0;
+  }) };
 }
-// Downloads the activity log as CSV.
-function exportLog() { exportCSV("activity-log.csv", ["When", "Area", "Action"], newest(list("activity")).map(function (r) { return [new Date(Number(r.v.at)).toLocaleString(), r.v.area || "", r.v.title]; })); }
+// The "what changed" part of one entry.
+function logChanges(v) {
+  var recs = v.recs || []; if (!recs.length) return "";
+  var lines = recs.map(function (x) {
+    var verb = x.a === "create" ? "Added" : x.a === "delete" ? "Removed" : "Changed", nm = AUDIT_KIND[x.k] || x.k;
+    return '<li><b>' + verb + " " + esc(nm) + ":</b> " + esc(x.l) + ((x.ch || []).length ? "<ul>" + x.ch.map(function (c) { return "<li>" + esc(logField(c[0])) + ': <s>' + esc(c[1]) + "</s> <i>→</i> <b>" + esc(c[2]) + "</b></li>"; }).join("") + "</ul>" : "") + "</li>";
+  }).join("");
+  var n = Number(v.nrecs) || recs.length, nc = recs.reduce(function (t, x) { return t + (x.ch || []).length; }, 0);
+  return '<details class="aud-d"><summary>' + (nc ? nc + " change" + (nc === 1 ? "" : "s") + " recorded" : n + " record" + (n === 1 ? "" : "s")) + '</summary><ul class="aud-l">' + lines + (n > recs.length ? "<li>and " + (n - recs.length) + " more</li>" : "") + "</ul></details>";
+}
+// PAGE: Audit log. Who did what and what changed, newest first. Entries are only ever added; this page cannot edit or delete them.
+function viewLog() {
+  var d = logRows(), all = d.all, rows = d.rows, pages = Math.max(1, Math.ceil(rows.length / LOG_PAGE));
+  var page = Math.min(Math.max(0, state.logPage || 0), pages - 1), now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  var cnt = function (ms) { return all.filter(function (r) { return Number(r.v.at) >= ms; }).length; };
+  var rg = state.logRange || "all", go = function (k) { return "set({logRange:'" + k + "',logPage:0})"; };
+  var tiles = '<div class="stat-row">' + statBtn(cnt(d0.getTime()), "Today", "", rg === "today", go("today")) + statBtn(cnt(now - 7 * 86400000), "Last 7 days", "", rg === "7", go("7")) + statBtn(cnt(now - 30 * 86400000), "Last 30 days", "", rg === "30", go("30")) + statBtn(all.length, "All entries", "", rg === "all", go("all")) + "</div>";
+  var areas = [], people = [];
+  all.forEach(function (r) { var a = r.v.area || ""; if (a && areas.indexOf(a) < 0) areas.push(a); var w = r.v.by || "Not recorded"; if (people.indexOf(w) < 0) people.push(w); });
+  areas.sort(); people.sort();
+  var sel = function (key, label, val, opts) { return '<select class="fin-kind" aria-label="' + label + '" onchange="set({' + key + ':this.value,logPage:0})"><option value="all">' + label + '</option>' + opts.map(function (o) { return '<option value="' + escAttr(o) + '"' + (val === o ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select>"; };
+  var active = (state.logQ || "").trim() || (state.logArea && state.logArea !== "all") || (state.logWho && state.logWho !== "all") || rg !== "all";
+  var bar = '<div class="filters aud-bar"><input type="search" id="logSearchInput" class="fin-search" value="' + escAttr(state.logQ || "") + '" oninput="set({logQ:this.value,logPage:0})" placeholder="Search who, what or which record..." autocomplete="off" style="margin-left:0">' +
+    sel("logArea", "All areas", state.logArea, areas) + sel("logWho", "All people", state.logWho, people) +
+    (active ? '<button class="btn" onclick="set({logQ:\'\',logArea:\'all\',logWho:\'all\',logRange:\'all\',logPage:0})">Clear filters</button>' : "") +
+    '<span class="hint" style="margin:0 0 0 auto">' + rows.length + " of " + all.length + ' entries</span><button class="btn" onclick="exportLog()">Export to Excel (.csv)</button></div>';
+  var body = rows.slice(page * LOG_PAGE, (page + 1) * LOG_PAGE).map(function (r) {
+    var v = r.v, dt = new Date(Number(v.at)), by = v.by;
+    var who = by ? '<span class="st-person"><span class="st-av sm">' + esc(String(by).trim().charAt(0).toUpperCase()) + '</span><span><b>' + esc(by) + '</b><div class="cell-sub">' + (v.role === "resident" ? "Resident" + (v.unit ? " · " + esc(v.unit) : "") : "Administrator") + "</div></span></span>" : '<span class="cell-sub">Not recorded</span>';
+    return '<tr><td class="nw"><b>' + esc(dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })) + '</b><div class="cell-sub">' + esc(dt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) + "</div></td><td>" + who + "</td><td>" + esc(v.title) + logChanges(v) + '</td><td class="nw"><span class="chip">' + esc(v.area || "—") + "</span></td></tr>";
+  });
+  return tiles + '<div class="card" style="padding:0;overflow:hidden">' + bar + tableRows(body, ["WHEN", "WHO", "WHAT HAPPENED", "AREA"], all.length ? "No entry matches the filters." : "Nothing has been recorded yet.") + (rows.length > LOG_PAGE ? pagerHtml(rows.length, page, LOG_PAGE, "goLogPage") : "") +
+    '<div class="aud-foot">Every change to the data is recorded here automatically, with who made it. Entries can only be added, never edited or deleted from the system.</div></div>';
+}
+// Downloads the audit log as CSV (with the current filters).
+function exportLog() {
+  exportCSV("audit-log.csv", ["When", "Who", "Role", "Unit", "Area", "What happened", "Changes"], logRows().rows.map(function (r) {
+    var v = r.v;
+    return [new Date(Number(v.at)).toLocaleString(), v.by || "Not recorded", v.role || "", v.unit || "", v.area || "", v.title, (v.recs || []).map(function (x) { return (x.a || "") + " " + (AUDIT_KIND[x.k] || x.k) + " " + x.l + ((x.ch || []).length ? ": " + x.ch.map(function (c) { return logField(c[0]) + " " + c[1] + " -> " + c[2]; }).join("; ") : ""); }).join(" | ")];
+  }));
+}
 
 /* ==========================================================================
    Access (accounts)

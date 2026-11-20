@@ -425,7 +425,7 @@
     TITLES.forEach(function (ttl, k) { acts.push([ttl, ttl.split(" ")[0] === "Announcement" ? "Announcements" : ttl.split(" ")[0] === "Expense" ? "Expenses" : ttl.split(" ")[0] === "Event" ? "Events" : ttl.split(" ")[0] === "Poll" ? "Polls" : ttl.split(" ")[0] === "Charge" ? "Finance" : ttl.split(" ")[0] === "Amenity" ? "Facilities" : ttl.split(" ")[0] === "Document" ? "Documents" : "Settings", 1 + k * 1.6]); });
     acts.forEach(function (x) {
       var at = Date.now() - Math.round(x[2] * 86400000) - ri(0, 3600000);
-      R("activity", at, "__admin", { title: x[0], area: x[1], at: at });
+      R("activity", at, "__admin", { title: x[0], area: x[1], at: at, by: "Administrator", role: "admin" });
     });
     /* The prototype opens WITH the made-up sample data. "Clear all data" in the tools panel starts empty (only the settings and the two
        sign-in accounts stay) so the import can be tried on empty lists; "Load sample data" brings the made-up data back. */

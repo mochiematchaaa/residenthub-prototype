@@ -290,7 +290,7 @@ async function loadAccounts() {
 async function put(kind, id, unit, value) {
   id = String(id);
   value = clean(value);
-  var known = DB.rows[kind] && DB.rows[kind].has(id);
+  var known = DB.rows[kind] && DB.rows[kind].has(id), before = known ? DB.rows[kind].get(id) : null;
   var res;
   if (known) {
     res = await sb.from("records").update({ unit: unit, value: value }).eq("kind", kind).eq("id", id);
@@ -303,19 +303,85 @@ async function put(kind, id, unit, value) {
   if (res.error) throw res.error;
   if (!DB.rows[kind]) DB.rows[kind] = new Map();
   DB.rows[kind].set(id, { unit: unit, value: value });
+  auditNote(known ? "update" : "create", kind, id, before && before.value, value);
 }
 // DELETES a record from the database.
 async function del(kind, id) {
   id = String(id);
+  var before = DB.rows[kind] && DB.rows[kind].get(id);
   var res = await sb.from("records").delete().eq("kind", kind).eq("id", id);
   if (res.error) throw res.error;
   if (DB.rows[kind]) DB.rows[kind].delete(id);
+  auditNote("delete", kind, id, before && before.value, null);
 }
-// Adds a line to the admin Activity log (who did what).
-function logAct(title, area) {
-  var at = nextId();
-  put("activity", at, "__admin", { title: title, area: area || "", at: at }).catch(function () {});
+/* ---------- audit trail ----------
+   Every change to the data is noted by put() and del() (what record, what it was, what it became). A short moment later
+   (once the action has finished) the notes are saved as one entry of the Audit log together with who did it. A line given
+   by logAct() becomes the headline of the entry; changes that nobody gave a headline get one of their own, so nothing is missed.
+   Entries are only ever added: the app has no way to edit or delete them. */
+var AUDIT = { chg: [], titles: [], timer: null };
+var AUDIT_SKIP = { activity: 1, tempcred: 1, vote: 1 };   // the log itself, temporary passwords, and secret ballots are never recorded
+var AUDIT_KIND = { due: "charge", payment: "payment", proof: "payment proof", expense: "expense", booking: "booking", announcement: "announcement", event: "event", poll: "poll", slot: "parking slot", request: "parking request", unit: "unit record", grievance: "complaint", walkin: "walk-in", renewal: "renewal", statusUpdate: "unit status", rsvp: "event RSVP", setting: "setting" };
+var AUDIT_AREA = { due: "Finance", payment: "Finance", proof: "Finance", expense: "Expenses", booking: "Facilities", announcement: "Announcements", event: "Announcements", poll: "Polls", slot: "Parking", request: "Parking", unit: "Units", statusUpdate: "Units", walkin: "Units", renewal: "Units", grievance: "Complaints", rsvp: "Announcements", setting: "Settings" };
+var AUDIT_SETTING = { dues_rate_sqm: "Dues rate", paymethods: "Payment options", reminders: "Reminders", directory: "Directory and house rules", complaint_limit: "Complaint limit", motor_rate: "Parking rate", park_sizes: "Parking rates" };
+// Who is doing this: the signed-in person, their role and (for a resident) their unit.
+function auditActor() {
+  var p = DB.profile || {};
+  return isAdmin() ? { by: p.name || p.email || "Administrator", role: "admin", unit: "" } : { by: p.name || p.email || "Resident", role: "resident", unit: p.unit || "" };
 }
+// A short readable name for a record.
+function auditLabel(kind, id, v) {
+  v = v || {};
+  if (kind === "rsvp") { var ev = getRow("event", v.event); return ev && ev.value.title ? ev.value.title : "an event"; }
+  var t = kind === "setting" ? (AUDIT_SETTING[id] || id) : (v.title || v.note || v.forText || v.name || v.place || v.q || v.text || v.receiptNo || id);
+  t = String(t).replace(/\s+/g, " ").slice(0, 70);
+  return t + (v.unit && kind !== "setting" && t.indexOf(v.unit) < 0 ? " (" + v.unit + ")" : "");
+}
+function auditShow(v) { if (v == null || v === "") return "—"; if (typeof v === "object") v = JSON.stringify(v); v = String(v); if (v.indexOf("data:") === 0) return "(image)"; return v.length > 70 ? v.slice(0, 67) + "…" : v; }
+// The fields that changed: [[field, before, after], ...]. Pictures, passwords and long formatted text are left out.
+function auditDiff(a, b) {
+  var out = [], keys = {};
+  Object.keys(a || {}).concat(Object.keys(b || {})).forEach(function (k) { keys[k] = 1; });
+  Object.keys(keys).forEach(function (k) {
+    if (/^(id|at|image|img|photo|pw|password|html|titleHtml|descHtml|payImg|proofImage)$/i.test(k)) return;
+    var x = a ? a[k] : undefined, y = b ? b[k] : undefined;
+    if (JSON.stringify(x) !== JSON.stringify(y)) out.push([k, auditShow(x), auditShow(y)]);
+  });
+  return out.slice(0, 8);
+}
+// Called by put() and del(): remembers one change until the action is finished.
+function auditNote(act, kind, id, before, after) {
+  if (AUDIT_SKIP[kind]) return;
+  var ch = act === "update" ? auditDiff(before, after) : [];
+  if (act === "update" && !ch.length) return;
+  AUDIT.chg.push({ k: kind, id: String(id), a: act, l: auditLabel(kind, id, after || before), ch: ch });
+  auditSchedule();
+}
+function auditSchedule() { clearTimeout(AUDIT.timer); AUDIT.timer = setTimeout(auditSettle, 800); }
+// Saves the notes as entries of the Audit log.
+function auditSettle() {
+  var chg = AUDIT.chg.splice(0), ts = AUDIT.titles.splice(0), who = auditActor(), out = [];
+  var recs = chg.map(function (c) { return { k: c.k, id: c.id, a: c.a, l: c.l, ch: c.ch }; });
+  if (ts.length) {
+    ts.forEach(function (t, i) { out.push({ title: t.title, area: t.area || (recs[0] ? AUDIT_AREA[recs[0].k] : "") || "", recs: i === 0 ? recs : [] }); });
+  } else {
+    var g = {};
+    recs.forEach(function (r) { var key = r.k + "|" + r.a; (g[key] = g[key] || []).push(r); });
+    Object.keys(g).forEach(function (key) {
+      var l = g[key], r = l[0], verb = r.a === "create" ? "Added" : r.a === "delete" ? "Removed" : "Changed", nm = AUDIT_KIND[r.k] || r.k;
+      if (r.k === "rsvp") { out.push({ title: (r.a === "delete" ? "Is no longer going to event: " : "Is going to event: ") + r.l, area: "Announcements", recs: [] }); return; }
+      out.push({ title: l.length === 1 ? verb + " " + nm + ": " + r.l : verb + " " + l.length + " " + nm + "s", area: AUDIT_AREA[r.k] || "System", recs: l });
+    });
+  }
+  out.forEach(function (e) {
+    var at = nextId(), v = { title: e.title, area: e.area, at: at, by: who.by, role: who.role };
+    if (who.unit) v.unit = who.unit;
+    if (e.recs.length) { v.recs = e.recs.slice(0, 12); v.nrecs = e.recs.length; }
+    put("activity", at, "__admin", v).catch(function () {});
+  });
+}
+// Adds a line to the Audit log (the headline of what was done). The changes made around the same time are attached to it.
+function logAct(title, area) { AUDIT.titles.push({ title: title, area: area || "" }); auditSchedule(); }
 /* run an action, show any error as a message, and redraw */
 async function act(fn) {
   try { await fn(); } catch (e) { toast(errText(e)); }
