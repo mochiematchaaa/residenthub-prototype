@@ -119,7 +119,7 @@ function titles() {
     dues: ["Dues & payment status", "Your monthly charges and outstanding balance."],
     parking: ["Parking rental", "Your parking slot, your request, and which slots are free."],
     events: ["Community events", "See what is coming up and tell us you are going."],
-    polls: ["Polls & voting", "Have your say on community decisions. One vote per unit."],
+    polls: ["Polls", "Answer the building's polls. One answer per unit."],
     directory: ["Directory", "Who to call, house rules, and answers to common questions."],
     gr: ["Complaints", "Submit a concern and track its status."],
     docs: ["Community documents", "Files shared by the association."],
@@ -784,19 +784,19 @@ function toggleRsvp(id) {
     toast(going ? "Removed from the event." : "See you there!");
   });
 }
-// PAGE: Polls and elections.
+// PAGE: Polls.
 function viewPolls() {
   var all = pollsAll(), open = all.filter(function (p) { return p.open; }).length;
   var shown = all.filter(function (p) { return (state.pollFilter === "all" || (state.pollFilter === "open") === p.open) && pollCatMatch(p); });
   return pageTabs([["open", "Open (" + open + ")"], ["closed", "Closed (" + (all.length - open) + ")"], ["all", "All"]], state.pollFilter, "pollFilter") + pollCatFilterHtml(all) +
     '<div class="poll-list">' + (shown.map(function (p) {
-      var voted = myVote(p.id), election = p.kind === "election";
+      var voted = myVote(p.id);
       var canSee = !p.open || (voted !== undefined && p.showResults !== "closed");
-      var body = p.open && voted === undefined ? pollBallotHtml(p) + '<div class="ballot-submit"><button class="btn primary" onclick="castVote(' + p.id + ')">' + (election ? "Submit my ballot" : "Submit my answers") + "</button></div>"
-        : canSee ? pollResultsHtml(p, voted, false) + '<p class="hint" style="margin:12px 0 0">' + p.ballots + (election ? " ballot" : " response") + (p.ballots === 1 ? "" : "s") + " so far" + (voted !== undefined ? " · thank you for voting" : "") + "</p>"
-        : '<p class="poll-note">Your ballot was recorded. The results are shown when voting closes on <b>' + esc(p.closes) + "</b>.</p>";
+      var body = p.open && voted === undefined ? pollBallotHtml(p) + '<div class="ballot-submit"><button class="btn primary" onclick="castVote(' + p.id + ')">' + "Submit my answers" + "</button></div>"
+        : canSee ? pollResultsHtml(p, voted, false) + '<p class="hint" style="margin:12px 0 0">' + p.ballots + " response" + (p.ballots === 1 ? "" : "s") + " so far" + (voted !== undefined ? " · thank you for answering" : "") + "</p>"
+        : '<p class="poll-note">Your answers were recorded. The results are shown when the poll closes on <b>' + esc(p.closes) + "</b>.</p>";
       return '<div class="card poll-card' + (p.questions.length > 1 || (p.open && voted === undefined) ? " wide" : "") + '"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px"><div style="min-width:0">' + pollChips(p) + '<h2 class="poll-title">' + richHtml(p.titleHtml, p.q) + "</h2>" +
-        (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes" : "Closed") + " " + esc(p.closes) + (election ? " · secret ballot, one ballot per unit" : "") + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" + body + "</div>";
+        (p.descHtml ? '<div class="poll-desc">' + richHtml(p.descHtml) + "</div>" : "") + '<small style="color:var(--muted)">' + (p.open ? "Closes" : "Closed") + " " + esc(p.closes) + " · one answer per unit" + '</small></div><span class="chip ' + (p.open ? "good" : "info") + '">' + (p.open ? "Open" : "Closed") + "</span></div>" + body + "</div>";
     }).join("") || '<p class="empty">No polls here.</p>') + "</div>";
 }
 

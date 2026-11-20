@@ -99,10 +99,10 @@ function pageTabs(tabs, current, key){   // small pill buttons that switch a sec
 }
 
 /* 4 ---------- Calendar + "coming up" (right column on Home) ----------
-   One calendar for events, facility bookings, polls and elections (their closing day) and Philippine holidays.
+   One calendar for events, facility bookings, polls (their closing day) and Philippine holidays.
    It is built from the saved records every time it is drawn, so a new event or poll shows up at once (also from
    another tab). A clock ticks every second and the calendar refreshes by itself every 30 seconds. */
-var CAL_KINDS = { event: ["Event", "#2fa88a"], booking: ["Booking", "#e8914a"], poll: ["Poll", "#3b82d6"], election: ["Election", "#7b5bd6"], holiday: ["Holiday", "#d64a5a"] };
+var CAL_KINDS = { event: ["Event", "#2fa88a"], booking: ["Booking", "#e8914a"], poll: ["Poll", "#3b82d6"], holiday: ["Holiday", "#d64a5a"] };
 var calView = null;   // { y, m, sel }: the month on show and the picked day
 
 // Easter Sunday of a year (the church holidays move with it).
@@ -160,8 +160,8 @@ function calItems(){
     });
     if (typeof pollsAll === "function") pollsAll().forEach(p => {
       if (!p.closeKey) return;
-      const name = calPlain(p.titleHtml) || p.q || "Poll", el = p.kind === "election";
-      push(p.closeKey, 24 * 60 - 1, "", (el ? "Election " : "Poll ") + (p.open ? "closes: " : "closed: ") + name, p.open ? "Voting ends at the end of this day" : "Voting has ended", el ? "election" : "poll");
+      const name = calPlain(p.titleHtml) || p.q || "Poll";
+      push(p.closeKey, 24 * 60 - 1, "", "Poll " + (p.open ? "closes: " : "closed: ") + name, p.open ? "Answers close at the end of this day" : "This poll is closed", "poll");
     });
   } catch (e) { }
   const y = new Date().getFullYear();

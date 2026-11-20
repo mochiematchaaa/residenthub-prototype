@@ -58,7 +58,7 @@ function titles() {
     manage: ["Manage access", "Create resident accounts. Only the administrator can create accounts — there is no public sign-up."],
     ann: ["Announcements", "Publish community announcements and events."],
     rentals: ["Unit status", "Approve what residents declare about their unit, and keep the occupancy registry up to date."],
-    polls: ["Polls & voting", "Ask residents what they think and see the results as votes come in."],
+    polls: ["Polls", "Ask residents one or more questions, like a form, and see the answers come in."],
     reports: ["Reports", "Collections, occupancy, dues ageing, facility use and requests at a glance."],
     parking: ["Parking", "Parking slots, who has one, and requests waiting for approval."],
     log: ["Activity log", "A record of what the administrators did, newest first."],

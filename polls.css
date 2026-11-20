@@ -1,4 +1,4 @@
-/* Polls and elections */
+/* Polls */
 .poll-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:16px;margin-top:14px;align-items:start}
 .poll-card.wide{grid-column:1/-1}
 .poll-card{min-width:0}

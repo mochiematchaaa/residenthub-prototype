@@ -252,7 +252,7 @@
       withAcc.forEach(function (u) { if (u.label !== "Unit 3B" || p[0].indexOf("Best day") === 0) { if (rnd() < 0.65) R("vote", u.label + "|" + id, u.label, { poll: id, option: Math.floor(rnd() * p[3].length) }); } });
     });
 
-    /* ---------- elections and a survey (formatted text, several questions) ---------- */
+    /* ---------- a survey (formatted text, several questions) ---------- */
     function pollRec(kind, titleHtml, descHtml, title, closesIn, showResults, open, qs, category) {
       var id = tid(), d = dayOff(closesIn);
       R("poll", id, "", { id: id, kind: kind, question: title, titleHtml: titleHtml, descHtml: descHtml, open: open, closes: sd(d), closeKey: d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2), showResults: showResults, category: category, options: qs[0].options || [], questions: qs });
@@ -267,22 +267,6 @@
       });
     }
     function pickN(n, k) { var all = []; for (var i = 0; i < n; i++) all.push(i); var out = []; while (out.length < k && all.length) out.push(all.splice(Math.floor(rnd() * all.length), 1)[0]); return out; }
-    function pos(i, name, cands, seats) { return { id: "q" + i, type: seats > 1 ? "multi" : "choice", html: name, text: name.replace(/<[^>]+>/g, ""), required: false, max: seats, options: cands }; }
-    var elQs = [
-      pos(1, "<b>President</b>", ["Carla Aquino \u2014 Unit 5A", "Ramon Dela Cruz \u2014 Unit 1B", "Liza Villanueva \u2014 Unit 4B"], 1),
-      pos(2, "<b>Vice President</b>", ["Marco Chua \u2014 Unit 6B", "Anna Reyes \u2014 Unit 3B"], 1),
-      pos(3, "<b>Secretary</b>", ["Joy Torres \u2014 Unit 2C", "Ben Santos \u2014 Unit 1A"], 1),
-      pos(4, "<b>Treasurer</b>", ["Grace Evangelista \u2014 Unit 12B", "Paolo Mendoza \u2014 Unit 8C"], 1),
-      pos(5, "<b>Board Directors</b> <i>(vote for up to 3)</i>", ["Carla Aquino \u2014 Unit 5A", "Ben Santos \u2014 Unit 1A", "Marco Chua \u2014 Unit 6B", "Joy Torres \u2014 Unit 2C", "Liza Villanueva \u2014 Unit 4B"], 3)
-    ];
-    var elId = pollRec("election", "<b>2026 Board of Directors election</b>", "Choose the people who will manage the building for <b>2026\u20132027</b>.<ul><li>Each unit has <b>one secret ballot</b>.</li><li>You may leave a position blank to abstain.</li><li>The results are shown when voting closes.</li></ul>", "2026 Board of Directors election", 12, "closed", true, elQs, "Governance & elections");
-    cast(elId, elQs, 0.7, function (q) { return q.type === "multi" ? pickN(q.options.length, 1 + Math.floor(rnd() * 3)) : (rnd() < 0.08 ? null : Math.floor(rnd() * q.options.length)); });
-    var oldQs = [
-      pos(1, "<b>Chairperson</b>", ["Elena Castillo \u2014 Unit 7A", "Roberto Lim \u2014 Unit 9B"], 1),
-      pos(2, "<b>Committee members</b> <i>(vote for up to 2)</i>", ["Nina Flores \u2014 Unit 3A", "Victor Gomez \u2014 Unit 10A", "Teresa Ramos \u2014 Unit 11C"], 2)
-    ];
-    var oldId = pollRec("election", "<b>2025 Homeowners\u2019 committee election</b>", "Closed election. Thank you to everyone who voted.", "2025 Homeowners\u2019 committee election", -40, "closed", false, oldQs, "Governance & elections");
-    cast(oldId, oldQs, 0.75, function (q) { return q.type === "multi" ? pickN(q.options.length, 2) : Math.floor(rnd() * q.options.length); });
     var svQs = [
       { id: "q1", type: "choice", html: "<b>How often</b> do you use the pool?", text: "How often do you use the pool?", required: true, max: 0, options: ["Every week", "A few times a month", "Rarely", "Never"] },
       { id: "q2", type: "multi", html: "Which facilities should be <u>improved first</u>? <i>(choose up to 3)</i>", text: "Which facilities should be improved first?", required: true, max: 3, options: ["Pool", "Gym", "Function Hall", "Parking", "Lobby", "Coffee lounge"] },
@@ -521,12 +505,26 @@
   }
   /* The elevator repair is not something residents pay: the corporation pays it (it is in Expenses). Unpaid resident charges for it are removed. */
   function fix17(x) {
-    if (x.fix17) return x;
+    if (x.fix17) return fix18(x);
     x.fix17 = true;
     var EL = "Special assessment - elevator repair";
     x.records = (x.records || []).filter(function (r) {
       if (r.kind === "due" && r.value && r.value.note === EL && !r.value.paid) return false;
       if (r.kind === "proof" && r.value && r.value.forText === EL && r.value.status === "Pending") return false;
+      return true;
+    });
+    try { localStorage.setItem(KEY, JSON.stringify(x)); } catch (e) { }
+    return fix18(x);
+  }
+  /* Polls are one thing now (like a form). Elections kept in an older copy of the demo are removed, with their answers. */
+  function fix18(x) {
+    if (x.fix18) return x;
+    x.fix18 = true;
+    var gone = {};
+    (x.records || []).forEach(function (r) { if (r.kind === "poll" && r.value && r.value.kind === "election") gone[r.id] = 1; });
+    if (Object.keys(gone).length) x.records = (x.records || []).filter(function (r) {
+      if (r.kind === "poll" && gone[r.id]) return false;
+      if (r.kind === "vote" && r.value && gone[r.value.poll]) return false;
       return true;
     });
     try { localStorage.setItem(KEY, JSON.stringify(x)); } catch (e) { }

@@ -1,10 +1,9 @@
-/* Polls and elections: the parts shared by the administrator and resident pages.
-   A poll has a title and description (bold / italic text allowed), then one or more questions of these types:
+/* Polls: the parts shared by the administrator and resident pages.
+   A poll works like a Google Form. It has a title and description (bold / italic text allowed), then one or more questions of these types:
    multiple choice, checkboxes, short answer, paragraph, rating (1 to 5).
-   An election is a poll whose questions are positions with candidates; the ballot is secret and the results appear when it closes.
-   Each unit votes once. Older single-question polls (a plain question and a list of options) still work. */
+   Each unit answers once. Older single-question polls (a plain question and a list of options) still work. */
 
-var POLL_CATEGORIES = ["General", "Facilities & amenities", "Maintenance & repairs", "Finance & budget", "Safety & security", "Events & community", "Rules & policies", "Governance & elections"];
+var POLL_CATEGORIES = ["General", "Facilities & amenities", "Maintenance & repairs", "Finance & budget", "Safety & security", "Events & community", "Rules & policies"];
 var POLL_TYPES = [["choice", "Multiple choice"], ["multi", "Checkboxes"], ["text", "Short answer"], ["para", "Paragraph"], ["rating", "Rating (1 to 5)"]];
 var RICH_OK = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, BR: 1, UL: 1, OL: 1, LI: 1, P: 1, DIV: 1, H3: 1 };
 
@@ -75,11 +74,10 @@ function pollsAll() {
         } else { q.answers.push({ unit: x.unit || "", text: String(v) }); q.n++; }
       });
     });
-    var kind = p.kind || "poll";
     return {
-      id: id, kind: kind, category: p.category || (kind === "election" ? "Governance & elections" : "General"), legacy: !(p.questions && p.questions.length), q: p.question || qs[0].text, titleHtml: p.titleHtml || "", descHtml: p.descHtml || "",
+      id: id, kind: "poll", category: p.category || "General", legacy: !(p.questions && p.questions.length), q: p.question || qs[0].text, titleHtml: p.titleHtml || "", descHtml: p.descHtml || "",
       open: !!p.open && !(p.closeKey && p.closeKey < today), closes: p.closes || "—", closeKey: p.closeKey || "",
-      showResults: p.showResults || (kind === "election" ? "closed" : "vote"), ballots: ballots, questions: qs, options: qs[0].opts
+      showResults: p.showResults || "vote", ballots: ballots, questions: qs, options: qs[0].opts
     };
   });
 }
@@ -91,27 +89,15 @@ function myVote(pollId) {
 // Total votes of a poll's first question.
 function pollTotal(p) { return p.options.reduce(function (s, o) { return s + o.votes; }, 0); }
 
-// For an election position: "Elected", "Tie" or "" for each candidate (only once the election is closed).
-function pollElected(p, q) {
-  var seats = p.kind === "election" ? Math.max(1, q.max || 1) : 0;
-  var sorted = q.opts.map(function (o) { return o.votes; }).sort(function (a, b) { return b - a; });
-  var cut = seats ? (sorted[seats - 1] || 0) : 0, above = seats ? sorted.filter(function (v) { return v > cut; }).length : 0, atCut = seats ? sorted.filter(function (v) { return v === cut; }).length : 0;
-  return q.opts.map(function (o) {
-    if (!seats || p.open || o.votes <= 0) return "";
-    if (o.votes > cut) return "Elected";
-    return o.votes === cut ? (atCut > seats - above ? "Tie" : "Elected") : "";
-  });
-}
 var POLL_TONES = ["yellow", "pink", "green", "blue"];
 // Result bars for one question. mine = this unit's answers, admin = show written answers too.
 function pollQuestionResults(p, q, mine, admin) {
   var picked = mine ? [].concat(mine[q.id] == null ? [] : mine[q.id]) : [];
   var mark = function (i) { return mine && picked.indexOf(i) >= 0; };
   if (q.type === "choice" || q.type === "multi") {
-    var status = pollElected(p, q);
     return q.opts.map(function (o, i) {
-      var pct = q.n ? Math.round(o.votes / q.n * 100) : 0, chip = status[i] ? ' <span class="chip ' + (status[i] === "Tie" ? "warn" : "good") + '">' + status[i] + "</span>" : "";
-      return '<div class="pollbar ' + (mark(i) ? "mine" : "") + '"><div class="pollbar-top"><span class="pn">' + esc(o.t) + (mark(i) ? " · your vote" : "") + chip + '</span><span class="pv">' + o.votes + " vote" + (o.votes === 1 ? "" : "s") + "</span><b>" + pct + '%</b></div><div class="pbar-track"><i class="' + POLL_TONES[i % 4] + '" style="width:' + pct + '%"></i></div></div>';
+      var pct = q.n ? Math.round(o.votes / q.n * 100) : 0;
+      return '<div class="pollbar ' + (mark(i) ? "mine" : "") + '"><div class="pollbar-top"><span class="pn">' + esc(o.t) + (mark(i) ? " · your vote" : "") + '</span><span class="pv">' + o.votes + " vote" + (o.votes === 1 ? "" : "s") + "</span><b>" + pct + '%</b></div><div class="pbar-track"><i class="' + POLL_TONES[i % 4] + '" style="width:' + pct + '%"></i></div></div>';
     }).join("");
   }
   if (q.type === "rating") {
@@ -128,34 +114,30 @@ function pollQuestionResults(p, q, mine, admin) {
 // All the results of a poll, question by question.
 function pollResultsHtml(p, mine, admin) {
   var blocks = p.questions.map(function (q, i) {
-    var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (p.kind === "election" ? "" : (i + 1) + ".") + '</span><div>' + richHtml(q.html, q.text) + "</div></div>";
+    var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (i + 1) + '.</span><div>' + richHtml(q.html, q.text) + "</div></div>";
     return '<div class="pq-block' + (q.type === "text" || q.type === "para" ? " pq-wide" : "") + '">' + head + pollQuestionResults(p, q, mine, admin) + "</div>";
   }).join("");
   return p.legacy ? blocks : '<div class="pq-grid">' + blocks + "</div>";
 }
 
-// The ballot a resident fills in.
-function candInit(t) { var w = String(t || "").split(/\s[\u2014\u2013-]\s|\(/)[0].replace(/[^A-Za-z\u00C0-\u024F ]/g, " ").trim().split(/\s+/).filter(Boolean); return ((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase(); }
+// The form a resident fills in.
 function pollBallotHtml(p) {
-  var name = function (q) { return "pq-" + p.id + "-" + q.id; }, elect = p.kind === "election";
+  var name = function (q) { return "pq-" + p.id + "-" + q.id; };
   var optHtml = function (q, o, k, type) {
-    var sq = type === "checkbox" ? " sq" : "";
-    return elect
-      ? '<label class="cand' + sq + '"><input type="' + type + '" name="' + name(q) + '" value="' + k + '"><span class="cand-av">' + esc(candInit(o.t)) + '</span><span class="cand-name">' + esc(o.t) + "</span></label>"
-      : '<label class="opt' + sq + '"><input type="' + type + '" name="' + name(q) + '" value="' + k + '"><span>' + esc(o.t) + "</span></label>";
+    return '<label class="opt' + (type === "checkbox" ? " sq" : "") + '"><input type="' + type + '" name="' + name(q) + '" value="' + k + '"><span>' + esc(o.t) + "</span></label>";
   };
   var blocks = p.questions.map(function (q, i) {
     var hint = "", body = "";
     if (q.type === "choice") {
       body = '<div class="options">' + q.opts.map(function (o, k) { return optHtml(q, o, k, "radio"); }).join("") + "</div>";
-      hint = elect ? "Choose 1 candidate · or leave blank to abstain" : "Choose 1";
+      hint = "Choose 1";
     } else if (q.type === "multi") {
       body = '<div class="options">' + q.opts.map(function (o, k) { return optHtml(q, o, k, "checkbox"); }).join("") + "</div>";
-      hint = q.max ? "Choose up to " + q.max + (elect ? " · or leave blank to abstain" : "") : "Choose all that apply";
+      hint = q.max ? "Choose up to " + q.max : "Choose all that apply";
     } else if (q.type === "text") body = '<input class="pq-input" type="text" maxlength="200" name="' + name(q) + '" placeholder="Your answer">';
     else if (q.type === "para") body = '<textarea class="pq-input" rows="3" maxlength="1000" name="' + name(q) + '" placeholder="Your answer"></textarea>';
     else body = '<div class="rate-row">' + [1, 2, 3, 4, 5].map(function (s) { return '<label class="rate"><input type="radio" name="' + name(q) + '" value="' + s + '"><span>' + s + "</span></label>"; }).join("") + '</div><div class="rate-ends"><span>Not satisfied</span><span>Very satisfied</span></div>';
-    var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (elect ? "" : (i + 1) + ".") + "</span><div>" + richHtml(q.html, q.text) + (q.required ? ' <span class="pq-req" title="Required">*</span>' : "") + "</div></div>";
+    var head = p.legacy ? "" : '<div class="pq-title"><span class="pq-no">' + (i + 1) + ".</span><div>" + richHtml(q.html, q.text) + (q.required ? ' <span class="pq-req" title="Required">*</span>' : "") + "</div></div>";
     return '<div class="pq-block' + (q.type === "para" ? " pq-wide" : "") + '">' + head + (hint ? '<span class="ballot-sub">' + hint + "</span>" : "") + body + "</div>";
   }).join("");
   return '<div class="ballot">' + blocks + "</div>";
@@ -170,28 +152,24 @@ function readBallot(p) {
       if (on) v = Number(on.value);
     } else if (q.type === "multi") {
       var arr = Array.prototype.filter.call(els, function (e) { return e.checked; }).map(function (e) { return Number(e.value); });
-      if (q.max && arr.length > q.max && !error) error = "Choose at most " + q.max + " for " + (p.kind === "election" ? "“" + q.text + "”" : "question " + (i + 1)) + ".";
+      if (q.max && arr.length > q.max && !error) error = "Choose at most " + q.max + " for question " + (i + 1) + ".";
       if (arr.length) v = arr;
     } else if (els[0] && els[0].value.trim()) v = els[0].value.trim();
     if (v != null) answers[q.id] = v;
     else if (q.required && !error) error = "Please answer question " + (i + 1) + ".";
   });
-  if (!error && !Object.keys(answers).length) error = p.kind === "election" ? "Choose at least one candidate, or leave this election." : "Answer at least one question first.";
+  if (!error && !Object.keys(answers).length) error = "Answer at least one question first.";
   return error ? { error: error } : { answers: answers };
 }
-// Saves my unit's ballot (one per unit, cannot be changed).
+// Saves my unit's answers (one submission per unit, cannot be changed).
 function castVote(id) {
   var p = pollsAll().filter(function (x) { return x.id === Number(id); })[0]; if (!p) return;
   var b = readBallot(p);
   if (b.error) return toast(b.error);
-  var save = function () {
-    return act(async function () {
-      await put("vote", myUnit() + "|" + id, myUnit(), { poll: Number(id), answers: b.answers, at: new Date().toISOString() });
-      toast(p.kind === "election" ? "Your ballot was recorded. Thank you for voting!" : "Your answers were recorded. Thank you!");
-    });
-  };
-  if (p.kind === "election") confirmBox("Submit your ballot?", "Each unit has one ballot. It is secret and cannot be changed after you submit.", "Submit ballot", save);
-  else save();
+  act(async function () {
+    await put("vote", myUnit() + "|" + id, myUnit(), { poll: Number(id), answers: b.answers, at: new Date().toISOString() });
+    toast("Your answers were recorded. Thank you!");
+  });
 }
 
 // The categories the office manages (General is always there). Starts with the built-in set.
@@ -215,5 +193,5 @@ function pollCatFilterHtml(all) {
   }).join("") + "</select></label>";
 }
 function pollCatMatch(p) { return !state.pollCat || state.pollCat === "all" || p.category === state.pollCat; }
-// The little labels on a poll card: its kind and its category.
-function pollChips(p) { return '<div class="poll-chips"><span class="chip ' + (p.kind === "election" ? "warn" : "info") + '">' + (p.kind === "election" ? "Election" : "Poll") + '</span><span class="chip cat">' + esc(p.category) + "</span></div>"; }
+// The little label on a poll card: its category.
+function pollChips(p) { return '<div class="poll-chips"><span class="chip cat">' + esc(p.category) + "</span></div>"; }
