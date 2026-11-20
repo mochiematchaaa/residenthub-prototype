@@ -1770,46 +1770,45 @@ function exportAccounts() {
    ========================================================================== */
 function directory() { var d = setting("directory"); return { contacts: d.contacts || [], rules: d.rules || [] }; }
 // PAGE: Settings, in six sections (same sub-tabs as Finance, Reports and Maintenance):
-// Overview, Building (directory and house rules), Residents (complaint limit and resident menu),
+// Overview, Building (directory, house rules and complaint limit),
 // Payments (payment options, rates and reminders), Access (who can sign in) and My account.
-var SET_TABS = ["overview", "building", "residents", "payments", "access", "account"];
-// Old links used "general" (now Building and Residents) and "reminders" (now inside Payments).
+var SET_TABS = ["overview", "building", "payments", "access", "account"];
+// Old links used "general" and "residents" (now Building) and "reminders" (now inside Payments).
 function setTabId() {
   var t = state.setTab;
   if (t === "general" || !t) return "overview";
   if (t === "reminders") return "payments";
+  if (t === "residents") return "building";
   return SET_TABS.indexOf(t) >= 0 ? t : "overview";
 }
 function viewSettings() {
   var tab = setTabId();
-  var items = [["overview", "Overview"], ["building", "Building"], ["residents", "Residents"], ["payments", "Payments"], ["access", "Access", DB.accounts.length], ["account", L("My account", "Aking account")]];
-  var body = tab === "building" ? setBuilding() : tab === "residents" ? setResidents() : tab === "payments" ? paymentSettings() : tab === "access" ? viewManage() : tab === "account" ? acctView() : setOverview();
+  var items = [["overview", "Overview"], ["building", "Building"], ["payments", "Payments"], ["access", "Access", DB.accounts.length], ["account", L("My account", "Aking account")]];
+  var body = tab === "building" ? setBuilding() : tab === "payments" ? paymentSettings() : tab === "access" ? viewManage() : tab === "account" ? acctView() : setOverview();
   return subNav(items, tab, "setTab") + body;
 }
 function setCard(title, hint, inner) { return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>' + title + "</h2>" + (hint ? '<p class="hint" style="margin:0">' + hint + "</p>" : "") + inner + "</div>"; }
 // Settings > Overview: what is set now, what needs attention, and a way into each section.
 function setOverview() {
-  var d = directory(), hid = resNavHidden(), pm = payMethods().filter(function (m) { return m.enabled; }), rem = remCfg();
+  var d = directory(), pm = payMethods().filter(function (m) { return m.enabled; }), rem = remCfg();
   var remOff = Object.keys(rem).filter(function (k) { return rem[k].on === "no"; }).length, remAll = Object.keys(rem).length;
   var susp = DB.accounts.filter(function (a) { return a.suspended; }).length;
   var rate = setting("dues_rate_sqm").rate, lim = grLimit();
   var go = function (t) { return "set({setTab:'" + t + "'})"; };
   var tiles = '<div class="stat-row">' +
     statBtn(rate ? peso(rate) : "Not set", "Dues per sqm", rate ? "" : "warn", false, "set({view:'fin',finTab:'settings'})") +
-    statBtn(lim, "Open complaints per unit", lim > 3 ? "warn" : "", false, go("residents")) +
-    statBtn((RES_NAV.length - hid.length) + " of " + RES_NAV.length, "Resident pages shown", "", false, go("residents")) +
+    statBtn(lim, "Open complaints per unit", lim > 3 ? "warn" : "", false, go("building")) +
+    statBtn(d.contacts.length, "Directory contacts", "", false, go("building")) +
     statBtn(pm.length, "Payment options on", pm.length ? "good" : "warn", false, go("payments")) + "</div>";
   var cards = [];
   if (!rate) cards.push(repCard("warn", "fin", "Monthly dues rate is not set", "Set the rate per square meter so “Bill monthly dues” can work out each unit's amount.", '<button class="btn primary" onclick="set({view:\'fin\',finTab:\'settings\'})">Set the rate</button>'));
   if (!pm.length) cards.push(repCard("bad", "fin", "No payment option is switched on", "Residents cannot choose how they paid. Switch on at least one (cash at the office, bank, GCash or Maya).", '<button class="btn primary" onclick="' + go("payments") + '">Open Payments</button>'));
   if (remOff) cards.push(repCard("warn", "settings", remOff + (remOff === 1 ? " reminder is" : " reminders are") + " switched off", "Residents are not reminded before those charges are due.", '<button class="btn" onclick="' + go("payments") + '">Open Reminders</button>'));
-  if (hid.length) cards.push(repCard("warn", "settings", hid.length + (hid.length === 1 ? " page is" : " pages are") + " hidden from residents", "Residents do not see them in their menu until you switch them on again.", '<button class="btn" onclick="' + go("residents") + '">Resident menu</button>'));
-  if (lim > 3) cards.push(repCard("warn", "req", "Complaint limit is high (" + lim + " per unit)", "A high limit lets one unit fill the list with spam and hide the real problems.", '<button class="btn" onclick="' + go("residents") + '">Change limit</button>'));
+  if (lim > 3) cards.push(repCard("warn", "req", "Complaint limit is high (" + lim + " per unit)", "A high limit lets one unit fill the list with spam and hide the real problems.", '<button class="btn" onclick="' + go("building") + '">Change limit</button>'));
   if (susp) cards.push(repCard("warn", "units", susp + (susp === 1 ? " account is" : " accounts are") + " suspended", "These people cannot sign in.", '<button class="btn" onclick="' + go("access") + '">Open Access</button>'));
-  if (!cards.length) cards.push(repCard("good", "settings", "Everything is set up", "Rates, payment options, reminders and the resident menu are all in place.", ""));
+  if (!cards.length) cards.push(repCard("good", "settings", "Everything is set up", "Rates, payment options and reminders are all in place.", ""));
   var areas = '<div class="card"><h2>Settings</h2><p class="hint" style="margin:4px 0 8px">Pick an area to change.</p>' +
-    repRow("Building", d.contacts.length + " contacts · " + d.rules.length + " house rules", go("building")) +
-    repRow("Residents", "Complaint limit " + lim + " · " + (RES_NAV.length - hid.length) + " pages shown", go("residents")) +
+    repRow("Building", d.contacts.length + " contacts · " + d.rules.length + " house rules · complaint limit " + lim, go("building")) +
     repRow("Payments and reminders", pm.length + " payment option" + (pm.length === 1 ? "" : "s") + " · " + (remAll - remOff) + " of " + remAll + " reminders on", go("payments")) +
     repRow("Access", DB.accounts.length + " accounts", go("access")) +
     repRow("My account", "Profile, password, devices, language", go("account")) + "</div>";
@@ -1842,35 +1841,15 @@ function saveGrLimit() {
     toast("Saved. Each unit can have " + n + " open complaint" + (n === 1 ? "" : "s") + ".");
   }, n > grLimit());
 }
-// Settings > General: which pages residents can open. Home, Unit status and Settings always stay.
-var RES_NAV = [["book", "Book a facility"], ["res", "Reservations"], ["dues", "Dues"], ["parking", "Parking"], ["events", "Events"], ["polls", "Polls"], ["directory", "Directory"], ["gr", "Complaints"], ["docs", "Documents"]];
-function resNavHidden() { var h = setting("resident_nav").hidden; return Array.isArray(h) ? h : []; }
-function resNavCardHtml() {
-  var hid = resNavHidden();
-  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Resident menu</h2><p class="hint" style="margin:0">Choose which pages residents see in their menu. A page you switch off disappears for every resident until you switch it on again. Home, Unit status and Settings always stay.</p>' +
-    '<div class="nav-ctl">' + RES_NAV.map(function (n) {
-      return '<label class="nav-opt"><input type="checkbox" data-nav="' + n[0] + '"' + (hid.indexOf(n[0]) < 0 ? " checked" : "") + '><span>' + icon(n[0]) + n[1] + "</span></label>";
-    }).join("") + '</div><div><button class="btn primary" onclick="saveResNav()">Save menu</button></div></div>';
-}
-function saveResNav() {
-  var off = Array.prototype.filter.call(document.querySelectorAll("[data-nav]"), function (e) { return !e.checked; }).map(function (e) { return e.getAttribute("data-nav"); });
-  var names = off.map(function (k) { return (RES_NAV.filter(function (n) { return n[0] === k; })[0] || [k, k])[1]; });
-  confirmBox("Save the resident menu?", off.length ? "Residents will no longer see: " + names.join(", ") + "." : "Residents will see every page.", "Save", async function () {
-    await put("setting", "resident_nav", "", { hidden: off });
-    logAct("Resident menu changed" + (off.length ? " (hidden: " + names.join(", ") + ")" : " (all pages shown)"), "Settings");
-    toast("Saved. Residents see the new menu straight away.");
-  });
-}
 function setBuilding() {
   var d = directory();
   return '<div class="fin-two">' +
     '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Directory — who to call</h2><button class="btn primary" onclick="contactForm()">+ Add</button></div><p class="hint">Residents see this under Directory.</p>' +
     (d.contacts.map(function (c, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(c.name) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(c.note || "") + " · " + esc(c.tel || "") + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'contacts\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No contacts yet.</p>') + "</div>" +
     '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>House rules</h2><button class="btn primary" onclick="ruleForm()">+ Add</button></div><p class="hint">Residents see these under Directory.</p>' +
-    (d.rules.map(function (r, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(r[0]) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(r[1]) + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'rules\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No rules yet.</p>') + "</div></div>";
+    (d.rules.map(function (r, i) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border2)"><div><b style="font-size:14px">' + esc(r[0]) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(r[1]) + '</div></div><button class="btn" style="min-height:30px;padding:0 10px;font-size:12px;color:#A02B1D" onclick="removeDirItem(\'rules\',' + i + ')">Remove</button></div>'; }).join("") || '<p class="empty">No rules yet.</p>') + "</div></div>" +
+    '<div style="margin-top:16px;max-width:720px">' + grLimitCardHtml() + "</div>";
 }
-// Settings > Residents: what residents can do and see.
-function setResidents() { return '<div class="fin-two">' + grLimitCardHtml() + resNavCardHtml() + "</div>"; }
 // Saves the contacts and house rules.
 function saveDirectory(d) { return put("setting", "directory", "", { contacts: d.contacts, rules: d.rules }); }
 // Popup form to add an emergency contact.

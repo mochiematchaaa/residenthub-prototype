@@ -128,11 +128,8 @@ function titles() {
   }[state.view] || ["", ""];
 }
 // Picks the page function to draw for state.view.
-// Pages the administrator switched off for residents (Settings > Resident menu).
-function navHidden(key) {
-  if (key === "home" || key === "rental" || key === "settings") return false;
-  var h = setting("resident_nav").hidden; return Array.isArray(h) && h.indexOf(key) >= 0;
-}
+// Every page is always shown to residents (the old "Resident menu" setting was removed).
+function navHidden(key) { return false; }
 function view() {
   if (navHidden(state.view)) state.view = "home";
   return ({ home: viewHome, book: viewBook, res: viewRes, dues: viewDues, parking: viewParkingPage, gr: viewGr, docs: viewDocs, rental: viewRental, settings: viewSettings, events: viewEvents, polls: viewPolls, directory: viewDirectory }[state.view] || viewHome)();
