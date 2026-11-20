@@ -553,14 +553,49 @@ function openDoc(id) {
 }
 
 /* ---------- provisional receipts (opens in Word) ---------- */
+// Amount in words for the provisional receipt, like "One thousand five hundred pesos and fifty centavos only".
+function pesoWords(n) {
+  var ones = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+  var tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+  var big = ["", " thousand", " million", " billion"];
+  function below1000(x) {
+    var out = [];
+    if (x >= 100) { out.push(ones[Math.floor(x / 100)] + " hundred"); x %= 100; }
+    if (x >= 20) { out.push(tens[Math.floor(x / 10)] + (x % 10 ? "-" + ones[x % 10] : "")); }
+    else if (x > 0) out.push(ones[x]);
+    return out.join(" ");
+  }
+  function whole(x) {
+    if (x === 0) return "zero";
+    var parts = [], i = 0;
+    while (x > 0) { var chunk = x % 1000; if (chunk) parts.unshift(below1000(chunk) + big[i]); x = Math.floor(x / 1000); i++; }
+    return parts.join(" ");
+  }
+  n = Math.round(Math.abs(Number(n) || 0) * 100);
+  var pesos = Math.floor(n / 100), cents = n % 100;
+  var text = whole(pesos) + (pesos === 1 ? " peso" : " pesos") + (cents ? " and " + whole(cents) + (cents === 1 ? " centavo" : " centavos") : "") + " only";
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+// The provisional receipt: a small boxed form, like the paper form the office uses.
 function receiptHtml(p) {
-  var rows = [["Provisional receipt no.", p.receiptNo], ["Date paid", p.confirmedOn || p.date], ["Unit", p.unit], ["Received from", p.payer],
-    ["Payment for", p.forText], ["Amount", peso(Number(p.amount))], ["Payment method", p.method], ["Reference no.", p.reference || "—"], ["Status", "Paid"]];
-  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Provisional receipt</title></head><body style="font-family:Arial,sans-serif">' +
-    "<h1>Provisional receipt</h1><p>City Residences Condominium Corporation</p>" +
-    '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse"><tr><th align="left">Detail</th><th align="left">Information</th></tr>' +
-    rows.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td></tr>"; }).join("") +
-    "</table><p>This provisional receipt acknowledges the payment received. It is not an official receipt. The official receipt is issued by the administration office. Keep a copy for your records.</p></body></html>";
+  var line = function (label, value) { return '<p style="margin:0 0 7pt 0">' + esc(label) + " <u>" + esc(value) + "</u></p>"; };
+  var amount = Number(p.amount) || 0;
+  var how = (p.method || "—") + (p.reference && p.reference !== "—" ? ", ref. " + p.reference : "");
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Provisional receipt</title></head>' +
+    '<body style="font-family:Arial,sans-serif;font-size:11pt">' +
+    '<table border="1" cellpadding="14" cellspacing="0" width="520" style="border-collapse:collapse;border:1px solid #000"><tr><td>' +
+    '<p style="margin:0 0 2pt 0;text-align:center"><b>PROVISIONAL RECEIPT</b></p>' +
+    '<p style="margin:0 0 12pt 0;text-align:center;font-size:9pt">City Residences Condominium Corporation</p>' +
+    '<p style="margin:0 0 12pt 0;font-size:10pt">No. <b>' + esc(p.receiptNo) + "</b> &nbsp;&nbsp;&nbsp; Date: <b>" + esc(p.confirmedOn || p.date || "") + "</b></p>" +
+    line("Name:", p.payer || "") + line("Unit:", p.unit || "") + line("Payment for:", p.forText || "") + line("Payment method:", how) +
+    '<p style="margin:0 0 7pt 0">&nbsp;</p>' +
+    line("Amount remitted: Php", (typeof peso === "function" ? peso(amount).replace(/^[^0-9]*/, "") : amount.toFixed(2))) +
+    line("Amount in words:", pesoWords(amount)) +
+    '<p style="margin:0 0 7pt 0">&nbsp;</p>' +
+    '<p style="margin:0 0 2pt 0">Receiving Officer:</p>' +
+    '<p style="margin:0 0 10pt 0;text-align:center">______________________________</p>' +
+    '<p style="margin:0;font-size:8pt">This provisional receipt only acknowledges the payment received. It is not an official receipt. The official receipt is issued by the administration office.</p>' +
+    "</td></tr></table></body></html>";
 }
 // Downloads a provisional receipt as a Word file.
 function downloadReceipt(p) {
