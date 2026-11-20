@@ -374,6 +374,16 @@ async function submitBooking() {
   }
   DB.busy = false; state.pick = null; render();
 }
+// True when a reservation's date and time have already passed (so it is finished and cannot be cancelled any more).
+function bookingDone(b) {
+  var now = new Date(), today = dayKey(now), nowMin = now.getHours() * 60 + now.getMinutes(), day = b.day;
+  if (!day) { var d = parseShort(String(b.when || "").split(",").slice(0, 2).join(",").trim()); day = d ? dayKey(d) : ""; }
+  if (!day) return false;
+  if (day < today) return true;
+  if (day > today) return false;
+  var a = facilities().filter(function (f) { return f.name === b.place; })[0], n = Number(b.slot);
+  return !!a && n >= 0 && slotStartMin(a, n) + (Number(a.mins) || 120) <= nowMin;
+}
 // Cancels my booking.
 function cancelBooking(id) {
   confirmBox("Cancel this reservation?", "The time becomes free for others.", "Cancel reservation", async function () { await del("booking", id); }, true);
@@ -385,9 +395,9 @@ function exportMyReservations() {
 // PAGE: My reservations.
 function viewRes() {
   var rows = myBookings().map(function (r) {
-    var b = r.v;
-    return '<tr><td style="font-weight:700">' + esc(b.place) + '</td><td style="color:var(--muted)">' + esc(b.when) + '</td><td><span class="chip ' + chipFor(b.status) + '">' + esc(b.status) + '</span></td><td>' +
-      (b.status === "Pending" || b.status === "Approved" ? '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="cancelBooking(\'' + escAttr(r.id) + '\')">Cancel</button>' : "") + "</td></tr>";
+    var b = r.v, done = bookingDone(b) && (b.status === "Pending" || b.status === "Approved"), label = done ? (b.status === "Approved" ? "Completed" : "Expired") : b.status;
+    return '<tr><td style="font-weight:700">' + esc(b.place) + '</td><td style="color:var(--muted)">' + esc(b.when) + '</td><td><span class="chip ' + (done ? (b.status === "Approved" ? "good" : "") : chipFor(b.status)) + '">' + esc(label) + '</span></td><td>' +
+      (!done && (b.status === "Pending" || b.status === "Approved") ? '<button class="btn" style="min-height:32px;padding:0 10px;font-size:12px" onclick="cancelBooking(\'' + escAttr(r.id) + '\')">Cancel</button>' : "") + "</td></tr>";
   });
   return '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:flex-end;padding:12px 18px"><button class="btn" onclick="exportMyReservations()">Export to Excel (.csv)</button></div>' +
     (rows.length ? '<table><thead><tr><th>FACILITY</th><th>DATE &amp; TIME</th><th>STATUS</th><th></th></tr></thead><tbody>' + rows.join("") + "</tbody></table>" : '<div style="padding:22px;text-align:center;color:var(--muted)">You have not made any reservation yet.</div>') + "</div>";
