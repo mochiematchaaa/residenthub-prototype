@@ -111,19 +111,73 @@
   /* ==========================================================================
      ADMIN
      ========================================================================== */
+  /* ---------- Maintenance page: four sections (Overview, Work, Equipment & staff, History), each with its own small tabs ---------- */
+  var MSEC = [["overview", "Overview", ["overview"]], ["work", "Work", ["sched", "repairs"]], ["assets", "Equipment & staff", ["equip", "staff"]], ["history", "History", ["log", "spend", "notices"]]];
+  var STAGES = ["Open", "In progress", "Resolved"], PRANK = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
+  function stageOf(g) { return Math.min(2, Math.max(0, Number(g.stage) || 0)); }
+  function isLate(g) { return !!(g.target && stageOf(g) < 2 && daysTo(g.target) < 0); }
+  function reportedOn(r) { var n = Number(r.id); return n > 1e12 ? fd(dayKey(new Date(n))) : ""; }
+  function inMonth(k) { var d = new Date(); return String(k || "").slice(0, 7) === d.getFullYear() + "-" + pad(d.getMonth() + 1); }
+  // The numbers behind the Maintenance page. The Reports page uses them too.
+  window.upkeepStats = function () {
+    var ts = tasks(), eq = equipList(), rs = repairStats(), gr = list("grievance"), act = gr.filter(function (r) { return stageOf(r.v) < 2; }), cnt = {};
+    EQ_STATUS.forEach(function (s) { cnt[s] = 0; }); eq.forEach(function (e) { cnt[e.v.status] = (cnt[e.v.status] || 0) + 1; });
+    return {
+      tasks: ts.length, overdue: ts.filter(function (r) { var n = daysTo(r.v.due); return n != null && n < 0; }).length,
+      soon: ts.filter(function (r) { var n = daysTo(r.v.due); return n != null && n >= 0 && n <= 7; }).length,
+      equip: eq.length, equipCounts: cnt, equipBad: eq.filter(function (e) { return e.v.status !== "Working"; }).length,
+      warranty: eq.filter(function (e) { var n = e.v.warranty ? daysTo(e.v.warranty) : null; return n != null && n >= 0 && n <= 30; }).length,
+      openRepairs: act.length, unassigned: act.filter(function (r) { return !r.v.assignee; }).length, lateRepairs: act.filter(function (r) { return isLate(r.v); }).length,
+      inProgress: act.filter(function (r) { return stageOf(r.v) === 1; }).length,
+      resolvedMonth: gr.filter(function (r) { return stageOf(r.v) === 2 && inMonth(r.v.resolvedOn); }).length,
+      avg: rs.avg, resolved: rs.n, spendMonth: rs.month, spendYear: rs.year
+    };
+  };
+  function mCard(tone, ico, title, text, acts) { return '<div class="fx-card ' + tone + '"><span class="fx-ico">' + icon(ico) + '</span><div class="fx-main"><b>' + title + "</b><small>" + text + '</small></div><div class="fx-act">' + (acts || "") + "</div></div>"; }
+  function mBar(chips, btns) { return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">' + chips + '<span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">' + (btns || "") + "</span></div>"; }
+  function mChips(items, cur, key, pageKey) {
+    return '<span class="filters">' + items.map(function (k) { return '<button class="' + (cur === k[0] ? "active" : "") + '" onclick="set({' + key + ":'" + k[0] + "'" + (pageKey ? "," + pageKey + ":0" : "") + '})">' + k[1] + "</button>"; }).join("") + "</span>";
+  }
   function viewMaint() {
-    var tab = state.mtab || "sched", kind = state.mkind || "all";
-    var ts = tasks(), overdue = ts.filter(function (r) { return daysTo(r.v.due) < 0; }).length;
-    var soon = ts.filter(function (r) { var n = daysTo(r.v.due); return n >= 0 && n <= 7; }).length;
-    var eq = equipList(), bad = eq.filter(function (e) { return e.v.status !== "Working"; }).length, rs = repairStats();
-    var tabs = [["sched", "Schedule (" + ts.length + ")"], ["equip", "Equipment (" + eq.length + ")"], ["staff", "Staff (" + staffList().length + ")"]];
-    var closed = list("mclosure");
-    if (state.mpage) return maintPage(state.mpage, ts, eq, rs);
-    return '<div class="grid cols-4" style="margin-bottom:10px">' + mStat("Overdue tasks", overdue, "overdue") + mStat("Due in the next 7 days", soon, "soon") + mStat("Equipment needing attention", bad, "attn") + mStat("Repair spend this month", money(rs.month), "spend") + "</div>" +
-      '<p class="hint" style="margin:0 0 14px">' + (rs.avg == null ? "No finished repairs yet." : "Average repair time " + (rs.avg < 1 ? "under a day" : rs.avg.toFixed(1) + " days") + " across " + plural(rs.n, "finished repair") + ".") + " Maintenance spending this year: <b>" + money(rs.year) + "</b>." + (closed.length ? " Closed to bookings now: <b>" + closed.map(function (c) { return esc(c.v.facility); }).join(", ") + "</b>." : "") + "</p>" +
-      '<div class="filters" style="margin-bottom:14px">' + tabs.map(function (t) {
-        return '<button class="' + (tab === t[0] ? "active" : "") + '" onclick="set({mtab:\'' + t[0] + '\'})">' + t[1] + "</button>";
-      }).join("") + "</div>" + (tab === "equip" ? maintEquip(eq) : tab === "staff" ? maintStaff() : maintSched(ts, kind) + recentNotices());
+    if (state.mpage) return maintPage(state.mpage, tasks(), equipList(), repairStats());
+    var ts = tasks(), eq = equipList(), st = upkeepStats(), tab = state.mtab;
+    var sec = MSEC.filter(function (x) { return x[2].indexOf(tab) >= 0; })[0];
+    if (!sec) { sec = MSEC[0]; tab = "overview"; }
+    var secHome = function (x) { return x[0] === "work" ? (st.overdue || !st.unassigned ? "sched" : "repairs") : x[2][0]; };
+    var work = st.overdue + st.unassigned;
+    var labels = { overview: "Overview", sched: "Schedule (" + ts.length + ")", repairs: "Repairs (" + st.openRepairs + " open)", equip: "Equipment (" + eq.length + ")", staff: "Staff (" + staffList().length + ")", log: "Service log", spend: "Spending", notices: "Notices sent" };
+    var tools = sec[0] === "overview" ? '<button class="btn primary" onclick="maintTaskForm(null)">+ Add task</button>' : "";
+    var bar = '<div class="fin-nav">' + subNav(MSEC.map(function (x) { return [secHome(x), x[1], x[0] === "work" ? (work || "") : x[0] === "assets" ? (st.equipBad || "") : "", x[0] === "work" || x[0] === "assets"]; }), secHome(sec), "mtab", tools) + "</div>" +
+      (sec[2].length > 1 ? '<div class="subnav fin-sub"><div class="seg small" role="tablist">' + sec[2].map(function (id) { return '<button type="button" role="tab" aria-selected="' + (id === tab) + '" class="' + (id === tab ? "on" : "") + '" onclick="set({mtab:\'' + id + '\'})"><span>' + labels[id] + "</span></button>"; }).join("") + "</div></div>" : "");
+    return bar + (tab === "sched" ? maintSched(ts, state.mkind || "all") : tab === "repairs" ? maintRepairs() : tab === "equip" ? maintEquip(eq) : tab === "staff" ? maintStaff() : tab === "log" ? maintLog() : tab === "spend" ? maintSpend() : tab === "notices" ? maintNotices() : maintOverview(eq, st));
+  }
+  function maintOverview(eq, st) {
+    var plural_ = plural, s = function (js) { return "set({" + js + "})"; };
+    var tiles = '<div class="stat-row">' +
+      statBtn(st.overdue, "Overdue tasks", st.overdue ? "warn" : "good", false, s("mtab:'sched',msf:'overdue',mkind:'all',mtPage:0")) +
+      statBtn(st.soon, "Due in the next 7 days", st.soon ? "warn" : "", false, s("mtab:'sched',msf:'soon',mkind:'all',mtPage:0")) +
+      statBtn(st.openRepairs, "Open repairs · " + st.unassigned + " not assigned", st.unassigned ? "warn" : "", false, s("mtab:'repairs',mrf:'active',mrPage:0")) +
+      statBtn(st.equipBad, "Equipment needing attention", st.equipBad ? "warn" : "good", false, s("mtab:'equip',mef:'attn'")) + "</div>";
+    var bad = eq.filter(function (e) { return e.v.status !== "Working"; }), attn = [];
+    list("mclosure").forEach(function (c) { attn.push(mCard("bad", "fac", esc(c.value.facility) + " is closed to booking", esc(c.value.equipName) + " is " + esc(String(c.value.reason).toLowerCase()) + ". Residents cannot book it until it works again.", '<button class="btn primary" onclick="' + s("mtab:'equip',mef:'attn'") + '">View equipment</button>')); });
+    if (st.overdue) attn.push(mCard("bad", "maint", plural_(st.overdue, "overdue task"), "The due date has passed. Mark them done, or move the date by editing the task.", '<button class="btn primary" onclick="' + s("mtab:'sched',msf:'overdue',mkind:'all',mtPage:0") + '">View tasks</button>'));
+    if (st.unassigned) attn.push(mCard("warn", "req", plural_(st.unassigned, "repair") + " not assigned", "Residents reported these. Pick who will fix them and set a target date.", '<button class="btn primary" onclick="' + s("mtab:'repairs',mrf:'unassigned',mrPage:0") + '">Assign now</button>'));
+    if (st.lateRepairs) attn.push(mCard("bad", "req", plural_(st.lateRepairs, "repair") + " past the target date", "Check with the assigned staff or move the target.", '<button class="btn" onclick="' + s("mtab:'repairs',mrf:'late',mrPage:0") + '">View repairs</button>'));
+    if (st.soon) attn.push(mCard("warn", "maint", plural_(st.soon, "task") + " due in the next 7 days", "Use Notify residents when a job will affect them.", '<button class="btn" onclick="' + s("mtab:'sched',msf:'soon',mkind:'all',mtPage:0") + '">View tasks</button>'));
+    if (bad.length && !list("mclosure").length) attn.push(mCard("warn", "maint", plural_(bad.length, "equipment item") + " not working", bad.slice(0, 3).map(function (e) { return esc(e.v.name); }).join(", ") + (bad.length > 3 ? " and more." : "."), '<button class="btn" onclick="' + s("mtab:'equip',mef:'attn'") + '">View equipment</button>'));
+    if (st.warranty) attn.push(mCard("warn", "maint", st.warranty + (st.warranty === 1 ? " warranty ends" : " warranties end") + " within 30 days", "Check the equipment before cover runs out.", '<button class="btn" onclick="' + s("mtab:'equip',mef:'all'") + '">View equipment</button>'));
+    if (!attn.length) attn.push(mCard("good", "maint", "All caught up", "No late tasks, no waiting repairs and every item of equipment is working.", ""));
+    var step = function (n, title, text, js) { return (js ? '<button type="button" class="fin-step" onclick="' + js + '">' : '<div class="fin-step">') + "<i>" + n + "</i><b>" + title + "</b><small>" + text + "</small>" + (js ? "</button>" : "</div>"); };
+    var flow = '<div class="card fin-flow"><h2>How a repair moves</h2><p class="hint" style="margin:4px 0 12px">A resident reports a problem on the website. You assign it, the work is done, and the cost goes to Expenses.</p><div class="fin-steps">' +
+      step(1, "Resident reports it", plural_(st.unassigned, "report") + " not assigned", s("mtab:'repairs',mrf:'unassigned',mrPage:0")) +
+      step(2, "You assign staff and a target date", plural_(st.inProgress, "repair") + " in progress", s("mtab:'repairs',mrf:'active',mrPage:0")) +
+      step(3, "Work is done and you mark it resolved", st.resolvedMonth + " resolved this month", s("mtab:'repairs',mrf:'done',mrPage:0")) +
+      step(4, "Cost is saved and equipment is back to Working", money(st.spendMonth) + " this month", s("mtab:'spend'")) + "</div></div>";
+    var condRows = EQ_STATUS.map(function (n) { return '<div class="am-row"><div><b>' + n + "</b><small>" + plural_(st.equipCounts[n] || 0, "item") + "</small></div>" + eqChip(n) + "</div>"; }).join("");
+    var nums = [["Average repair time", st.avg == null ? "No finished repairs yet" : (st.avg < 1 ? "Under a day" : st.avg.toFixed(1) + " days") + " · " + plural_(st.resolved, "repair")], ["Spent this month", money(st.spendMonth)], ["Spent this year", money(st.spendYear)]];
+    return tiles + flow + '<div style="margin-top:16px"><div class="fx-group"><div class="fx-head"><h2>Needs your attention</h2></div>' + attn.join("") + "</div></div>" +
+      '<div class="fin-two"><div class="card"><h2>Equipment condition</h2><p class="hint" style="margin:4px 0 8px">' + plural_(st.equip, "item") + " on the equipment list.</p>" + condRows + '<div style="margin-top:12px"><button class="btn" onclick="' + s("mtab:'equip',mef:'all'") + '">Open equipment</button></div></div>' +
+      '<div class="card"><h2>Repair numbers</h2><p class="hint" style="margin:4px 0 8px">Repairs and upkeep paid for, from Expenses.</p>' + nums.map(function (n) { return '<div class="am-row"><div><b>' + n[0] + '</b></div><span class="rep-val">' + n[1] + "</span></div>"; }).join("") + '<div style="margin-top:12px"><button class="btn" onclick="' + s("mtab:'spend'") + '">See the spending</button></div></div></div>';
   }
 
   function maintTaskRows(shown) {
@@ -147,10 +201,6 @@
     });
   }
 
-  function mStat(label, value, key) {
-    var go = "set({mpage:'" + key + "'})";
-    return '<div class="card stat-link" role="button" tabindex="0" onclick="' + go + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + go + '}"><div class="stat-label">' + esc(label) + '</div><div class="stat-value">' + esc(value) + '</div><div class="stat-more">View details \u2192</div></div>';
-  }
   function maintBack(title, sub) {
     return '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px"><button class="btn" onclick="set({mpage:\'\'})">\u2190 Back to Maintenance</button><div><h2 style="margin:0;font-size:22px">' + esc(title) + '</h2>' + (sub ? '<p class="hint" style="margin:3px 0 0">' + sub + '</p>' : '') + '</div></div>';
   }
@@ -185,20 +235,41 @@
   }
 
   function maintSched(ts, kind) {
-    var shown = ts.filter(function (r) { return kind === "all" || (r.v.kind || "Routine") === kind; });
-    var rows = maintTaskRows(shown);
-    var kinds = [["all", "All"]].concat(TYPES.map(function (t) { return [t[0], t[2]]; }), customTypes().map(function (r) { return [r.v.name, r.v.name]; }));
+    var sf = state.msf === "overdue" || state.msf === "soon" ? state.msf : "all";
+    var inKind = ts.filter(function (r) { return kind === "all" || (r.v.kind || "Routine") === kind; });
+    var over = inKind.filter(function (r) { var n = daysTo(r.v.due); return n != null && n < 0; }), soon = inKind.filter(function (r) { var n = daysTo(r.v.due); return n != null && n >= 0 && n <= 7; });
+    var shown = sf === "overdue" ? over : sf === "soon" ? soon : inKind;
+    var kinds = [["all", "All types"]].concat(TYPES.map(function (t) { return [t[0], t[2]]; }), customTypes().map(function (r) { return [r.v.name, r.v.name]; }));
     var isCustom = customTypes().some(function (r) { return r.v.name === kind; });
-    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button class="btn primary" onclick="maintTaskForm(null)">+ Add task</button><span class="filters">' + kinds.map(function (k) {
-      return '<button class="' + (kind === k[0] ? "active" : "") + '" onclick="set({mkind:\'' + k[0] + '\'})">' + k[1] + "</button>";
-    }).join("") + "</span>" + (isCustom ? '<button ' + BTN + '" title="Change the name of this type" onclick="maintRenameType(\'' + escAttr(kind) + '\')">Rename type</button><button ' + BTN + ';color:#A02B1D" title="Remove this type from the list" onclick="maintDeleteType(\'' + escAttr(kind) + '\')">Delete type “' + esc(kind) + '”</button>' : "") + "</div>" +
-      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["TASK", "EQUIPMENT", "REPEATS", "NEXT DUE", "ASSIGNED TO", ""], "No maintenance tasks yet. Add the first one.") + "</div>";
+    var typeBtns = isCustom ? '<button ' + BTN + '" title="Change the name of this type" onclick="maintRenameType(\'' + escAttr(kind) + '\')">Rename type</button><button ' + BTN + ';color:#A02B1D" title="Remove this type from the list" onclick="maintDeleteType(\'' + escAttr(kind) + '\')">Delete type</button>' : "";
+    var chips = mChips([["all", "All (" + inKind.length + ")"], ["overdue", "Overdue (" + over.length + ")"], ["soon", "Next 7 days (" + soon.length + ")"]], sf, "msf", "mtPage");
+    var typeRow = kinds.length > 2 ? '<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + mChips(kinds, kind, "mkind", "mtPage") + typeBtns + "</div>" : "";
+    return mBar(chips, '<button class="btn" onclick="rhImport(\'mtasks\')">Import tasks</button><button class="btn primary" onclick="maintTaskForm(null)">+ Add task</button>') + typeRow +
+      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(maintTaskRows(pageSlice(shown, 10, "mtPage")), MT_HEAD, ts.length ? "Nothing matches this filter." : "No maintenance tasks yet. Add the first one.") + pagerPN(shown.length, 10, "mtPage") + "</div>";
+  }
+
+  function maintRepairs() {
+    var all = newest(list("grievance")), rf = ["active", "unassigned", "late", "done"].indexOf(state.mrf) >= 0 ? state.mrf : "active";
+    var active = all.filter(function (r) { return stageOf(r.v) < 2; }).sort(function (a, b) { return (PRANK[a.v.priority] == null ? 2 : PRANK[a.v.priority]) - (PRANK[b.v.priority] == null ? 2 : PRANK[b.v.priority]); });
+    var unas = active.filter(function (r) { return !r.v.assignee; }), late = active.filter(function (r) { return isLate(r.v); }), done = all.filter(function (r) { return stageOf(r.v) === 2; });
+    var shown = rf === "unassigned" ? unas : rf === "late" ? late : rf === "done" ? done : active;
+    var chips = mChips([["active", "Open (" + active.length + ")"], ["unassigned", "Not assigned (" + unas.length + ")"], ["late", "Late (" + late.length + ")"], ["done", "Resolved (" + done.length + ")"]], rf, "mrf", "mrPage");
+    var rows = pageSlice(shown, 8, "mrPage").map(function (r) {
+      var g = r.v, s = stageOf(g), lt = isLate(g), rep = reportedOn(r), who = esc(g.by || r.unit || "");
+      var target = s === 2 ? (g.resolvedOn ? "Done " + esc(fd(g.resolvedOn)) : "—") : g.target ? esc(fd(g.target)) + (lt ? '<div><span class="chip bad">Late by ' + plural(-daysTo(g.target), "day") + "</span></div>" : "") : "—";
+      var acts = s < 2 ? '<button ' + BTN + '" onclick="maintAssignForm(\'' + escAttr(r.id) + '\')">' + (g.assignee ? "Reassign" : "Assign") + '</button> <button class="btn primary" style="min-height:32px;padding:0 10px;font-size:12px" onclick="advanceGr(\'' + escAttr(r.id) + '\')">' + (s === 0 ? "Start work" : "Mark resolved") + "</button>" : (g.cost ? '<span class="chip">' + esc(money(g.cost)) + "</span>" : "");
+      return "<tr><td><b>" + esc(g.title) + '</b><div style="font-size:12px;color:var(--muted)">' + who + (rep ? " · reported " + esc(rep) : "") + "</div>" + (g.equipName ? '<div style="font-size:12px;color:var(--muted)">' + esc(g.equipName) + "</div>" : "") + "</td>" +
+        "<td>" + (g.assignee ? esc(g.assignee) + "<div>" + prioChip(g.priority) + "</div>" : '<span class="chip warn">Not assigned</span>') + "</td><td>" + target + '</td><td><span class="chip ' + (s === 2 ? "good" : s === 1 ? "warn" : "bad") + '">' + STAGES[s] + '</span></td><td style="white-space:nowrap">' + acts + "</td></tr>";
+    });
+    return mBar(chips, '<button class="btn" onclick="set({view:\'req\'})">Open Complaints</button>') +
+      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["REPAIR", "ASSIGNED TO", "TARGET", "STATUS", ""], all.length ? "Nothing matches this filter." : "No repairs yet. Complaints from residents appear here.") + pagerPN(shown.length, 8, "mrPage") + "</div>";
   }
 
   function maintEquip(eq) {
-    var rows = maintEquipRows(eq);
-    return '<div style="margin-bottom:12px"><button class="btn primary" onclick="maintEquipForm(null)">+ Add equipment</button></div>' +
-      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["EQUIPMENT", "LOCATION", "CONDITION", "WARRANTY", "SPENT", "LAST SERVICE", ""], "No equipment listed yet.") + "</div>";
+    var attn = eq.filter(function (e) { return e.v.status !== "Working"; }), ef = state.mef === "attn" ? "attn" : "all";
+    var chips = mChips([["all", "All (" + eq.length + ")"], ["attn", "Needs attention (" + attn.length + ")"]], ef, "mef", "");
+    return mBar(chips, '<button class="btn" onclick="rhImport(\'equipment\')">Import equipment</button><button class="btn primary" onclick="maintEquipForm(null)">+ Add equipment</button>') +
+      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(maintEquipRows(ef === "attn" ? attn : eq), ["EQUIPMENT", "LOCATION", "CONDITION", "WARRANTY", "SPENT", "LAST SERVICE", ""], eq.length ? "Everything is working." : "No equipment listed yet.") + "</div>";
   }
 
   function maintStaff() {
@@ -209,9 +280,40 @@
       return "<tr><td><b>" + esc(s.name) + "</b></td><td>" + esc(s.role) + "</td><td>" + esc(s.phone || "—") + "</td><td>" + plural(rep, "open repair") + ", " + plural(tk, "task") +
         '</td><td style="white-space:nowrap"><button ' + BTN + '" onclick="maintStaffForm(\'' + escAttr(r.id) + '\')">Edit</button> <button ' + BTN + ';color:#A02B1D" onclick="maintDelete(\'staff\',\'' + escAttr(r.id) + '\')">Delete</button></td></tr>';
     });
-    return '<div style="margin-bottom:12px"><button class="btn primary" onclick="maintStaffForm(null)">+ Add staff</button></div>' +
+    return mBar("", '<button class="btn" onclick="rhImport(\'staff\')">Import staff</button><button class="btn primary" onclick="maintStaffForm(null)">+ Add staff</button>') +
       '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["NAME", "ROLE", "PHONE", "ASSIGNED WORK", ""], "No maintenance staff yet.") + "</div>";
   }
+
+  // History > Service log: every finished scheduled task and every resolved repair, newest first.
+  function maintLog() {
+    var all = [], lf = state.mlf === "task" || state.mlf === "repair" ? state.mlf : "all";
+    list("mtask").forEach(function (t) { (t.v.history || []).forEach(function (h) { all.push({ date: h.date || "", what: t.v.title, kind: "task", by: h.by, equip: t.v.equipName, cost: h.cost, note: h.note }); }); });
+    list("grievance").forEach(function (g) { if (stageOf(g.v) === 2) all.push({ date: g.v.resolvedOn || "", what: g.v.title, kind: "repair", by: g.v.assignee || "", equip: g.v.equipName, cost: g.v.cost, note: g.v.completion }); });
+    all.sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var nT = all.filter(function (x) { return x.kind === "task"; }).length, nR = all.length - nT;
+    var shown = all.filter(function (x) { return lf === "all" || x.kind === lf; });
+    var cost = shown.reduce(function (s, x) { return s + (Number(x.cost) || 0); }, 0);
+    var rows = pageSlice(shown, 10, "mlPage").map(function (x) {
+      return "<tr><td style=\"white-space:nowrap\">" + esc(x.date ? fd(x.date) : "—") + "</td><td><b>" + esc(x.what) + "</b>" + (x.note ? '<div style="font-size:12px;color:var(--muted)">' + esc(x.note) + "</div>" : "") + (x.equip ? '<div style="font-size:12px;color:var(--muted)">' + esc(x.equip) + "</div>" : "") + '</td><td><span class="chip ' + (x.kind === "repair" ? "warn" : "info") + '">' + (x.kind === "repair" ? "Repair" : "Scheduled task") + "</span></td><td>" + esc(x.by || "—") + "</td><td>" + (x.cost ? money(x.cost) : "—") + "</td></tr>";
+    });
+    return '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(shown.length, "Jobs finished", "good") + statTile(money(cost), "Total cost", "") + "</div>" +
+      mBar(mChips([["all", "All (" + all.length + ")"], ["task", "Scheduled tasks (" + nT + ")"], ["repair", "Repairs (" + nR + ")"]], lf, "mlf", "mlPage"), "") +
+      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["DATE", "WORK", "TYPE", "DONE BY", "COST"], "Nothing has been finished yet. Jobs appear here when you mark them done.") + pagerPN(shown.length, 10, "mlPage") + "</div>";
+  }
+
+  // History > Spending: everything paid for repairs and upkeep.
+  function maintSpend() {
+    var ex = vals("expense").filter(isMaintExpense).sort(function (a, b) { return String(b.date || "").localeCompare(String(a.date || "")); });
+    var st = upkeepStats();
+    var rows = pageSlice(ex, 10, "msPage").map(function (e) {
+      return "<tr><td style=\"white-space:nowrap\">" + esc(fd(e.date)) + "</td><td><b>" + esc(e.item || "Repair") + '</b><div style="font-size:12px;color:var(--muted)">' + esc(e.category || "") + "</div></td><td>" + esc(e.equipId ? equipNameOf(e.equipId) || e.area || "" : e.area || "") + "</td><td>" + esc(e.payee || "—") + "</td><td><b>" + money(expTotal(e)) + "</b></td></tr>";
+    });
+    return '<div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">' + statTile(money(st.spendMonth), "This month", "") + statTile(money(st.spendYear), "This year", "") + "</div>" +
+      mBar('<span class="hint" style="margin:0">Costs entered when you mark a job done are saved to Expenses automatically.</span>', '<button class="btn" onclick="set({mpage:\'\',view:\'expenses\'})">Open Expenses</button>') +
+      '<div class="card" style="padding:0;overflow:hidden">' + tableRows(rows, ["DATE", "WHAT", "EQUIPMENT OR AREA", "PAID TO", "AMOUNT"], "No repair or maintenance spending recorded yet.") + pagerPN(ex.length, 10, "msPage") + "</div>";
+  }
+
+  function maintNotices() { return recentNotices(20) || emptyCard("No notices sent yet. Use Notify residents on a task to tell residents about work that affects them."); }
 
   /* ----- forms ----- */
   window.maintTaskForm = function (id) {
@@ -341,10 +443,10 @@
     return (DB.accounts || []).filter(function (a) { return a.role !== "admin" && !a.suspended; })
       .sort(function (x, y) { return String(x.unit || "").localeCompare(String(y.unit || ""), undefined, { numeric: true }) || String(x.name).localeCompare(String(y.name)); });
   }
-  function recentNotices() {
-    var ns = list("mnotice").sort(function (a, b) { return b.v.at - a.v.at; }).slice(0, 5);
+  function recentNotices(limit) {
+    var ns = list("mnotice").sort(function (a, b) { return b.v.at - a.v.at; }).slice(0, limit || 5);
     if (!ns.length) return "";
-    return '<div class="card" style="margin-top:16px;padding:0;overflow:hidden"><div style="padding:14px 18px"><h3 style="margin:0;font-size:17px">Recent notices</h3><p class="hint" style="margin:4px 0 0">Who each notice was sent to. Text messages are simulated in this prototype; the real system needs a text-message service.</p></div>' +
+    return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:14px 18px"><h3 style="margin:0;font-size:17px">Notices sent to residents</h3><p class="hint" style="margin:4px 0 0">Who each notice was sent to. Text messages are simulated in this prototype; the real system needs a text-message service.</p></div>' +
       tableRows(ns.map(function (r) {
         var n = r.v;
         return "<tr><td><b>" + esc(n.title) + '</b><div style="font-size:12px;color:var(--muted)">' + esc(new Date(n.at).toLocaleString()) + "</div></td><td>" + esc(n.to) + "</td><td>" +
@@ -607,7 +709,7 @@
   var origTitles = window.titles;
   window.titles = function () {
     if (state.view === "maint" && IS_ADMIN) {
-      return state.mpage ? ["Maintenance", "Details behind the numbers on the Maintenance page."] : ["Maintenance", "Preventive maintenance schedule, equipment, and the staff who do the work."];
+      return state.mpage ? ["Maintenance", "Details behind the numbers on the Maintenance page."] : ["Maintenance", "Keep the building running: scheduled upkeep, repairs, equipment and staff."];
     }
     return origTitles();
   };

@@ -1034,27 +1034,123 @@ function reportData() {
 }
 // '2026-10-16' -> 'Oct 16, 2026'.
 function shortDateFromKey(k) { var p = String(k).split("-"); return p.length === 3 ? MONTHS[+p[1] - 1] + " " + (+p[2]) + ", " + p[0] : ""; }
-// PAGE: Reports.
+// PAGE: Reports. Six sections: Overview, Money, Facilities, Requests and upkeep, Residents, Export.
+function repTab() { return ["overview", "money", "facilities", "upkeep", "residents", "export"].indexOf(state.repTab) >= 0 ? state.repTab : "overview"; }
+// One action card (same look as the Finance and Maintenance attention lists).
+function repCard(tone, ico, title, text, acts) {
+  return '<div class="fx-card ' + tone + '"><span class="fx-ico">' + icon(ico) + '</span><div class="fx-main"><b>' + title + "</b><small>" + text + '</small></div><div class="fx-act">' + (acts || "") + "</div></div>";
+}
+function repRow(label, value, js) {
+  return (js ? '<button type="button" class="am-row am-link" onclick="' + js + '">' : '<div class="am-row">') + "<div><b>" + label + '</b></div><span class="rep-val">' + value + "</span>" + (js ? "</button>" : "</div>");
+}
+// '2026-11-03' -> a month key (year * 12 + month), or null.
+function isoMonthKey(s) { var p = String(s || "").split("-"); return p.length >= 2 && +p[0] ? +p[0] * 12 + (+p[1] - 1) : null; }
 function viewReports() {
-  var r = reportData(), total = r.units.length;
-  var rate = total ? Math.round((total - r.nUnpaid) / total * 100) + "%" : "—";
-  var occ = r.units.filter(function (u) { return u.v.status !== "Vacant"; }).length;
+  var r = reportData(), total = r.units.length, tab = repTab(), mk = thisMonthKey();
+  var up = window.upkeepStats ? upkeepStats() : null;
+  var plural = function (n, w) { return n + " " + w + (n === 1 ? "" : "s"); };
+  var empty = '<p class="empty">Nothing to show yet.</p>';
+  var sumPaid = function (m) { return Math.round(vals("payment").filter(function (p) { return monthOf(p.date) === m; }).reduce(function (s, p) { return s + Number(p.amount || 0); }, 0)); };
+  var spentIn = function (m) { return Math.round(vals("expense").filter(function (e) { return isoMonthKey(e.date) === m; }).reduce(function (s, e) { return s + expTotal(e); }, 0)); };
+  var collected = sumPaid(mk), lastCollected = sumPaid(mk - 1), spent = spentIn(mk);
+  var open = list("due").filter(function (d) { return !d.v.paid; });
+  var outstanding = open.reduce(function (s, d) { return s + Number(d.v.amount || 0); }, 0);
+  var overdue = open.filter(function (d) { return isOverdue(d.v); }), overdueSum = overdue.reduce(function (s, d) { return s + Number(d.v.amount || 0); }, 0);
+  var occ = r.units.filter(function (u) { return u.v.status !== "Vacant"; }).length, vacant = total - occ;
+  var occPct = total ? Math.round(occ / total * 100) : 0, paidPct = total ? Math.round((total - r.nUnpaid) / total * 100) : 0;
+  var openGr = r.gr[0] + r.gr[1];
+  var bookings = vals("booking"), pendingBk = bookings.filter(function (b) { return b.status === "Pending"; }).length;
+  var approvedBk = r.fac.reduce(function (s, f) { return s + f.value; }, 0);
+  var slots = list("slot"), slotsUsed = slots.filter(function (s) { return s.v.unit; }).length;
+  var renew = typeof parkRenewalItems === "function" ? parkRenewalItems().length : 0;
+  var openPolls = pollsAll().filter(function (p) { return p.open; }), closedPolls = pollsAll().filter(function (p) { return !p.open; });
+  var turnout = function (p) { return list("vote").filter(function (x) { return Number(x.v.poll) === p.id; }).length; };
+  var go = function (v) { return "set({view:'" + v + "'})"; };
+  var tiles = function (arr) { return '<div class="stat-row">' + arr.join("") + "</div>"; };
+  var cardOf = function (title, hint, inner) { return '<div class="card"><h2>' + title + '</h2><p class="hint" style="margin:4px 0 12px">' + hint + "</p>" + inner + "</div>"; };
   var usage = Object.keys(USAGE_NAMES).map(function (k, i) { return { label: USAGE_NAMES[k], value: r.units.filter(function (u) { return (u.v.usage || "owner") === k; }).length, tone: ["green", "blue", "yellow", "pink", "ink", "blue"][i] }; }).filter(function (p) { return p.value > 0; });
   var grd = ["Open", "In progress", "Resolved"].map(function (n, k) { return { label: n, value: r.gr[k], tone: ["pink", "yellow", "green"][k] }; });
-  var ageing = [{ label: "Not yet due", value: r.age[0], tone: "blue" }, { label: "1 month", value: r.age[1], tone: "green" }, { label: "2 months", value: r.age[2], tone: "yellow" }, { label: "3+ months", value: r.age[3], tone: "pink" }];
-  var openPolls = pollsAll().filter(function (p) { return p.open; });
-  var empty = '<p class="empty">Nothing to show yet.</p>';
-  return '<div class="filters"><button class="btn" style="margin-left:auto" onclick="downloadReport()">Download report (.csv)</button></div>' +
-    '<div class="sc-grid">' + summaryCard("yellow", "Collections", [[rate, "Units paid up"], [r.nUnpaid, "Units with unpaid dues", "fin"]], "cross") +
-    summaryCard("pink", "Earnings", [[peso(monthEarnings()), "This month"]], "heart") +
-    summaryCard("green", "Occupancy", [[total ? Math.round(occ / total * 100) + "%" : "—", "Occupied"], [total - occ, "Vacant", "units"]], "triangle") +
-    summaryCard("blue", "Requests", [[r.gr[0] + r.gr[1], "Open"], [r.gr[2], "Resolved", "req"]], "burst") + "</div>" +
-    '<div class="two-col-e"><div class="card"><h2>Collections, last 6 months</h2><p class="hint">Money received, in pesos.</p>' + barChart(r.months, "₱") + "</div>" +
-    '<div class="card"><h2>Dues ageing</h2><p class="hint">Unpaid charges by how long they are overdue.</p>' + (r.age.some(Boolean) ? barChart(ageing) : empty) + "</div>" +
-    '<div class="card"><h2>Unit usage</h2><p class="hint">From the ' + total + " units on record.</p>" + (usage.length ? donutChart(usage, String(total), "units") : empty) + "</div>" +
-    '<div class="card"><h2>Complaints by status</h2><p class="hint">Updates as you move requests forward.</p>' + (r.gr.some(Boolean) ? donutChart(grd, String(r.gr[0] + r.gr[1] + r.gr[2]), "requests") : empty) + "</div>" +
-    '<div class="card"><h2>Facility use this month</h2><p class="hint">Approved bookings.</p>' + (r.fac.some(function (f) { return f.value; }) ? barChart(r.fac) : empty) + "</div>" +
-    '<div class="card"><h2>Poll turnout</h2><p class="hint">Units that voted in each open poll.</p>' + (openPolls.map(function (p) { return progressBar(esc(p.q), list("vote").filter(function (x) { return Number(x.v.poll) === p.id; }).length, total, "blue"); }).join("") || '<p class="empty">No open polls.</p>') + "</div></div>";
+  var months6 = function (fn) {
+    var now = new Date(), out = [];
+    for (var k = 5; k >= 0; k--) { var d = new Date(now.getFullYear(), now.getMonth() - k, 1); out.push({ label: MONTHS[d.getMonth()], value: fn(d.getFullYear() * 12 + d.getMonth()), tone: k === 0 ? "pink" : "yellow" }); }
+    return out;
+  };
+
+  /* --- Overview --- */
+  var attn = [];
+  if (overdue.length) attn.push(repCard("bad", "fin", plural(overdue.length, "overdue charge") + " · " + peso(overdueSum), "Unpaid and past the due date. Open Finance to send reminders or record a payment.", '<button class="btn primary" onclick="set({view:\'fin\',finTab:\'charges\',finFilter:\'unpaid\',finPage:0})">Open Finance</button>'));
+  if (pendingBk) attn.push(repCard("warn", "fac", plural(pendingBk, "booking request") + " waiting", "Residents asked to book a facility. Approve or decline them.", '<button class="btn primary" onclick="set({view:\'fac\',facTab:\'requests\'})">Open Facility</button>'));
+  if (openGr) attn.push(repCard("warn", "req", plural(openGr, "open complaint") + (up && up.unassigned ? " · " + up.unassigned + " not assigned" : ""), "Residents reported these. Assign someone to fix them and move them forward.", '<button class="btn primary" onclick="' + go("req") + '">Open Complaints</button>'));
+  if (up && (up.overdue || up.equipBad)) attn.push(repCard("warn", "maint", (up.overdue ? plural(up.overdue, "overdue maintenance task") : "") + (up.overdue && up.equipBad ? " · " : "") + (up.equipBad ? up.equipBad + " equipment not working" : ""), "Scheduled upkeep that is late, or equipment that needs repair.", '<button class="btn primary" onclick="' + go("maint") + '">Open Maintenance</button>'));
+  if (renew) attn.push(repCard("warn", "parking", plural(renew, "parking rental") + " to renew", "Rentals that are ending or already ended.", '<button class="btn primary" onclick="' + go("parking") + '">Open Parking</button>'));
+  if (!attn.length) attn.push(repCard("good", "reports", "All clear", "No overdue charges, waiting requests or late upkeep.", ""));
+  var glance = repRow("Parking slots in use", slotsUsed + " of " + slots.length, go("parking")) + repRow("Approved bookings this month", String(approvedBk), "set({repTab:'facilities'})") +
+    (up && up.equip ? repRow("Equipment working", (up.equip - up.equipBad) + " of " + up.equip, "set({repTab:'upkeep'})") : "") +
+    (up && up.avg != null ? repRow("Average repair time", up.avg < 1 ? "Under a day" : up.avg.toFixed(1) + " days", "set({repTab:'upkeep'})") : "") +
+    repRow("Open polls", openPolls.length ? openPolls.length + " · " + Math.round(openPolls.reduce(function (s, p) { return s + turnout(p); }, 0) / (total * openPolls.length || 1) * 100) + "% average turnout" : "None", "set({repTab:'residents'})");
+  var overview = tiles([
+    statBtn(peso(collected), "Collected this month" + (lastCollected ? " · last month " + peso(lastCollected) : ""), "good", false, "set({repTab:'money'})"),
+    statBtn(total ? paidPct + "%" : "—", "Units paid up · " + r.nUnpaid + " with unpaid dues", r.nUnpaid ? "warn" : "good", false, "set({repTab:'money'})"),
+    statBtn(total ? occPct + "%" : "—", "Occupied · " + vacant + " vacant", "", false, "set({repTab:'residents'})"),
+    statBtn(String(openGr), "Open requests", openGr ? "warn" : "", false, "set({repTab:'upkeep'})")]) +
+    '<div class="fx-group"><div class="fx-head"><h2>Needs your attention</h2></div>' + attn.join("") + "</div>" +
+    '<div class="fin-two">' + cardOf("Collections, last 6 months", "Money received, in pesos.", barChart(months6(sumPaid), "₱")) + cardOf("At a glance", "Tap a line to see more.", glance) + "</div>";
+
+  /* --- Money --- */
+  var ageDefs = [["Not yet due", "#14A38B"], ["1–30 days late", "#E5C13A"], ["31–60 days late", "#E8914A"], ["Over 60 days late", "#D8584A"]], age = ageDefs.map(function () { return { n: 0, sum: 0 }; });
+  open.forEach(function (d) { var dl = daysLate(d.v), k = dl == null || dl < 1 ? 0 : dl <= 30 ? 1 : dl <= 60 ? 2 : 3; age[k].n++; age[k].sum += Number(d.v.amount || 0); });
+  var ageHtml = open.length ? ageDefs.map(function (a, i) {
+    return '<div class="fin-age-row"><span>' + a[0] + '</span><div class="fin-age-bar"><i style="width:' + (outstanding ? Math.round(age[i].sum / outstanding * 100) : 0) + "%;background:" + a[1] + '"></i></div><b>' + peso(age[i].sum) + "</b><small>" + plural(age[i].n, "charge") + "</small></div>";
+  }).join("") : '<p class="hint" style="margin:0">No unpaid charges.</p>';
+  var net = collected - spent;
+  var money = tiles([
+    statBtn(peso(collected), "Collected this month", "good", false, go("fin")),
+    statBtn(peso(spent), "Spent this month", "", false, go("expenses")),
+    statBtn((net < 0 ? "−" : "") + peso(Math.abs(net)), net < 0 ? "Short this month" : "Left this month", net < 0 ? "warn" : "good", false, ""),
+    statBtn(peso(outstanding), "Unpaid · " + plural(overdue.length, "charge") + " overdue", overdue.length ? "warn" : "", false, "set({view:'fin',finTab:'charges',finFilter:'unpaid',finPage:0})")]) +
+    '<div class="fin-two">' + cardOf("Collected, last 6 months", "Money received from residents, in pesos.", barChart(months6(sumPaid), "₱")) + cardOf("Spent, last 6 months", "Everything recorded under Expenses, in pesos.", barChart(months6(spentIn), "₱")) + "</div>" +
+    '<div style="margin-top:16px">' + cardOf("Unpaid charges by age", "How long unpaid charges have been past their due date.", ageHtml) + "</div>";
+
+  /* --- Facilities --- */
+  var bkStatus = ["Approved", "Pending"].map(function (s, i) { return { label: s, value: bookings.filter(function (b) { return b.status === s; }).length, tone: ["green", "yellow"][i] }; });
+  var bkOther = bookings.length - bkStatus[0].value - bkStatus[1].value; if (bkOther > 0) bkStatus.push({ label: "Declined or cancelled", value: bkOther, tone: "pink" });
+  var closed = list("mclosure").length;
+  var facilities_ = tiles([
+    statBtn(String(approvedBk), "Approved bookings this month", "good", false, "set({view:'fac',facTab:'slots'})"),
+    statBtn(String(pendingBk), "Requests waiting", pendingBk ? "warn" : "", false, "set({view:'fac',facTab:'requests'})"),
+    statBtn(slotsUsed + " / " + slots.length, "Parking slots in use", "", false, go("parking")),
+    statBtn(String(closed), "Closed for maintenance", closed ? "warn" : "", false, go("maint"))]) +
+    '<div class="fin-two">' + cardOf("Facility use this month", "Approved bookings for each facility.", r.fac.some(function (f) { return f.value; }) ? barChart(r.fac) : empty) +
+    cardOf("Bookings by status", "All booking requests on record.", bookings.length ? donutChart(bkStatus, String(bookings.length), "bookings") : empty) + "</div>" +
+    '<div style="margin-top:16px">' + cardOf("Parking", "Slots with a resident, out of every slot in the building.", slots.length ? progressBar("Slots in use", slotsUsed, slots.length, "blue") + (renew ? '<p class="hint" style="margin:10px 0 0">' + plural(renew, "rental") + " to renew.</p>" : "") : empty) + "</div>";
+
+  /* --- Requests and upkeep --- */
+  var upkeepTiles = [
+    statBtn(String(openGr), "Open complaints" + (up ? " · " + up.unassigned + " not assigned" : ""), openGr ? "warn" : "", false, go("req")),
+    statBtn(String(r.gr[2]), "Resolved", "good", false, go("req"))];
+  if (up) upkeepTiles.push(statBtn(up.avg == null ? "—" : up.avg < 1 ? "<1 day" : up.avg.toFixed(1) + " days", "Average repair time", "", false, ""), statBtn(peso(up.spendMonth), "Repair spend this month", "", false, go("maint")));
+  var cond = up && up.equip ? ["Working", "Needs repair", "Under maintenance"].map(function (s, i) { return { label: s, value: up.equipCounts[s] || 0, tone: ["green", "pink", "yellow"][i] }; }) : null;
+  var upkeep = tiles(upkeepTiles) + '<div class="fin-two">' + cardOf("Complaints by status", "Updates as you move requests forward.", r.gr.some(Boolean) ? donutChart(grd, String(r.gr[0] + r.gr[1] + r.gr[2]), "requests") : empty) +
+    (cond ? cardOf("Equipment condition", "From the equipment list under Maintenance.", donutChart(cond, String(up.equip), "equipment")) : cardOf("Maintenance", "Scheduled upkeep, equipment and repair costs.", '<button class="btn primary" onclick="' + go("maint") + '">Open Maintenance</button>')) + "</div>" +
+    (up && up.tasks ? '<div style="margin-top:16px">' + cardOf("Scheduled upkeep", "Tasks on the maintenance schedule.", progressBar("On schedule", up.tasks - up.overdue, up.tasks, "green") + '<p class="hint" style="margin:10px 0 0">' + plural(up.overdue, "task") + " overdue · " + plural(up.soon, "task") + " due in the next 7 days.</p>") + "</div>" : "");
+
+  /* --- Residents --- */
+  var pollRows = openPolls.concat(closedPolls.slice(0, 4)).map(function (p) { return progressBar((p.open ? "" : "Closed · ") + esc(p.q), turnout(p), total, p.open ? "blue" : "green"); }).join("");
+  var residents = tiles([
+    statBtn(String(total), "Units on record", "", false, go("units")),
+    statBtn(total ? occPct + "%" : "—", "Occupied · " + vacant + " vacant", "", false, go("rentals")),
+    statBtn(String(r.nUnpaid), "Units with unpaid dues", r.nUnpaid ? "warn" : "good", false, "set({view:'fin',finTab:'charges',finFilter:'unpaid',finPage:0})"),
+    statBtn(String(openPolls.length), "Open polls", "", false, go("polls"))]) +
+    '<div class="fin-two">' + cardOf("Unit usage", "From the " + total + " units on record.", usage.length ? donutChart(usage, String(total), "units") : empty) +
+    cardOf("Poll turnout", "Units that answered each poll.", pollRows || '<p class="empty">No polls yet.</p>') + "</div>";
+
+  /* --- Export --- */
+  var exportTab = '<div class="fin-two"><div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>All data (Excel)</h2><p class="hint" style="margin:0">One .xlsx file: a dashboard sheet with key figures and charts, then a neatly formatted sheet for every part of the system (units, accounts, dues, payments, expenses, bookings, parking, complaints and repairs, announcements, events, polls, maintenance, equipment, staff and the activity log). You choose where to save it.</p><div><button class="btn primary" onclick="exportAllData()">Download all data (.xlsx)</button></div></div>' +
+    '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Summary report (CSV)</h2><p class="hint" style="margin:0">A short list of the main figures: units, earnings this month, units with unpaid dues, open complaints, pending booking requests and parking use.</p><div><button class="btn" onclick="downloadReport()">Download summary (.csv)</button></div></div></div>';
+
+  var tabLabels = [["overview", "Overview", attn.length && !attn[0].match(/fx-card good/) ? attn.length : "", true], ["money", "Money"], ["facilities", "Facilities", pendingBk || "", true], ["upkeep", "Requests & upkeep", openGr || "", true], ["residents", "Residents"], ["export", "Export"]];
+  var body = tab === "money" ? money : tab === "facilities" ? facilities_ : tab === "upkeep" ? upkeep : tab === "residents" ? residents : tab === "export" ? exportTab : overview;
+  return '<div class="fin-nav">' + subNav(tabLabels, tab, "repTab", tab === "overview" ? '<button class="btn" onclick="downloadReport()">Download report (.csv)</button>' : "") + "</div>" + body;
 }
 // Downloads the summary report as a CSV file.
 function downloadReport() {

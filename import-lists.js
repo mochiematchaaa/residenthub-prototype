@@ -598,8 +598,7 @@
     parking: [["slots", "Import parking slots"]],
     ann: [["announcements", "Import announcements"], ["events", "Import events"]],
     fac: [["facilities", "Import facilities"]],
-    settings: [["directory", "Import directory contacts"]],
-    maint: [["mtasks", "Import tasks"], ["equipment", "Import equipment"], ["staff", "Import staff"]]
+    settings: [["directory", "Import directory contacts"]]
   };
   var prev = window.view;
   window.view = function () {

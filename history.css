@@ -791,3 +791,9 @@ button.fin-step:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(40,3
 .fin-two{display:grid;gap:16px;margin-top:4px;align-items:start;grid-template-columns:minmax(0,1fr)}.fin-two>*{min-width:0}
 @media(min-width:1100px){.fin-two{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}}
 @media(max-width:560px){.fin-nav .seg button{padding:0 11px;gap:6px}.fin-nav .seg.small button{padding:0 12px}}
+/* Reports and Maintenance: linked rows and the value on the right */
+button.am-row{width:100%;background:none;border:0;border-top:1px solid var(--border2);font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:0}
+button.am-row:hover{background:var(--beige)}
+.rep-val{font-weight:700;font-size:14px;text-align:right}
+button.am-row .rep-val::after{content:" \203A";color:var(--muted)}
+.am-row.am-link:first-of-type{border-top:0}

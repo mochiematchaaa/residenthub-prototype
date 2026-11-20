@@ -753,14 +753,6 @@
   window.__rhXlsx = { resetStyles: resetStyles, makeXlsx: makeXlsx, tableSheet: tableSheet, saveBlob: saveBlob }; // used by the polls export
 
   /* ---------- buttons on the page (the real files are not edited) ---------- */
-  var origReports = window.viewReports;
-  if (origReports) {
-    window.viewReports = function () {
-      return '<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px"><div style="flex:1 1 260px"><b style="font-size:16px">Export all data to Excel</b>' +
-        '<p class="hint" style="margin:4px 0 0">One .xlsx file: a dashboard sheet with key figures and charts, then a neatly formatted sheet for every part of the system (units, accounts, dues, payments, expenses, bookings, parking, grievances and repairs, announcements, events, polls, maintenance, equipment, staff and the activity log). You choose where to save it.</p></div>' +
-        '<button class="btn primary" onclick="exportAllData()">Download all data (.xlsx)</button></div>' + origReports();
-    };
-  }
   var origHome2 = window.viewHome;
   window.viewHome = function () {
     return origHome2().replace('<div class="pills-row">', '<div class="pills-row"><button onclick="exportAllData()">Export all data (Excel)</button>');
