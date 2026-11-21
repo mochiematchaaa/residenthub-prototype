@@ -423,6 +423,14 @@
     var acts = [];
     for (var a = 0; a < 40; a++) { var t = pick(ACT), au = pick(withAcc); acts.push([t[0] + au.label, t[1], a * 0.35 + rnd() * 0.3]); }
     TITLES.forEach(function (ttl, k) { acts.push([ttl, ttl.split(" ")[0] === "Announcement" ? "Announcements" : ttl.split(" ")[0] === "Expense" ? "Expenses" : ttl.split(" ")[0] === "Event" ? "Events" : ttl.split(" ")[0] === "Poll" ? "Polls" : ttl.split(" ")[0] === "Charge" ? "Finance" : ttl.split(" ")[0] === "Amenity" ? "Facilities" : ttl.split(" ")[0] === "Document" ? "Documents" : "Settings", 1 + k * 1.6]); });
+    /* a few things the demo resident (Unit 3B) did, so the Resident filter of the activity log shows something. They go in first so the small sample keeps them. */
+    var r3b = U.filter(function (u) { return u.label === "Unit 3B"; })[0], r3bName = r3b ? r3b.person : "Resident";
+    [["Is going to event: Community clean-up drive", "Announcements", 0.4, { a: "create", k: "rsvp", l: "Community clean-up drive (Unit 3B)" }],
+     ["Added payment proof: Association dues - November 2026", "Finance", 1.2, { a: "create", k: "proof", l: "Association dues - November 2026 (Unit 3B)" }],
+     ["Requested a booking: Function Hall", "Facilities", 2.6, { a: "create", k: "booking", l: "Function Hall (Unit 3B)" }]].forEach(function (x) {
+      var at = Date.now() - Math.round(x[2] * 86400000);
+      R("activity", at, "__admin", { title: x[0], area: x[1], at: at, by: r3bName, role: "resident", unit: "Unit 3B", recs: [x[3]] });
+    });
     acts.forEach(function (x) {
       var at = Date.now() - Math.round(x[2] * 86400000) - ri(0, 3600000);
       R("activity", at, "__admin", { title: x[0], area: x[1], at: at, by: "Administrator", role: "admin" });
