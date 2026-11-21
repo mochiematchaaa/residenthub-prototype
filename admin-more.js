@@ -1818,7 +1818,7 @@ function deleteAccount(id) {
 }
 // Downloads accounts as CSV.
 function exportAccounts() {
-  exportCSV("residenthub-accounts.csv", ["Name", "Email", "Mobile", "Unit", "Role", "Status"], DB.accounts.map(function (a) { return [a.name, a.email, a.phone || "", a.unit || "", a.role, a.suspended ? "Suspended" : "Active"]; }));
+  exportCSV("citynest-accounts.csv", ["Name", "Email", "Mobile", "Unit", "Role", "Status"], DB.accounts.map(function (a) { return [a.name, a.email, a.phone || "", a.unit || "", a.role, a.suspended ? "Suspended" : "Active"]; }));
 }
 
 /* ==========================================================================

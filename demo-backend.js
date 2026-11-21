@@ -1,4 +1,4 @@
-/* ResidentHub DEMO backend.
+/* CityNest DEMO backend.
    Stands in for Supabase so the website dashboards can be previewed with made-up (sample) data.
    There is no database: everything lives in this browser (localStorage), is never sent anywhere,
    and can be reset from the DEMO panel. The sample dates are always built around today.

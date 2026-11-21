@@ -155,7 +155,7 @@ function render() {
   var isHome = state.view === "home";
   if (viewChanged && isHome && state.authed) setTimeout(function () { if (typeof remPopup === "function") remPopup(); }, 500);   // reminder pop-up each time the dashboard opens
   keepFocus(function () {
-    mountApp(app, '<div class="shell"><aside class="side"><div class="side-brand"><img src="logo.jpg" alt=""><span>ResidentHub</span></div>' +
+    mountApp(app, '<div class="shell"><aside class="side"><div class="side-brand"><img src="logo.jpg?v=2" alt=""><span>CityNest</span></div>' +
       '<div class="side-label">' + tr("General") + '</div><nav>' + navBtn("home", "Home") + navBtn("book", "Book a facility") + navBtn("res", "Reservations") + navBtn("dues", "Dues") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("events", "Events") + "</nav>" +
       '<div class="side-label">' + tr("Community") + '</div><nav>' + navBtn("polls", "Polls") + navBtn("directory", "Directory") + navBtn("gr", "Complaints") + navBtn("docs", "Documents") + "</nav>" +
       '<div class="side-label">' + tr("Account") + '</div><nav>' + navBtn("rental", "Unit status") + navBtn("settings", "Settings") + "</nav>" +

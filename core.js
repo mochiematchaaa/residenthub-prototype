@@ -1,6 +1,6 @@
-/* ResidentHub web — shared core for admin.html and resident.html
+/* CityNest web — shared core for admin.html and resident.html
    Real system: Supabase sign-in and the shared `records` table. No sample data.
-   The ResidentHub app reads and writes the very same rows, so both always show the same thing.
+   The CityNest app reads and writes the very same rows, so both always show the same thing.
 
    Each page sets window.RH_ROLE ("admin" or "resident") and loads, in order:
    shared.js, supabase-config.js, core.js, then its own script (admin.js or resident.js).
@@ -804,7 +804,7 @@ function authPage(title, sub, inner, badges) {
   document.documentElement.setAttribute("data-theme", "light");
   $("#app").innerHTML = '<div class="' + AUTH.wrap + '"><a class="back-link" href="index.html">&larr; Back to website</a>' +
     '<form class="' + AUTH.card + '" id="authForm" novalidate>' +
-    '<img src="logo.jpg" alt="ResidentHub"><div class="name">' + title + '</div><div class="sub">' + sub + "</div>" +
+    '<img src="logo.jpg?v=2" alt="CityNest"><div class="name">' + title + '</div><div class="sub">' + sub + "</div>" +
     (badges ? '<div class="' + AUTH.badges + '">' + badges.map(function (b) { return "<span>" + b + "</span>"; }).join("") + "</div>" : "") +
     '<div class="' + AUTH.form + '">' + inner + "</div></form></div>";
 }
@@ -835,7 +835,7 @@ function bindPwToggles(root) {
 // Draws the sign-in page.
 function renderLogin(msg) {
   // One sign-in for everybody: after signing in, the system opens the administrator or the resident dashboard by itself.
-  authPage("Sign in to ResidentHub",
+  authPage("Sign in to CityNest",
     "CITY RESIDENCES CONDOMINIUM CORP.",
     fieldHtml("Email address", "email", "email", 'autocomplete="username" placeholder="you@email.com"') +
     pwField("Password", "password") +
@@ -1073,12 +1073,12 @@ async function startSession(session) {
 // Decides which screen to show after sign-in (change password, verify, or the dashboard).
 async function boot() {
   if (!isAdmin() && !DB.profile.contact_verified_at) return renderVerify();
-  $("#app").innerHTML = '<div class="' + AUTH.wrap + '"><div class="' + AUTH.card + '" style="align-items:center"><img src="logo.jpg" alt=""><div class="name">Loading your data…</div></div></div>';
+  $("#app").innerHTML = '<div class="' + AUTH.wrap + '"><div class="' + AUTH.card + '" style="align-items:center"><img src="logo.jpg?v=2" alt=""><div class="name">Loading your data…</div></div></div>';
   try {
     await loadAll();
     await loadAccounts();
   } catch (e) {
-    $("#app").innerHTML = '<div class="' + AUTH.wrap + '"><div class="' + AUTH.card + '" style="align-items:center"><img src="logo.jpg" alt=""><div class="name">Could not load</div><p style="color:var(--muted);text-align:center">' +
+    $("#app").innerHTML = '<div class="' + AUTH.wrap + '"><div class="' + AUTH.card + '" style="align-items:center"><img src="logo.jpg?v=2" alt=""><div class="name">Could not load</div><p style="color:var(--muted);text-align:center">' +
       esc(errText(e)) + '</p><button class="btn primary" id="retry">Try again</button><button class="btn" id="out" style="margin-top:8px">Sign out</button></div></div>';
     $("#retry").onclick = boot; $("#out").onclick = function () { signOut(); };
     return;

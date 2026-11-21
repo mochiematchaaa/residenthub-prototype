@@ -1,5 +1,5 @@
 /* ==========================================================================
-   responsive.css — the mobile-first layer of ResidentHub (loaded LAST on every page)
+   responsive.css — the mobile-first layer of CityNest (loaded LAST on every page)
 
    How it works:
    - The rules at the top, outside any media query, are the PHONE rules.

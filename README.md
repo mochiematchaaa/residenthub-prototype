@@ -1,4 +1,4 @@
-# ResidentHub: Facility Management System for City Residences Condominium (prototype)
+# CityNest: Facility Management System for City Residences Condominium (prototype)
 
 Responsive, mobile-first website prototype of the system. Front end only: no database, sample data.
 

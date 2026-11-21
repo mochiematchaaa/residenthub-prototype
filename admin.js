@@ -91,7 +91,7 @@ function render() {
   keepFocus(function () {
     mountApp(app, '<div class="shell">' +
       '<aside class="side">' +
-      '<div class="side-brand"><img src="logo.jpg" alt=""><span>ResidentHub</span></div>' +
+      '<div class="side-brand"><img src="logo.jpg?v=2" alt=""><span>CityNest</span></div>' +
       '<div class="side-label">' + tr("General") + '</div><nav>' + navBtn("home", "Dashboard") + navBtn("units", "Units") + navBtn("fac", "Facility") + navBtn("ann", "Announcements") + navBtn("polls", "Polls") + "</nav>" +
       '<div class="side-label">' + tr("Tools") + '</div><nav>' + navBtn("fin", "Finance") +
       '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>" + tr("Expenses") + "</span></button>" +

@@ -1,4 +1,4 @@
-/* DEMO ONLY: maintenance management for ResidentHub.
+/* DEMO ONLY: maintenance management for CityNest.
    Adds (1) a preventive maintenance schedule, (2) an equipment list, (3) a maintenance staff list and
    (4) repair assignment on complaints (who, target date, equipment, note).
    Loaded by demo/admin.html and demo/resident.html after the real scripts. The real website and the real

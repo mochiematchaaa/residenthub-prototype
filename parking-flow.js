@@ -61,7 +61,7 @@ async function sendSms(unit, text) { return ""; }   // texts are not used; the r
 // The text a resident gets when a parking payment is approved.
 function approvedSmsText(slotId, slotVal, receipt, amount, renewed) {
   var d = parkDueInfo(slotVal);
-  return "ResidentHub: Your parking payment of " + peso(amount) + " is approved. Slot " + slotId + " is " + (renewed ? "renewed" : "yours") + " until " + usageDate(slotVal.until) + "." +
+  return "CityNest: Your parking payment of " + peso(amount) + " is approved. Slot " + slotId + " is " + (renewed ? "renewed" : "yours") + " until " + usageDate(slotVal.until) + "." +
     (d ? " Next payment due: " + usageDate(d.nextDue) + "." : " This daily rental ends on " + usageDate(slotVal.until) + ".") + " Provisional receipt " + receipt + ". Thank you!";
 }
 
