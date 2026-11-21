@@ -1601,7 +1601,7 @@ function setUsageForm(unit) {
 }
 
 /* ==========================================================================
-   Audit log
+   Activity log
    ========================================================================== */
 var LOG_PAGE = 10;
 /* page buttons: « ‹ 1 2 [3] 4 5 › » and a "Showing 31–45 of 120" line */
@@ -1615,11 +1615,11 @@ function pagerHtml(total, page, size, fn) {
     '<button class="pg-btn" ' + (page >= pages - 1 ? "disabled" : "") + ' onclick="' + fn + "(" + (page + 1) + ')" aria-label="Next page">Next ›</button>' +
     '<button class="pg-btn" ' + (page >= pages - 1 ? "disabled" : "") + ' onclick="' + fn + "(" + (pages - 1) + ')" aria-label="Last page">»</button></div></div>';
 }
-// Goes to another page of the audit log.
+// Goes to another page of the activity log.
 function goLogPage(n) { state.logPage = Math.max(0, n); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 // A field name such as "dueDate" shown as "due date".
 function logField(k) { return String(k).replace(/([A-Z])/g, " $1").replace(/_/g, " ").toLowerCase(); }
-// The entries of the audit log that pass the filters on the page.
+// The entries of the activity log that pass the filters on the page.
 function logRows() {
   var all = newest(list("activity")), q = (state.logQ || "").trim().toLowerCase(), now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
   var from = state.logRange === "today" ? d0.getTime() : state.logRange === "7" ? now - 7 * 86400000 : state.logRange === "30" ? now - 30 * 86400000 : 0;
@@ -1642,7 +1642,7 @@ function logChanges(v) {
   var n = Number(v.nrecs) || recs.length, nc = recs.reduce(function (t, x) { return t + (x.ch || []).length; }, 0);
   return '<details class="aud-d"><summary>' + (nc ? nc + " change" + (nc === 1 ? "" : "s") + " recorded" : n + " record" + (n === 1 ? "" : "s")) + '</summary><ul class="aud-l">' + lines + (n > recs.length ? "<li>and " + (n - recs.length) + " more</li>" : "") + "</ul></details>";
 }
-// PAGE: Audit log. Who did what and what changed, newest first. Entries are only ever added; this page cannot edit or delete them.
+// PAGE: Activity log. Who did what and what changed, newest first. Entries are only ever added; this page cannot edit or delete them.
 function viewLog() {
   var d = logRows(), all = d.all, rows = d.rows, pages = Math.max(1, Math.ceil(rows.length / LOG_PAGE));
   var page = Math.min(Math.max(0, state.logPage || 0), pages - 1), now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
@@ -1666,9 +1666,9 @@ function viewLog() {
   return tiles + '<div class="card" style="padding:0;overflow:hidden">' + bar + tableRows(body, ["WHEN", "WHO", "WHAT HAPPENED", "AREA"], all.length ? "No entry matches the filters." : "Nothing has been recorded yet.") + (rows.length > LOG_PAGE ? pagerHtml(rows.length, page, LOG_PAGE, "goLogPage") : "") +
     '<div class="aud-foot">Every change to the data is recorded here automatically, with who made it. Entries can only be added, never edited or deleted from the system.</div></div>';
 }
-// Downloads the audit log as CSV (with the current filters).
+// Downloads the activity log as CSV (with the current filters).
 function exportLog() {
-  exportCSV("audit-log.csv", ["When", "Who", "Role", "Unit", "Area", "What happened", "Changes"], logRows().rows.map(function (r) {
+  exportCSV("activity-log.csv", ["When", "Who", "Role", "Unit", "Area", "What happened", "Changes"], logRows().rows.map(function (r) {
     var v = r.v;
     return [new Date(Number(v.at)).toLocaleString(), v.by || "Not recorded", v.role || "", v.unit || "", v.area || "", v.title, (v.recs || []).map(function (x) { return (x.a || "") + " " + (AUDIT_KIND[x.k] || x.k) + " " + x.l + ((x.ch || []).length ? ": " + x.ch.map(function (c) { return logField(c[0]) + " " + c[1] + " -> " + c[2]; }).join("; ") : ""); }).join(" | ")];
   }));

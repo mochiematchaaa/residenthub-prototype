@@ -61,7 +61,7 @@ function titles() {
     polls: ["Polls", "Ask residents one or more questions, like a form, and see the answers come in."],
     reports: ["Reports", "See how the building is doing: money, facilities, repairs and residents."],
     parking: ["Parking", "Parking slots, who has one, and requests waiting for approval."],
-    log: ["Audit log", "Who did what and what changed, newest first. Every change to the data is recorded here automatically."],
+    log: ["Activity log", "Who did what and what changed, newest first. Every change to the data is recorded here automatically."],
     history: ["Resident profiles", "The record of every unit and resident: details, household, dues, payments, requests and history. Edit a record and the resident sees it on their dashboard."],
     settings: ["Settings", "Set up the building: contacts, house rules and complaint limit, payments and reminders, access and your account."],
     profile: ["My profile", "Your administrator account, recent activity and shortcuts."]
@@ -96,7 +96,7 @@ function render() {
       '<div class="side-label">' + tr("Tools") + '</div><nav>' + navBtn("fin", "Finance") +
       '<button type="button" title="Expenses" class="' + (state.view === "expenses" ? "active" : "") + '" onclick="set({view:\'expenses\'})">' + icon("fin") + "<span>" + tr("Expenses") + "</span></button>" +
       navBtn("history", "Resident profiles") + navBtn("reports", "Reports") + navBtn("req", "Complaints") + navBtn("parking", "Parking", parkingFreeTag()) + navBtn("rentals", "Unit status") + "</nav>" +
-      '<div class="side-label">' + tr("Admin") + '</div><nav>' + navBtn("log", "Audit log") + navBtn("settings", "Settings") + "</nav>" +
+      '<div class="side-label">' + tr("Admin") + '</div><nav>' + navBtn("log", "Activity log") + navBtn("settings", "Settings") + "</nav>" +
       '<div class="side-foot"><button class="side-user" title="Open my profile" onclick="set({view:\'profile\'})"><span class="avatar">' + avatarInner(myPhoto(), adminName()) + "</span><span><b>" + esc(adminName()) + "</b><small>Administrator</small></span></button>" +
       '<button class="side-out" onclick="doLogout()">' + icon("logout") + "<span>" + tr("Log out") + "</span></button></div></aside>" +
       "<main>" +

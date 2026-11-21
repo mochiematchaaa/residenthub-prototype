@@ -433,7 +433,7 @@
         }), "Maintenance staff and their workload");
     }
 
-    add("System", "Audit log", [["Date and time", "text", { w: 24 }], ["Who", "text", { w: 22 }], ["Role", "text", { w: 12 }], ["Unit", "text", { w: 10 }], ["Area", "text", { w: 16 }], ["What happened", "text", { w: 60 }], ["What changed", "text", { w: 80 }]],
+    add("System", "Activity log", [["Date and time", "text", { w: 24 }], ["Who", "text", { w: 22 }], ["Role", "text", { w: 12 }], ["Unit", "text", { w: 10 }], ["Area", "text", { w: 16 }], ["What happened", "text", { w: 60 }], ["What changed", "text", { w: 80 }]],
       newest(list("activity")).map(function (r) { var a = r.v; return [new Date(Number(a.at || r.id)).toLocaleString("en-US"), a.by || "Not recorded", a.role || "", a.unit || "", a.area, a.title, (a.recs || []).map(function (x) { return (x.a || "") + " " + (AUDIT_KIND[x.k] || x.k) + " " + x.l + ((x.ch || []).length ? ": " + x.ch.map(function (c) { return c[0] + " " + c[1] + " -> " + c[2]; }).join("; ") : ""); }).join(" | ")]; }),
       "Who did what and what changed, newest first");
 

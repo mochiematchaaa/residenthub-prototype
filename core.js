@@ -314,9 +314,9 @@ async function del(kind, id) {
   if (DB.rows[kind]) DB.rows[kind].delete(id);
   auditNote("delete", kind, id, before && before.value, null);
 }
-/* ---------- audit trail ----------
+/* ---------- activity trail ----------
    Every change to the data is noted by put() and del() (what record, what it was, what it became). A short moment later
-   (once the action has finished) the notes are saved as one entry of the Audit log together with who did it. A line given
+   (once the action has finished) the notes are saved as one entry of the Activity log together with who did it. A line given
    by logAct() becomes the headline of the entry; changes that nobody gave a headline get one of their own, so nothing is missed.
    Entries are only ever added: the app has no way to edit or delete them. */
 var AUDIT = { chg: [], titles: [], timer: null };
@@ -358,7 +358,7 @@ function auditNote(act, kind, id, before, after) {
   auditSchedule();
 }
 function auditSchedule() { clearTimeout(AUDIT.timer); AUDIT.timer = setTimeout(auditSettle, 800); }
-// Saves the notes as entries of the Audit log.
+// Saves the notes as entries of the Activity log.
 function auditSettle() {
   var chg = AUDIT.chg.splice(0), ts = AUDIT.titles.splice(0), who = auditActor(), out = [];
   var recs = chg.map(function (c) { return { k: c.k, id: c.id, a: c.a, l: c.l, ch: c.ch }; });
@@ -380,7 +380,7 @@ function auditSettle() {
     put("activity", at, "__admin", v).catch(function () {});
   });
 }
-// Adds a line to the Audit log (the headline of what was done). The changes made around the same time are attached to it.
+// Adds a line to the Activity log (the headline of what was done). The changes made around the same time are attached to it.
 function logAct(title, area) { AUDIT.titles.push({ title: title, area: area || "" }); auditSchedule(); }
 /* run an action, show any error as a message, and redraw */
 async function act(fn) {
