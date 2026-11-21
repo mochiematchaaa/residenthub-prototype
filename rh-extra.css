@@ -411,3 +411,8 @@ button.pk.pick:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0
 .aud-l{margin:8px 0 0;padding:10px 12px 10px 26px;border-radius:14px;background:rgba(108,92,199,.06);font-size:13px;line-height:1.5}.aud-l ul{margin:2px 0 4px;padding-left:18px}
 .aud-l s{color:var(--muted)}.aud-l i{font-style:normal;color:var(--muted)}.aud-l li>b{color:var(--ink)}
 @media(max-width:700px){.aud-bar .fin-search{width:100%}}
+
+/* date filters (collection summary and payments list) */
+.coll-date{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.fin-date{min-height:40px;padding:0 12px;border:1.5px solid var(--border,#dcd9f0);border-radius:999px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:13.5px;box-shadow:none;max-width:100%}
+.fin-date:focus{outline:none;border-color:#7873D9;box-shadow:0 0 0 3px rgba(120,115,217,.18)}

@@ -42,12 +42,23 @@ function viewFin() {
   var selYear = Math.floor(selKey / 12), selMon = selKey % 12, dayCount = new Date(selYear, selMon + 1, 0).getDate();
   var perDay = [], todayTotal = 0, selTotal = 0;
   for (var di = 1; di <= dayCount; di++) perDay.push({ label: String(di), value: 0, tone: "yellow", title: "" });
+  var rangeR = collRange(), ranged = !!rangeR, rangeDays = [], rangeMonths = [], rangeTotal = 0, rangeCount = 0, rangeLong = false;
+  if (ranged) {
+    var spanDays = Math.round((rangeR.to - rangeR.from) / 86400000) + 1;
+    rangeLong = spanDays > 62;
+    if (!rangeLong) for (var rd = 0; rd < spanDays; rd++) { var dd = new Date(rangeR.from.getFullYear(), rangeR.from.getMonth(), rangeR.from.getDate() + rd); rangeDays.push({ label: String(dd.getDate()), value: 0, tone: dayKey(dd) === todayKey ? "pink" : "yellow", title: "", key: dayKey(dd), d: dd }); }
+  }
   var collM = state.collMethod || "all", collMethods = [];
   vals("payment").forEach(function (p) { var m = p.method || "Other"; if (collMethods.indexOf(m) < 0) collMethods.push(m); });
   vals("payment").forEach(function (p) {
     if (collM !== "all" && (p.method || "Other") !== collM) return;
     var pd = parseShort(p.date); if (!pd) return;
     var amt = Number(p.amount || 0);
+    if (ranged && pd >= rangeR.from && pd <= rangeR.to) {
+      rangeTotal += amt; rangeCount++;
+      if (rangeLong) { var mk = pd.getFullYear() * 12 + pd.getMonth(); rangeMonths[mk] = (rangeMonths[mk] || 0) + amt; }
+      else { var ri2 = Math.round((pd - rangeR.from) / 86400000); if (rangeDays[ri2]) rangeDays[ri2].value += amt; }
+    }
     if (dayKey(pd) === todayKey) todayTotal += amt;
     if (pd.getFullYear() === selYear && pd.getMonth() === selMon) { perDay[pd.getDate() - 1].value += amt; selTotal += amt; }
   });
@@ -55,6 +66,9 @@ function viewFin() {
     x.tone = (selKey === thisMonthKey() && i + 1 === nowD.getDate()) ? "pink" : "yellow";
     x.title = LONG_MONTHS[selMon] + " " + (i + 1) + ": " + peso(x.value);
   });
+  rangeDays.forEach(function (x) { x.title = LONG_MONTHS[x.d.getMonth()] + " " + x.d.getDate() + ", " + x.d.getFullYear() + ": " + peso(x.value); });
+  var rangeBars = [];
+  if (ranged && rangeLong) for (var mk2 = rangeR.from.getFullYear() * 12 + rangeR.from.getMonth(); mk2 <= rangeR.to.getFullYear() * 12 + rangeR.to.getMonth(); mk2++) rangeBars.push({ label: MONTHS[mk2 % 12], value: Math.round(rangeMonths[mk2] || 0), tone: mk2 === thisMonthKey() ? "pink" : "yellow" });
   var perMonth = MONTHS.map(function (m, i) {
     var total = vals("payment").filter(function (p) { return monthOf(p.date) === year * 12 + i && (collM === "all" || (p.method || "Other") === collM); }).reduce(function (s, p) { return s + Number(p.amount || 0); }, 0);
     return { label: m, value: Math.round(total), tone: i === new Date().getMonth() ? "pink" : "yellow" };
@@ -73,13 +87,13 @@ function viewFin() {
   var rate = setting("dues_rate_sqm").rate;
   var verifyHtml = verifyPanel(proofs);
   var summaryHtml = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Collection summary</h2><p class="hint" style="margin:4px 0 0">' +
-      (state.finView === "month" ? "Money collected each month of " + year + ", in pesos." : "Money collected each day of " + LONG_MONTHS[selMon] + " " + selYear + ", in pesos.") + '</p></div>' +
+      (ranged ? "Money collected from " + longDate(rangeR.from) + " to " + longDate(rangeR.to) + ", in pesos." : state.finView === "month" ? "Money collected each month of " + year + ", in pesos." : "Money collected each day of " + LONG_MONTHS[selMon] + " " + selYear + ", in pesos.") + '</p></div>' +
       '<div class="filters" style="padding:0"><button class="' + (state.finView !== "month" ? "active" : "") + '" onclick="set({finView:\'day\'})">Daily</button><button class="' + (state.finView === "month" ? "active" : "") + '" onclick="set({finView:\'month\'})">Monthly</button></div></div>' +
-      '<div class="coll-tools"><select class="fin-kind" aria-label="Payment method" onchange="set({collMethod:this.value})"><option value="all">All payment methods</option>' + collMethods.map(function (m) { return '<option value="' + escAttr(m) + '"' + (collM === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + '</select><button class="btn" type="button" onclick="collSeePayments()">See these payments</button></div>' +
-      (state.finView === "month" ? "" :
+      '<div class="coll-tools"><select class="fin-kind" aria-label="Payment method" onchange="set({collMethod:this.value})"><option value="all">All payment methods</option>' + collMethods.map(function (m) { return '<option value="' + escAttr(m) + '"' + (collM === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + '</select>' + '<label class="coll-date">From <input type="date" id="collFromInput" class="fin-date" value="' + escAttr(state.collFrom || "") + '" max="' + todayKey + '" onchange="set({collFrom:this.value})"></label><label class="coll-date">To <input type="date" id="collToInput" class="fin-date" value="' + escAttr(state.collTo || "") + '" max="' + todayKey + '" onchange="set({collTo:this.value})"></label>' + (ranged || state.collFrom || state.collTo ? '<button class="btn" type="button" onclick="set({collFrom:\'\',collTo:\'\'})">Clear dates</button>' : "") + '<button class="btn" type="button" onclick="collSeePayments()">See these payments</button></div>' +
+      (ranged ? '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px"><span style="font-size:13px;color:var(--muted)">Collected in this range: <b style="color:var(--ink,inherit)">' + peso(rangeTotal) + "</b> &middot; " + rangeCount + " payment" + (rangeCount === 1 ? "" : "s") + "</span></div>" : state.finView === "month" ? "" :
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 4px"><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(-1)" aria-label="Previous month">&#8249;</button><b style="min-width:130px;text-align:center">' + LONG_MONTHS[selMon] + " " + selYear + '</b><button class="btn" style="min-height:32px;padding:0 12px" onclick="finMonthShift(1)" aria-label="Next month"' + (selKey >= thisMonthKey() ? " disabled" : "") + '>&#8250;</button>' +
         '<span style="font-size:13px;color:var(--muted)">Collected today: <b style="color:var(--ink,inherit)">' + peso(todayTotal) + "</b> &middot; This month: <b>" + peso(selTotal) + "</b></span></div>") +
-      (state.finView === "month" ? barChart(perMonth, "₱") : dailyChart(perDay)) + "</div>";
+      (ranged ? (rangeLong ? barChart(rangeBars, "₱") : dailyChart(rangeDays)) : state.finView === "month" ? barChart(perMonth, "₱") : dailyChart(perDay)) + "</div>";
   var logHtml = dayLogCard(dues);
   var chargesHtml = '<div class="card fin-charges" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px">' +
     '<button class="' + (state.finFilter === "unpaid" ? "active" : "") + '" onclick="set({finFilter:\'unpaid\',finPage:0})">Unpaid (' + open.length + ')</button><button class="' + (state.finFilter === "paid" ? "active" : "") + '" onclick="set({finFilter:\'paid\',finPage:0})">Paid (' + paidDues.length + ')</button><button class="' + (state.finFilter === "all" ? "active" : "") + '" onclick="set({finFilter:\'all\',finPage:0})">All (' + dues.length + ')</button>' +
@@ -186,24 +200,36 @@ function viewFin() {
 }
 // Opens Records > Payments with the month and payment method that the collection summary is showing.
 function collSeePayments() {
-  var m = state.collMethod || "all", k = state.finView === "month" ? "all" : String(state.finMonth == null ? thisMonthKey() : state.finMonth);
-  set({ finTab: "payments", payPage: 0, payMethodF: m, payMonthF: k });
+  var m = state.collMethod || "all", r = collRange();
+  if (r) { set({ finTab: "payments", payPage: 0, payMethodF: m, payMonthF: "all", payFromF: dayKey(r.from), payToF: dayKey(r.to) }); return; }
+  var k = state.finView === "month" ? "all" : String(state.finMonth == null ? thisMonthKey() : state.finMonth);
+  set({ finTab: "payments", payPage: 0, payMethodF: m, payMonthF: k, payFromF: "", payToF: "" });
+}
+// The dates picked on the collection summary as a range: { from, to } (a missing end defaults to today, or 30 days before the other end). null when none is picked.
+function isoDate(t) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+function longDate(d) { return LONG_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear(); }
+function collRange() {
+  var f = isoDate(state.collFrom), t = isoDate(state.collTo), n = new Date(); n.setHours(0, 0, 0, 0);
+  if (!f && !t) return null;
+  if (f && !t) t = n; else if (!f && t) f = new Date(t.getFullYear(), t.getMonth(), t.getDate() - 29);
+  if (f > t) { var x = f; f = t; t = x; }
+  return { from: f, to: t };
 }
 // Goes to another page of the payments list (Records > Payments & receipts).
 function goPayPage(n) { state.payPage = Math.max(0, n); render(); }
 // Records > Payments & receipts: every verified payment with its provisional receipt, searchable and in pages.
 function finPaymentsHtml(pays) {
   var q = (state.payQ || "").trim().toLowerCase(), SIZE = 10, proofs = list("proof");
-  var pm = state.payMethodF || "all", pmo = state.payMonthF || "all";
+  var pm = state.payMethodF || "all", pmo = state.payMonthF || "all", pf = isoDate(state.payFromF), pt = isoDate(state.payToF);
   var methodsUsed = [], monthsUsed = [];
   pays.forEach(function (r) { var m = r.v.method || "Other"; if (methodsUsed.indexOf(m) < 0) methodsUsed.push(m); var k = monthOf(r.v.date); if (k != null && !isNaN(k) && monthsUsed.indexOf(k) < 0) monthsUsed.push(k); });
   monthsUsed.sort(function (a, b) { return b - a; });
-  var all = pays.filter(function (r) { var p = r.v; return (pm === "all" || (p.method || "Other") === pm) && (pmo === "all" || String(monthOf(p.date)) === pmo) && (!q || [p.receiptNo, p.unit, p.payer, p.forText, p.method, p.reference].join(" ").toLowerCase().indexOf(q) >= 0); });
+  var all = pays.filter(function (r) { var p = r.v; return (pm === "all" || (p.method || "Other") === pm) && (pmo === "all" || String(monthOf(p.date)) === pmo) && (!(pf || pt) || (function () { var d = parseShort(p.date); return !!d && (!pf || d >= pf) && (!pt || d <= pt); })()) && (!q || [p.receiptNo, p.unit, p.payer, p.forText, p.method, p.reference].join(" ").toLowerCase().indexOf(q) >= 0); });
   var pages = Math.max(1, Math.ceil(all.length / SIZE)), pg = Math.min(Math.max(0, state.payPage || 0), pages - 1), rows = all.slice(pg * SIZE, (pg + 1) * SIZE);
   var total = all.reduce(function (s, r) { return s + Number(r.v.amount || 0); }, 0);
   return '<div class="card" style="padding:0;overflow:hidden"><div class="filters" style="padding:14px 18px"><input type="search" id="payLogSearch" value="' + escAttr(state.payQ || "") + '" oninput="set({payQ:this.value,payPage:0})" placeholder="Search receipt no., unit, name or reference..." autocomplete="off" class="fin-search" style="flex:1 1 260px;max-width:440px">' +
     '<select class="fin-kind" aria-label="Paid through" onchange="set({payMethodF:this.value,payPage:0})"><option value="all">All payment methods</option>' + methodsUsed.map(function (m) { return '<option value="' + escAttr(m) + '"' + (pm === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + "</select>" +
-    '<select class="fin-kind" aria-label="Month" onchange="set({payMonthF:this.value,payPage:0})"><option value="all">All months</option>' + monthsUsed.map(function (k) { return '<option value="' + k + '"' + (pmo === String(k) ? " selected" : "") + ">" + LONG_MONTHS[k % 12] + " " + Math.floor(k / 12) + "</option>"; }).join("") + '</select><span class="hint" style="margin:0 0 0 auto">' + all.length + " payment" + (all.length === 1 ? "" : "s") + " · " + peso(total) + "</span></div>" +
+    '<select class="fin-kind" aria-label="Month" onchange="set({payMonthF:this.value,payPage:0})"><option value="all">All months</option>' + monthsUsed.map(function (k) { return '<option value="' + k + '"' + (pmo === String(k) ? " selected" : "") + ">" + LONG_MONTHS[k % 12] + " " + Math.floor(k / 12) + "</option>"; }).join("") + '</select><label class="coll-date">From <input type="date" id="payFromInput" class="fin-date" value="' + escAttr(state.payFromF || "") + '" onchange="set({payFromF:this.value,payPage:0})"></label><label class="coll-date">To <input type="date" id="payToInput" class="fin-date" value="' + escAttr(state.payToF || "") + '" onchange="set({payToF:this.value,payPage:0})"></label>' + (pf || pt ? '<button class="btn" type="button" onclick="set({payFromF:\'\',payToF:\'\',payPage:0})">Clear dates</button>' : "") + '<span class="hint" style="margin:0 0 0 auto">' + all.length + " payment" + (all.length === 1 ? "" : "s") + " · " + peso(total) + "</span></div>" +
     tableRows(rows.map(function (r) {
       var p = r.v, pr = proofs.filter(function (x) { return x.v.receiptNo === p.receiptNo && x.v.image; })[0];
       return '<tr><td class="nw"><b>' + esc(p.receiptNo || "—") + '</b><div class="cell-sub">' + esc(p.date || "") + '</div></td><td class="nw" style="font-weight:700">' + esc(p.unit) + (p.payer ? '<div class="cell-sub" style="font-weight:400">' + esc(p.payer) + "</div>" : "") + "</td><td>" + esc(p.forText || "") + "</td><td>" + paidCell(p, true) + '</td><td class="nw"><b>' + peso(Number(p.amount || 0)) + '</b></td><td><div class="row-actions">' +
