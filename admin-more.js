@@ -1627,7 +1627,7 @@ function logRows() {
     var v = r.v;
     if (from && Number(v.at) < from) return false;
     if (state.logArea && state.logArea !== "all" && (v.area || "") !== state.logArea) return false;
-    if (state.logWho && state.logWho !== "all" && (v.by || "Not recorded") !== state.logWho) return false;
+    if (state.logWho && state.logWho !== "all" && (v.role || "admin") !== state.logWho) return false;   // entries from before roles were recorded are administrator actions
     if (!q) return true;
     return (v.title + " " + (v.area || "") + " " + (v.by || "") + " " + (v.unit || "") + " " + (v.recs || []).map(function (x) { return x.l + " " + (x.ch || []).map(function (c) { return c.join(" "); }).join(" "); }).join(" ")).toLowerCase().indexOf(q) >= 0;
   }) };
@@ -1649,13 +1649,13 @@ function viewLog() {
   var cnt = function (ms) { return all.filter(function (r) { return Number(r.v.at) >= ms; }).length; };
   var rg = state.logRange || "all", go = function (k) { return "set({logRange:'" + k + "',logPage:0})"; };
   var tiles = '<div class="stat-row">' + statBtn(cnt(d0.getTime()), "Today", "", rg === "today", go("today")) + statBtn(cnt(now - 7 * 86400000), "Last 7 days", "", rg === "7", go("7")) + statBtn(cnt(now - 30 * 86400000), "Last 30 days", "", rg === "30", go("30")) + statBtn(all.length, "All entries", "", rg === "all", go("all")) + "</div>";
-  var areas = [], people = [];
-  all.forEach(function (r) { var a = r.v.area || ""; if (a && areas.indexOf(a) < 0) areas.push(a); var w = r.v.by || "Not recorded"; if (people.indexOf(w) < 0) people.push(w); });
-  areas.sort(); people.sort();
+  var areas = [];
+  all.forEach(function (r) { var a = r.v.area || ""; if (a && areas.indexOf(a) < 0) areas.push(a); });
+  areas.sort();
   var sel = function (key, label, val, opts) { return '<select class="fin-kind" aria-label="' + label + '" onchange="set({' + key + ':this.value,logPage:0})"><option value="all">' + label + '</option>' + opts.map(function (o) { return '<option value="' + escAttr(o) + '"' + (val === o ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select>"; };
   var active = (state.logQ || "").trim() || (state.logArea && state.logArea !== "all") || (state.logWho && state.logWho !== "all") || rg !== "all";
   var bar = '<div class="filters aud-bar"><input type="search" id="logSearchInput" class="fin-search" value="' + escAttr(state.logQ || "") + '" oninput="set({logQ:this.value,logPage:0})" placeholder="Search who, what or which record..." autocomplete="off" style="margin-left:0">' +
-    sel("logArea", "All areas", state.logArea, areas) + sel("logWho", "All people", state.logWho, people) +
+    sel("logArea", "All areas", state.logArea, areas) + '<select class="fin-kind" aria-label="All roles" onchange="set({logWho:this.value,logPage:0})"><option value="all">All roles</option><option value="admin"' + (state.logWho === "admin" ? " selected" : "") + '>Administrator</option><option value="resident"' + (state.logWho === "resident" ? " selected" : "") + ">Resident</option></select>" +
     (active ? '<button class="btn" onclick="set({logQ:\'\',logArea:\'all\',logWho:\'all\',logRange:\'all\',logPage:0})">Clear filters</button>' : "") +
     '<span class="hint" style="margin:0 0 0 auto">' + rows.length + " of " + all.length + ' entries</span><button class="btn" onclick="exportLog()">Export to Excel (.csv)</button></div>';
   var body = rows.slice(page * LOG_PAGE, (page + 1) * LOG_PAGE).map(function (r) {
